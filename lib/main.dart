@@ -19,11 +19,12 @@ void main() {
   // Initialisation de la base de données pour le Web et Desktop
   if (kIsWeb) {
     databaseFactory = databaseFactoryFfiWeb;
-  } else if (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux) {
+  } else if (defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.linux) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
-  
+
   runApp(const MyApp());
 }
 
@@ -71,42 +72,50 @@ class _TimelinePageState extends State<TimelinePage> {
     print('[MAIN] Opening meal dialog: isSnack=$isSnack');
     final result = await showDialog(
       context: context,
-      builder: (context) => MealComposerDialog(isSnack: isSnack),
+      builder: (context) => const MealComposerDialog(),
     );
 
     print('[MAIN] Meal dialog result: $result');
     if (result != null && result is Map) {
+      // Get isSnack from result
+      final bool resultIsSnack = result['is_snack'] as bool? ?? false;
+
       // Decode foods JSON and generate title
       String title;
       if (result['foods'] != null && result['foods'] is String) {
         try {
           final List<dynamic> foodsList = jsonDecode(result['foods']);
           final List<String> foodNames = foodsList
-              .map((f) => f is Map ? f['name'] as String? ?? 'Aliment' : f.toString())
+              .map(
+                (f) =>
+                    f is Map ? f['name'] as String? ?? 'Aliment' : f.toString(),
+              )
               .toList();
-          
+
           if (foodNames.isEmpty) {
-            title = isSnack ? 'Encas' : 'Repas';
+            title = resultIsSnack ? 'Encas' : 'Repas';
           } else if (foodNames.length == 1) {
             title = foodNames[0];
           } else if (foodNames.length == 2) {
             title = '${foodNames[0]} + ${foodNames[1]}';
           } else {
-            title = isSnack ? 'Encas de ${foodNames.length} aliments' : 'Repas de ${foodNames.length} aliments';
+            title = resultIsSnack
+                ? 'Encas de ${foodNames.length} aliments'
+                : 'Repas de ${foodNames.length} aliments';
           }
         } catch (e) {
-          title = isSnack ? 'Encas' : 'Repas';
+          title = resultIsSnack ? 'Encas' : 'Repas';
         }
       } else {
-        title = isSnack ? 'Encas' : 'Repas';
+        title = resultIsSnack ? 'Encas' : 'Repas';
       }
 
       _addEvent(
         EventType.meal,
         title,
-        isSnack: isSnack,
+        isSnack: resultIsSnack,
         tags: result['tags'] as List<String>? ?? [],
-        metaData: result['foods']
+        metaData: result['foods'],
       );
       if (mounted) Navigator.of(context).pop(); // Ferme le menu du bas
     }
@@ -162,7 +171,10 @@ class _TimelinePageState extends State<TimelinePage> {
                           decoration: const BoxDecoration(
                             gradient: AppColors.checkupGradient,
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 20,
+                          ),
                           child: Row(
                             children: [
                               Container(
@@ -217,7 +229,8 @@ class _TimelinePageState extends State<TimelinePage> {
                                     activeTrackColor: AppColors.checkupEnd,
                                     inactiveTrackColor: Colors.grey.shade300,
                                     thumbColor: AppColors.checkupStart,
-                                    overlayColor: AppColors.checkupStart.withValues(alpha: 0.2),
+                                    overlayColor: AppColors.checkupStart
+                                        .withValues(alpha: 0.2),
                                     trackHeight: 6,
                                   ),
                                   child: Slider(
@@ -226,7 +239,8 @@ class _TimelinePageState extends State<TimelinePage> {
                                     max: 5,
                                     divisions: 4,
                                     label: stress.round().toString(),
-                                    onChanged: (v) => setState(() => stress = v),
+                                    onChanged: (v) =>
+                                        setState(() => stress = v),
                                   ),
                                 ),
                                 const SizedBox(height: 20),
@@ -244,7 +258,8 @@ class _TimelinePageState extends State<TimelinePage> {
                                     activeTrackColor: AppColors.checkupEnd,
                                     inactiveTrackColor: Colors.grey.shade300,
                                     thumbColor: AppColors.checkupStart,
-                                    overlayColor: AppColors.checkupStart.withValues(alpha: 0.2),
+                                    overlayColor: AppColors.checkupStart
+                                        .withValues(alpha: 0.2),
                                     trackHeight: 6,
                                   ),
                                   child: Slider(
@@ -253,7 +268,8 @@ class _TimelinePageState extends State<TimelinePage> {
                                     max: 5,
                                     divisions: 4,
                                     label: fatigue.round().toString(),
-                                    onChanged: (v) => setState(() => fatigue = v),
+                                    onChanged: (v) =>
+                                        setState(() => fatigue = v),
                                   ),
                                 ),
                                 const SizedBox(height: 20),
@@ -267,27 +283,42 @@ class _TimelinePageState extends State<TimelinePage> {
                                 ),
                                 const SizedBox(height: 12),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: ["Oui", "Non", "Partiel"].map((opt) {
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: ["Oui", "Non", "Partiel"].map((
+                                    opt,
+                                  ) {
                                     final isSelected = meds == opt;
                                     return GestureDetector(
                                       onTap: () => setState(() => meds = opt),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 10,
+                                        ),
                                         decoration: BoxDecoration(
-                                          gradient: isSelected ? AppColors.checkupGradient : null,
-                                          color: isSelected ? null : Colors.grey.shade100,
-                                          borderRadius: BorderRadius.circular(20),
+                                          gradient: isSelected
+                                              ? AppColors.checkupGradient
+                                              : null,
+                                          color: isSelected
+                                              ? null
+                                              : Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                           border: Border.all(
                                             color: isSelected
                                                 ? Colors.transparent
-                                                : AppColors.checkupStart.withValues(alpha: 0.3),
+                                                : AppColors.checkupStart
+                                                      .withValues(alpha: 0.3),
                                             width: 1.5,
                                           ),
                                           boxShadow: isSelected
                                               ? [
                                                   BoxShadow(
-                                                    color: AppColors.checkupStart.withValues(alpha: 0.3),
+                                                    color: AppColors
+                                                        .checkupStart
+                                                        .withValues(alpha: 0.3),
                                                     blurRadius: 12,
                                                     offset: const Offset(0, 4),
                                                   ),
@@ -297,7 +328,9 @@ class _TimelinePageState extends State<TimelinePage> {
                                         child: Text(
                                           opt,
                                           style: GoogleFonts.inter(
-                                            color: isSelected ? Colors.white : Colors.black87,
+                                            color: isSelected
+                                                ? Colors.white
+                                                : Colors.black87,
                                             fontWeight: FontWeight.w600,
                                             fontSize: 14,
                                           ),
@@ -329,7 +362,10 @@ class _TimelinePageState extends State<TimelinePage> {
                                 onPressed: () => Navigator.pop(context),
                                 style: TextButton.styleFrom(
                                   foregroundColor: AppColors.checkupStart,
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 12,
+                                  ),
                                 ),
                                 child: Text(
                                   "Annuler",
@@ -346,7 +382,9 @@ class _TimelinePageState extends State<TimelinePage> {
                                   borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.checkupStart.withValues(alpha: 0.3),
+                                      color: AppColors.checkupStart.withValues(
+                                        alpha: 0.3,
+                                      ),
                                       blurRadius: 20,
                                       offset: const Offset(0, 8),
                                     ),
@@ -356,14 +394,29 @@ class _TimelinePageState extends State<TimelinePage> {
                                   color: Colors.transparent,
                                   child: InkWell(
                                     onTap: () {
-                                      List<String> tags = ["Fatigue: ${fatigue.toInt()}/5", "Meds: $meds"];
-                                      _addEvent(EventType.daily_checkup, "Bilan Soir", severity: stress.toInt(), tags: tags);
-                                      Navigator.pop(context); // Ferme le dialogue
-                                      Navigator.pop(context); // Ferme le menu du bas
+                                      List<String> tags = [
+                                        "Fatigue: ${fatigue.toInt()}/5",
+                                        "Meds: $meds",
+                                      ];
+                                      _addEvent(
+                                        EventType.daily_checkup,
+                                        "Bilan Soir",
+                                        severity: stress.toInt(),
+                                        tags: tags,
+                                      );
+                                      Navigator.pop(
+                                        context,
+                                      ); // Ferme le dialogue
+                                      Navigator.pop(
+                                        context,
+                                      ); // Ferme le menu du bas
                                     },
                                     borderRadius: BorderRadius.circular(20),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 28,
+                                        vertical: 14,
+                                      ),
                                       child: Text(
                                         "Enregistrer",
                                         style: GoogleFonts.inter(
@@ -402,21 +455,31 @@ class _TimelinePageState extends State<TimelinePage> {
       if (results != null && results is List) {
         for (var result in results) {
           _addEvent(
-            EventType.symptom, 
-            result['title'], 
-            severity: result['severity'], 
-            tags: result['tags']
+            EventType.symptom,
+            result['title'],
+            severity: result['severity'],
+            tags: result['tags'],
           );
         }
       }
     });
   }
 
-    // 2. Ajoute l'événement à la liste et en base de données
-  void _addEvent(EventType type, String title, {bool isSnack = false, int? severity, List<String>? tags, String? imagePath, String? metaData}) async {
-    print('➕ Adding event: type=$type, title=$title, severity=$severity, isSnack=$isSnack');
+  // 2. Ajoute l'événement à la liste et en base de données
+  void _addEvent(
+    EventType type,
+    String title, {
+    bool isSnack = false,
+    int? severity,
+    List<String>? tags,
+    String? imagePath,
+    String? metaData,
+  }) async {
+    print(
+      '➕ Adding event: type=$type, title=$title, severity=$severity, isSnack=$isSnack',
+    );
     final now = DateTime.now();
-    
+
     // Fusion des tags par défaut (Grignotage) avec les nouveaux tags
     List<String> userTags = tags ?? [];
     if (isSnack && !userTags.contains("Grignotage")) {
@@ -427,7 +490,11 @@ class _TimelinePageState extends State<TimelinePage> {
       type: type,
       dateTime: now.toIso8601String(),
       title: title,
-      subtitle: isSnack ? "Encas rapide" : (type == EventType.daily_checkup ? "Suivi quotidien" : "Saisie manuelle"),
+      subtitle: isSnack
+          ? "Encas rapide"
+          : (type == EventType.daily_checkup
+                ? "Suivi quotidien"
+                : "Saisie manuelle"),
       isSnack: isSnack,
       tags: userTags,
       severity: severity ?? (type == EventType.symptom ? 5 : 0),
@@ -449,10 +516,7 @@ class _TimelinePageState extends State<TimelinePage> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.white,
-                AppColors.surfaceGlass,
-              ],
+              colors: [Colors.white, AppColors.surfaceGlass],
             ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             border: Border(
@@ -490,10 +554,34 @@ class _TimelinePageState extends State<TimelinePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildGradientActionButton(Icons.restaurant, "Repas", AppColors.mealGradient, AppColors.mealStart, () => _showMealDialog(false)),
-                    _buildGradientActionButton(Icons.cookie_outlined, "Encas", AppColors.mealGradient, AppColors.mealStart, () => _showMealDialog(true)),
-                    _buildGradientActionButton(Icons.bolt, "Douleur", AppColors.painGradient, AppColors.painStart, () => _showSymptomDialog()),
-                    _buildGradientActionButton(Icons.waves, "Selles", AppColors.stoolGradient, AppColors.stoolStart, () => _showStoolEntryDialog()),
+                    _buildGradientActionButton(
+                      Icons.restaurant,
+                      "Repas",
+                      AppColors.mealGradient,
+                      AppColors.mealStart,
+                      () => _showMealDialog(false),
+                    ),
+                    _buildGradientActionButton(
+                      Icons.cookie_outlined,
+                      "Encas",
+                      AppColors.mealGradient,
+                      AppColors.mealStart,
+                      () => _showMealDialog(true),
+                    ),
+                    _buildGradientActionButton(
+                      Icons.bolt,
+                      "Douleur",
+                      AppColors.painGradient,
+                      AppColors.painStart,
+                      () => _showSymptomDialog(),
+                    ),
+                    _buildGradientActionButton(
+                      Icons.waves,
+                      "Selles",
+                      AppColors.stoolGradient,
+                      AppColors.stoolStart,
+                      () => _showStoolEntryDialog(),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -515,7 +603,10 @@ class _TimelinePageState extends State<TimelinePage> {
                       onTap: () => _showDailyCheckupDialog(),
                       borderRadius: BorderRadius.circular(20),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -543,7 +634,13 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
-  Widget _buildGradientActionButton(IconData icon, String label, LinearGradient gradient, Color shadowColor, VoidCallback onTap) {
+  Widget _buildGradientActionButton(
+    IconData icon,
+    String label,
+    LinearGradient gradient,
+    Color shadowColor,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -568,10 +665,7 @@ class _TimelinePageState extends State<TimelinePage> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
+            style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
           ),
         ],
       ),
@@ -610,9 +704,9 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 
   Future<void> _saveEvent(EventModel event) async {
-      final dbHelper = DatabaseHelper();
-      await dbHelper.insertEvent(event.toMap());
-      _loadEvents();
+    final dbHelper = DatabaseHelper();
+    await dbHelper.insertEvent(event.toMap());
+    _loadEvents();
   }
 
   void _generateDemoData() {
@@ -620,7 +714,9 @@ class _TimelinePageState extends State<TimelinePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Générateur de Démo"),
-        content: const Text("⚠️ Attention !\n\nCeci va EFFACER toutes vos données actuelles et générer 30 jours d'historique fictif (Pizza le vendredi, Douleurs le samedi...).\n\nAction irréversible."),
+        content: const Text(
+          "⚠️ Attention !\n\nCeci va EFFACER toutes vos données actuelles et générer 30 jours d'historique fictif (Pizza le vendredi, Douleurs le samedi...).\n\nAction irréversible.",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -661,44 +757,67 @@ class _TimelinePageState extends State<TimelinePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-               Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
-               const SizedBox(height: 16),
-               ListTile(
-                 leading: const Icon(Icons.edit, color: Colors.blue),
-                 title: const Text("Modifier"),
-                 onTap: () {
-                   Navigator.pop(context);
-                   // TODO: Implement Edit
-                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Modification à venir (TODO)")));
-                 },
-               ),
-               ListTile(
-                 leading: const Icon(Icons.delete_outline, color: Colors.red),
-                 title: const Text("Supprimer", style: TextStyle(color: Colors.red)),
-                 onTap: () {
-                   Navigator.pop(context);
-                   showDialog(
-                     context: context,
-                     builder: (ctx) => AlertDialog(
-                       title: const Text("Confirmer suppression ?"),
-                       content: const Text("Voulez-vous vraiment supprimer cet événement ?"),
-                       actions: [
-                         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Non")),
-                         TextButton(
-                           style: TextButton.styleFrom(foregroundColor: Colors.red),
-                           onPressed: () {
-                              _deleteEvent(event.id!);
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Élément supprimé")));
-                           }, 
-                           child: const Text("Oui, supprimer")
-                         ),
-                       ],
-                     )
-                   );
-                 },
-               ),
-               const SizedBox(height: 16),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.edit, color: Colors.blue),
+                title: const Text("Modifier"),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: Implement Edit
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Modification à venir (TODO)"),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text(
+                  "Supprimer",
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text("Confirmer suppression ?"),
+                      content: const Text(
+                        "Voulez-vous vraiment supprimer cet événement ?",
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text("Non"),
+                        ),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          onPressed: () {
+                            _deleteEvent(event.id!);
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Élément supprimé")),
+                            );
+                          },
+                          child: const Text("Oui, supprimer"),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
             ],
           ),
         );
@@ -720,21 +839,31 @@ class _TimelinePageState extends State<TimelinePage> {
           ),
           IconButton(
             icon: const Icon(Icons.search, size: 22),
-            onPressed: () => showSearch(context: context, delegate: EventSearchDelegate()),
+            onPressed: () =>
+                showSearch(context: context, delegate: EventSearchDelegate()),
           ),
           IconButton(
             icon: const Icon(Icons.bar_chart, size: 22),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InsightsPage())),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const InsightsPage()),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.calendar_month, size: 22),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CalendarPage())),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CalendarPage()),
+            ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddMenu,
-        label: const Text('Ajouter', style: TextStyle(fontWeight: FontWeight.w600)),
+        label: const Text(
+          'Ajouter',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
         icon: const Icon(Icons.add),
       ),
       body: SafeArea(
@@ -749,10 +878,14 @@ class _TimelinePageState extends State<TimelinePage> {
                 itemBuilder: (context, index) {
                   if (index == 0) return _buildSectionTitle("Aujourd'hui");
                   final event = _events[index - 1];
-                  if (event.type == EventType.meal) return _buildMealCard(event);
-                  if (event.type == EventType.symptom) return _buildSymptomCard(event);
-                  if (event.type == EventType.stool) return _buildStoolCard(event);
-                  if (event.type == EventType.daily_checkup) return _buildCheckupCard(event);
+                  if (event.type == EventType.meal)
+                    return _buildMealCard(event);
+                  if (event.type == EventType.symptom)
+                    return _buildSymptomCard(event);
+                  if (event.type == EventType.stool)
+                    return _buildStoolCard(event);
+                  if (event.type == EventType.daily_checkup)
+                    return _buildCheckupCard(event);
                   return const SizedBox();
                 },
               ),
@@ -810,10 +943,7 @@ class _TimelinePageState extends State<TimelinePage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  "😊",
-                  style: TextStyle(fontSize: 16),
-                ),
+                const Text("😊", style: TextStyle(fontSize: 16)),
                 const SizedBox(width: 6),
                 Text(
                   "Stable",
@@ -891,7 +1021,7 @@ class _TimelinePageState extends State<TimelinePage> {
                 ),
               ),
               const SizedBox(width: 16),
-              
+
               // Image Thumbnail (Desktop/Mobile)
               if (event.imagePath != null && !kIsWeb)
                 Container(
@@ -906,7 +1036,7 @@ class _TimelinePageState extends State<TimelinePage> {
                     ),
                   ),
                 ),
-              
+
               // Content
               Expanded(
                 child: Column(
@@ -934,21 +1064,30 @@ class _TimelinePageState extends State<TimelinePage> {
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: event.tags.map((tag) => Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            tag,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        )).toList(),
+                        children: event.tags
+                            .map(
+                              (tag) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.08,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
                       ),
                     ],
                   ],
@@ -1035,7 +1174,10 @@ class _TimelinePageState extends State<TimelinePage> {
                         children: event.tags.map((tag) {
                           final isAlert = tag == 'Sang' || tag == 'Urgent';
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: isAlert
                                   ? AppColors.pain.withValues(alpha: 0.1)
@@ -1047,7 +1189,9 @@ class _TimelinePageState extends State<TimelinePage> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
-                                color: isAlert ? AppColors.pain : AppColors.stool,
+                                color: isAlert
+                                    ? AppColors.pain
+                                    : AppColors.stool,
                               ),
                             ),
                           );
@@ -1066,7 +1210,7 @@ class _TimelinePageState extends State<TimelinePage> {
 
   Widget _buildSymptomCard(EventModel event) {
     final color = AppColors.pain;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -1127,7 +1271,10 @@ class _TimelinePageState extends State<TimelinePage> {
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -1153,7 +1300,7 @@ class _TimelinePageState extends State<TimelinePage> {
 
   Widget _buildCheckupCard(EventModel event) {
     final color = AppColors.checkup;
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -1219,7 +1366,10 @@ class _TimelinePageState extends State<TimelinePage> {
                         runSpacing: 6,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: color.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(12),
@@ -1233,21 +1383,26 @@ class _TimelinePageState extends State<TimelinePage> {
                               ),
                             ),
                           ),
-                          ...event.tags.map((tag) => Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              tag,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.checkup,
+                          ...event.tags.map(
+                            (tag) => Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                tag,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.checkup,
+                                ),
                               ),
                             ),
-                          )),
+                          ),
                         ],
                       ),
                     ],
@@ -1261,4 +1416,3 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 }
-

@@ -21,7 +21,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
     4: "Saucisse ou serpent lisse (Idéal)",
     5: "Morceaux mous (facile à évacuer)",
     6: "Boueuse, morceaux déchiquetés",
-    7: "Liquide (aucune partie solide)"
+    7: "Liquide (aucune partie solide)",
   };
 
   @override
@@ -29,10 +29,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 500,
-          maxHeight: 650,
-        ),
+        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 650),
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -66,7 +63,10 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                   decoration: const BoxDecoration(
                     gradient: AppColors.stoolGradient,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   child: Row(
                     children: [
                       Container(
@@ -123,7 +123,9 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                             gradient: AppColors.stoolGradient.scale(0.15),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: AppColors.stoolStart.withValues(alpha: 0.2),
+                              color: AppColors.stoolStart.withValues(
+                                alpha: 0.2,
+                              ),
                               width: 1.5,
                             ),
                           ),
@@ -139,36 +141,42 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                         ),
                         const SizedBox(height: 20),
 
-                        // Bristol Scale Circles
-                        SizedBox(
-                          width: double.maxFinite,
-                          height: 70,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: 7,
-                            itemBuilder: (context, index) {
+                        // Bristol Scale Circles (all visible, no scroll needed)
+                        Center(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: List.generate(7, (index) {
                               final type = index + 1;
                               final isSelected = _selectedType == type;
                               return GestureDetector(
-                                onTap: () => setState(() => _selectedType = type),
+                                onTap: () =>
+                                    setState(() => _selectedType = type),
                                 child: Container(
-                                  width: 56,
-                                  height: 56,
-                                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                                  width: 52,
+                                  height: 52,
                                   decoration: BoxDecoration(
-                                    gradient: isSelected ? AppColors.stoolGradient : null,
-                                    color: isSelected ? null : Colors.grey.shade100,
+                                    gradient: isSelected
+                                        ? AppColors.stoolGradient
+                                        : null,
+                                    color: isSelected
+                                        ? null
+                                        : Colors.grey.shade100,
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: isSelected
                                           ? Colors.transparent
-                                          : AppColors.stoolStart.withValues(alpha: 0.3),
+                                          : AppColors.stoolStart.withValues(
+                                              alpha: 0.3,
+                                            ),
                                       width: 2,
                                     ),
                                     boxShadow: isSelected
                                         ? [
                                             BoxShadow(
-                                              color: AppColors.stoolStart.withValues(alpha: 0.4),
+                                              color: AppColors.stoolStart
+                                                  .withValues(alpha: 0.4),
                                               blurRadius: 16,
                                               offset: const Offset(0, 6),
                                             ),
@@ -179,14 +187,16 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                   child: Text(
                                     "$type",
                                     style: GoogleFonts.inter(
-                                      color: isSelected ? Colors.white : AppColors.stoolEnd,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : AppColors.stoolEnd,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 18,
                                     ),
                                   ),
                                 ),
                               );
-                            },
+                            }),
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -212,7 +222,8 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                   ),
                                 ),
                                 value: _isUrgent,
-                                onChanged: (val) => setState(() => _isUrgent = val),
+                                onChanged: (val) =>
+                                    setState(() => _isUrgent = val),
                                 secondary: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
@@ -224,12 +235,16 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                             ],
                                           )
                                         : null,
-                                    color: _isUrgent ? null : Colors.grey.shade200,
+                                    color: _isUrgent
+                                        ? null
+                                        : Colors.grey.shade200,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Icon(
                                     Icons.warning_amber_rounded,
-                                    color: _isUrgent ? Colors.white : Colors.orange,
+                                    color: _isUrgent
+                                        ? Colors.white
+                                        : Colors.orange,
                                     size: 20,
                                   ),
                                 ),
@@ -245,19 +260,24 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                   ),
                                 ),
                                 value: _hasBlood,
-                                onChanged: (val) => setState(() => _hasBlood = val),
+                                onChanged: (val) =>
+                                    setState(() => _hasBlood = val),
                                 secondary: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     gradient: _hasBlood
                                         ? AppColors.painGradient
                                         : null,
-                                    color: _hasBlood ? null : Colors.grey.shade200,
+                                    color: _hasBlood
+                                        ? null
+                                        : Colors.grey.shade200,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Icon(
                                     Icons.water_drop,
-                                    color: _hasBlood ? Colors.white : Colors.red,
+                                    color: _hasBlood
+                                        ? Colors.white
+                                        : Colors.red,
                                     size: 20,
                                   ),
                                 ),
@@ -289,7 +309,10 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                         onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
                           foregroundColor: AppColors.stoolStart,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
                         ),
                         child: Text(
                           "Annuler",
@@ -306,7 +329,9 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.stoolStart.withValues(alpha: 0.3),
+                              color: AppColors.stoolStart.withValues(
+                                alpha: 0.3,
+                              ),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
                             ),
@@ -324,7 +349,10 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                             },
                             borderRadius: BorderRadius.circular(20),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 28,
+                                vertical: 14,
+                              ),
                               child: Text(
                                 "Valider",
                                 style: GoogleFonts.inter(

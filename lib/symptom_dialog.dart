@@ -9,16 +9,17 @@ class SymptomEntryDialog extends StatefulWidget {
   State<SymptomEntryDialog> createState() => _SymptomEntryDialogState();
 }
 
-class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTickerProviderStateMixin {
+class _SymptomEntryDialogState extends State<SymptomEntryDialog>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   // State partagé
   double severity = 5.0;
-  
+
   // Sélection multiple
   Set<String> selectedAbdomenZones = {};
   Set<String> selectedGeneralZones = {};
-  
+
   // HIERARCHY NAVIGATION STATE
   String? currentLevel1; // e.g. "Articulations"
   String? currentLevel2; // e.g. "Membre Sup."
@@ -35,18 +36,24 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
       'Yeux': ['Uvéite (Rougeur)', 'Sécheresse', 'Douleur'],
     },
     'Peau': {
-        'Zones': ['Psoriasis', 'Érythème noueux', 'Eczéma']
+      'Zones': ['Psoriasis', 'Érythème noueux', 'Eczéma'],
     },
     'Général': {
-        'Systémique': ['Fatigue intense', 'Fièvre', 'Frissons', 'Perte appétit']
-    }
+      'Systémique': ['Fatigue intense', 'Fièvre', 'Frissons', 'Perte appétit'],
+    },
   };
 
   // Tab 1 Data : Abdomen Grid (3x3)
   final List<String> abdomenZones = [
-    "Hypochondre D.", "Épigastre", "Hypochondre G.",
-    "Flanc Droit", "Ombilic", "Flanc Gauche",
-    "Fosse Iliaque D.", "Hypogastre", "Fosse Iliaque G."
+    "Hypochondre D.",
+    "Épigastre",
+    "Hypochondre G.",
+    "Flanc Droit",
+    "Ombilic",
+    "Flanc Gauche",
+    "Fosse Iliaque D.",
+    "Hypogastre",
+    "Fosse Iliaque G.",
   ];
 
   @override
@@ -63,20 +70,25 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
 
   // --- HIERARCHY HELPERS ---
   void _resetHierarchy() {
-      setState(() {
-          currentLevel1 = null;
-          currentLevel2 = null;
-      });
+    setState(() {
+      currentLevel1 = null;
+      currentLevel2 = null;
+    });
   }
 
   Icon _getIconForCategory(String category) {
-      switch(category) {
-          case 'Articulations': return const Icon(Icons.accessibility, color: Colors.orange);
-          case 'Bouche/ORL': return const Icon(Icons.face, color: Colors.pink);
-          case 'Peau': return const Icon(Icons.healing, color: Colors.brown);
-          case 'Général': return const Icon(Icons.thermostat, color: Colors.red);
-          default: return const Icon(Icons.help);
-      }
+    switch (category) {
+      case 'Articulations':
+        return const Icon(Icons.accessibility, color: Colors.orange);
+      case 'Bouche/ORL':
+        return const Icon(Icons.face, color: Colors.pink);
+      case 'Peau':
+        return const Icon(Icons.healing, color: Colors.brown);
+      case 'Général':
+        return const Icon(Icons.thermostat, color: Colors.red);
+      default:
+        return const Icon(Icons.help);
+    }
   }
 
   @override
@@ -84,10 +96,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
     return Dialog(
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 600,
-          maxHeight: 700,
-        ),
+        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -121,7 +130,10 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                   decoration: const BoxDecoration(
                     gradient: AppColors.painGradient,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   child: Row(
                     children: [
                       Container(
@@ -146,16 +158,23 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                           "Nouveaux Symptômes",
                           style: GoogleFonts.poppins(
                             fontSize: 22,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.bold,
                             color: Colors.white,
                             letterSpacing: -0.5,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                offset: const Offset(0, 2),
+                                blurRadius: 4,
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                
+
                 // Tab bar with gradient indicator
                 Container(
                   decoration: BoxDecoration(
@@ -172,11 +191,11 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                     labelColor: AppColors.painStart,
                     unselectedLabelColor: Colors.grey.shade600,
                     indicatorSize: TabBarIndicatorSize.tab,
-                    indicator: const BoxDecoration(
-                      gradient: AppColors.painGradient,
+                    indicator: BoxDecoration(
+                      gradient: AppColors.painGradient.scale(0.15),
                       border: Border(
                         bottom: BorderSide(
-                          color: Colors.transparent,
+                          color: AppColors.painStart,
                           width: 3,
                         ),
                       ),
@@ -186,12 +205,15 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                       fontSize: 14,
                     ),
                     tabs: const [
-                      Tab(icon: Icon(Icons.grid_view, size: 20), text: "Abdomen"),
+                      Tab(
+                        icon: Icon(Icons.grid_view, size: 20),
+                        text: "Abdomen",
+                      ),
                       Tab(icon: Icon(Icons.list, size: 20), text: "Détails"),
                     ],
                   ),
                 ),
-                
+
                 // Content
                 Expanded(
                   child: Column(
@@ -199,13 +221,10 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                       Expanded(
                         child: TabBarView(
                           controller: _tabController,
-                          children: [
-                            _buildAbdomenTab(),
-                            _buildGeneralTab(),
-                          ],
+                          children: [_buildAbdomenTab(), _buildGeneralTab()],
                         ),
                       ),
-                      
+
                       // Severity slider
                       Container(
                         padding: const EdgeInsets.all(24),
@@ -230,13 +249,18 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     gradient: AppColors.painGradient,
                                     borderRadius: BorderRadius.circular(12),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: AppColors.painStart.withValues(alpha: 0.3),
+                                        color: AppColors.painStart.withValues(
+                                          alpha: 0.3,
+                                        ),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -259,7 +283,9 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                                 activeTrackColor: AppColors.painStart,
                                 inactiveTrackColor: Colors.grey.shade300,
                                 thumbColor: AppColors.painEnd,
-                                overlayColor: AppColors.painStart.withValues(alpha: 0.2),
+                                overlayColor: AppColors.painStart.withValues(
+                                  alpha: 0.2,
+                                ),
                                 trackHeight: 6,
                               ),
                               child: Slider(
@@ -277,7 +303,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                     ],
                   ),
                 ),
-                
+
                 // Actions
                 Container(
                   padding: const EdgeInsets.all(24),
@@ -296,7 +322,10 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                         onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
                           foregroundColor: AppColors.painStart,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
                         ),
                         child: Text(
                           "Annuler",
@@ -328,7 +357,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                                 results.add({
                                   'title': zone,
                                   'severity': severity.toInt(),
-                                  'tags': <String>[]
+                                  'tags': <String>[],
                                 });
                               }
                               for (var fullPath in selectedGeneralZones) {
@@ -337,14 +366,17 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                                 results.add({
                                   'title': title,
                                   'severity': severity.toInt(),
-                                  'tags': parts.sublist(1)
+                                  'tags': parts.sublist(1),
                                 });
                               }
                               Navigator.pop(context, results);
                             },
                             borderRadius: BorderRadius.circular(20),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 28,
+                                vertical: 14,
+                              ),
                               child: Text(
                                 "Valider",
                                 style: GoogleFonts.inter(
@@ -376,10 +408,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
           padding: const EdgeInsets.all(16.0),
           child: Text(
             "Sélectionnez les zones douloureuses :",
-            style: GoogleFonts.inter(
-              color: Colors.grey.shade600,
-              fontSize: 14,
-            ),
+            style: GoogleFonts.inter(color: Colors.grey.shade600, fontSize: 14),
           ),
         ),
         Expanded(
@@ -483,11 +512,9 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                 ),
               ),
               trailing: ShaderMask(
-                shaderCallback: (bounds) => AppColors.painGradient.createShader(bounds),
-                child: const Icon(
-                  Icons.chevron_right,
-                  color: Colors.white,
-                ),
+                shaderCallback: (bounds) =>
+                    AppColors.painGradient.createShader(bounds),
+                child: const Icon(Icons.chevron_right, color: Colors.white),
               ),
               onTap: () => setState(() => currentLevel1 = key),
             ),
@@ -514,11 +541,9 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: ShaderMask(
-                  shaderCallback: (bounds) => AppColors.painGradient.createShader(bounds),
-                  child: const Icon(
-                    Icons.arrow_back,
-                    color: Colors.white,
-                  ),
+                  shaderCallback: (bounds) =>
+                      AppColors.painGradient.createShader(bounds),
+                  child: const Icon(Icons.arrow_back, color: Colors.white),
                 ),
               ),
               title: Text(
@@ -550,10 +575,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.grey.shade200,
-                      width: 1.5,
-                    ),
+                    border: Border.all(color: Colors.grey.shade200, width: 1.5),
                   ),
                   child: ListTile(
                     title: Text(
@@ -591,11 +613,9 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
                 borderRadius: BorderRadius.circular(12),
               ),
               child: ShaderMask(
-                shaderCallback: (bounds) => AppColors.painGradient.createShader(bounds),
-                child: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.white,
-                ),
+                shaderCallback: (bounds) =>
+                    AppColors.painGradient.createShader(bounds),
+                child: const Icon(Icons.arrow_back, color: Colors.white),
               ),
             ),
             title: Text(
@@ -627,7 +647,9 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog> with SingleTick
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  gradient: isSelected ? AppColors.painGradient.scale(0.3) : null,
+                  gradient: isSelected
+                      ? AppColors.painGradient.scale(0.3)
+                      : null,
                   color: isSelected ? null : Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
