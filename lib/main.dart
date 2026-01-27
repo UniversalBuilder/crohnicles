@@ -760,15 +760,39 @@ class _TimelinePageState extends State<TimelinePage> {
           builder: (context) => MealComposerDialog(existingEvent: event),
         );
         if (result != null && mounted) {
+          // Parse foods - result['foods'] is already a JSON string
+          final List<dynamic> foodsList = jsonDecode(result['foods']);
+          final List<String> foodNames = foodsList
+              .map(
+                (f) =>
+                    f is Map ? f['name'] as String? ?? 'Aliment' : f.toString(),
+              )
+              .toList();
+
+          String title;
+          bool isSnack = result['is_snack'] ?? false;
+
+          if (foodNames.isEmpty) {
+            title = isSnack ? 'Encas' : 'Repas';
+          } else if (foodNames.length == 1) {
+            title = foodNames[0];
+          } else if (foodNames.length == 2) {
+            title = '${foodNames[0]} + ${foodNames[1]}';
+          } else {
+            title = isSnack
+                ? 'Encas de ${foodNames.length} aliments'
+                : 'Repas de ${foodNames.length} aliments';
+          }
+
           final updatedEvent = EventModel(
             type: EventType.meal,
             dateTime: event.dateTime, // Keep original time
-            title: result['is_snack'] == true ? 'Snack' : 'Repas',
-            subtitle: '${result['foods'].length} aliment(s)',
-            isSnack: result['is_snack'] ?? false,
+            title: title,
+            subtitle: '', // Empty subtitle
+            isSnack: isSnack,
             tags: List<String>.from(result['tags'] ?? []),
             severity: 0,
-            metaData: jsonEncode({'foods': result['foods']}),
+            metaData: jsonEncode({'foods': foodsList}),
           );
           await _updateEvent(event.id!, updatedEvent);
         }
@@ -1162,6 +1186,215 @@ class _TimelinePageState extends State<TimelinePage> {
     _loadEvents();
   }
 
+  void _showMealDetail(EventModel event) {
+    // Parse foods from meta_data
+    List<dynamic> foods = [];
+    if (event.metaData != null && event.metaData!.isNotEmpty) {
+      try {
+        final metadata = jsonDecode(event.metaData!);
+        if (metadata['foods'] is List) {
+          foods = metadata['foods'];
+        }
+      } catch (e) {
+        print('[MEAL DETAIL] Failed to parse meta_data: $e');
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                event.isSnack ? Icons.cookie : Icons.restaurant,
+                color: AppColors.mealGradient.colors.first,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  event.title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Event time and subtitle
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      event.time,
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    if (event.subtitle != null &&
+                        event.subtitle!.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text('•', style: TextStyle(color: Colors.grey.shade600)),
+                      const SizedBox(width: 8),
+                      Text(
+                        event.subtitle!,
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                // Foods list
+                if (foods.isEmpty)
+                  const Text('Aucun aliment enregistré')
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Aliments (${foods.length})',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...foods.map((foodJson) {
+                        final name = foodJson['name'] ?? 'Inconnu';
+                        final brand = foodJson['brand'];
+                        final imageUrl = foodJson['imageUrl'];
+                        final hasImage =
+                            imageUrl != null && imageUrl.toString().isNotEmpty;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              // Food image
+                              if (hasImage)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    imageUrl,
+                                    width: 40,
+                                    height: 40,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: AppColors
+                                              .mealGradient
+                                              .colors
+                                              .first
+                                              .withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.fastfood,
+                                          size: 20,
+                                          color: AppColors
+                                              .mealGradient
+                                              .colors
+                                              .first,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                )
+                              else
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    gradient: AppColors.mealGradient.scale(0.3),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.fastfood,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              const SizedBox(width: 12),
+                              // Food details
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (brand != null &&
+                                        brand.toString().isNotEmpty)
+                                      Text(
+                                        brand,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fermer'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _editEvent(event);
+              },
+              icon: const Icon(Icons.edit, size: 18),
+              label: const Text('Modifier'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.mealGradient.colors.first,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showEventOptions(EventModel event) {
     if (event.id == null) return;
 
@@ -1476,6 +1709,7 @@ class _TimelinePageState extends State<TimelinePage> {
         ],
       ),
       child: InkWell(
+        onTap: () => _showMealDetail(event),
         onLongPress: () => _showEventOptions(event),
         borderRadius: BorderRadius.circular(24),
         child: Padding(

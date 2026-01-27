@@ -192,40 +192,67 @@ class OFFService {
     String category = 'Snack';
     final List<dynamic> categoriesTags = product['categories_tags'] ?? [];
     if (categoriesTags.isNotEmpty) {
+      // Check bread and spreads first (more specific)
       if (categoriesTags.any(
         (t) =>
-            t.toString().contains('beverage') ||
-            t.toString().contains('boisson'),
+            t.toString().contains('bread') ||
+            t.toString().contains('pain') ||
+            t.toString().contains('baguette') ||
+            t.toString().contains('sandwich-bread'),
       )) {
-        category = 'Boisson';
+        category = 'Féculent';
       } else if (categoriesTags.any(
         (t) =>
-            t.toString().contains('dairy') || t.toString().contains('laitier'),
+            t.toString().contains('spread') ||
+            t.toString().contains('jam') ||
+            t.toString().contains('confiture') ||
+            t.toString().contains('honey') ||
+            t.toString().contains('miel') ||
+            t.toString().contains('chocolate-spread'),
       )) {
         category = 'Snack';
+      } else if (categoriesTags.any(
+        (t) =>
+            t.toString().contains('pasta') ||
+            t.toString().contains('rice') ||
+            t.toString().contains('riz') ||
+            t.toString().contains('cereals') ||
+            t.toString().contains('céréales'),
+      )) {
+        category = 'Féculent';
       } else if (categoriesTags.any(
         (t) =>
             t.toString().contains('meat') ||
             t.toString().contains('viande') ||
             t.toString().contains('fish') ||
-            t.toString().contains('poisson'),
+            t.toString().contains('poisson') ||
+            t.toString().contains('poultry') ||
+            t.toString().contains('poulet'),
       )) {
         category = 'Protéine';
       } else if (categoriesTags.any(
         (t) =>
-            t.toString().contains('pasta') ||
-            t.toString().contains('rice') ||
-            t.toString().contains('bread') ||
-            t.toString().contains('cereals'),
+            t.toString().contains('dairy') ||
+            t.toString().contains('laitier') ||
+            t.toString().contains('yogurt') ||
+            t.toString().contains('yaourt'),
       )) {
-        category = 'Féculent';
+        category = 'Snack';
       } else if (categoriesTags.any(
         (t) =>
             t.toString().contains('meal') ||
             t.toString().contains('pizza') ||
+            t.toString().contains('plat') ||
             t.toString().contains('sandwich'),
       )) {
         category = 'Repas';
+      } else if (categoriesTags.any(
+        (t) =>
+            t.toString().contains('beverage') ||
+            t.toString().contains('boisson') ||
+            t.toString().contains('drink'),
+      )) {
+        category = 'Boisson';
       }
     }
 

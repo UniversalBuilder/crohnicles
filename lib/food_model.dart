@@ -70,16 +70,39 @@ class FoodModel {
   }
 
   factory FoodModel.fromMap(Map<String, dynamic> map) {
+    // Parse tags - can be String (comma-separated) or missing
+    List<String> parsedTags = [];
+    if (map['tags'] != null) {
+      if (map['tags'] is String) {
+        parsedTags = (map['tags'] as String)
+            .split(',')
+            .where((e) => e.isNotEmpty)
+            .toList();
+      } else if (map['tags'] is List) {
+        parsedTags = (map['tags'] as List).map((e) => e.toString()).toList();
+      }
+    }
+
+    // Parse allergens - can be String (comma-separated) or missing
+    List<String> parsedAllergens = [];
+    if (map['allergens'] != null) {
+      if (map['allergens'] is String) {
+        parsedAllergens = (map['allergens'] as String)
+            .split(',')
+            .where((e) => e.isNotEmpty)
+            .toList();
+      } else if (map['allergens'] is List) {
+        parsedAllergens = (map['allergens'] as List)
+            .map((e) => e.toString())
+            .toList();
+      }
+    }
+
     return FoodModel(
       id: map['id'] as int?,
       name: map['name'] as String? ?? 'Unknown',
       category: map['category'] as String? ?? 'Autre',
-      tags: map['tags'] != null
-          ? (map['tags'] as String)
-                .split(',')
-                .where((e) => e.isNotEmpty)
-                .toList()
-          : [],
+      tags: parsedTags,
       barcode: map['barcode'] as String?,
       brand: map['brand'] as String?,
       imageUrl: map['imageUrl'] as String?,
@@ -93,12 +116,7 @@ class FoodModel {
       sugars: map['sugars'] != null ? (map['sugars'] as num).toDouble() : null,
       nutriScore: map['nutriScore'] as String?,
       novaGroup: map['novaGroup'] as int?,
-      allergens: map['allergens'] != null
-          ? (map['allergens'] as String)
-                .split(',')
-                .where((e) => e.isNotEmpty)
-                .toList()
-          : [],
+      allergens: parsedAllergens,
       servingSize: map['servingSize'] != null
           ? (map['servingSize'] as num).toDouble()
           : 100.0,

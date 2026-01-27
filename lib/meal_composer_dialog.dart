@@ -44,12 +44,13 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
 
     // Pre-fill data if editing existing event
+    bool isEditMode = false;
     if (widget.existingEvent != null) {
       final event = widget.existingEvent!;
       _isSnack = event.isSnack;
+      isEditMode = true;
 
       // Parse foods from meta_data
       if (event.metaData != null && event.metaData!.isNotEmpty) {
@@ -57,7 +58,11 @@ class _MealComposerDialogState extends State<MealComposerDialog>
           final metadata = jsonDecode(event.metaData!);
           if (metadata['foods'] is List) {
             for (var foodJson in metadata['foods']) {
-              _cart.add(FoodModel.fromJson(foodJson));
+              try {
+                _cart.add(FoodModel.fromJson(foodJson));
+              } catch (e) {
+                print('[MEAL EDIT] Failed to parse food: $e');
+              }
             }
           }
         } catch (e) {
@@ -65,6 +70,15 @@ class _MealComposerDialogState extends State<MealComposerDialog>
         }
       }
     }
+
+    // Initialize TabController with initial index based on edit mode
+    // In edit mode, start on Cart tab (index 3) to show the cart
+    // In create mode, start on Scanner tab (index 0)
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: isEditMode && _cart.isNotEmpty ? 3 : 0,
+    );
   }
 
   @override
@@ -202,6 +216,15 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     });
   }
 
+  List<String> _recalculateTags() {
+    // Recalculate global tags from all cart items
+    final Set<String> allTags = {};
+    for (var food in _cart) {
+      allTags.addAll(food.tags);
+    }
+    return allTags.toList();
+  }
+
   // ignore: unused_element
   Future<void> _createNewFood(String name) async {
     String selectedCategory = 'Snack';
@@ -299,9 +322,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
       return;
     }
 
-    final List<String> allTags = <String>{
-      for (var food in _cart) ...food.tags,
-    }.toList();
+    final allTags = _recalculateTags();
 
     final result = {
       'foods': jsonEncode(_cart.map((f) => f.toMap()).toList()),
@@ -485,15 +506,26 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
-                  tabs: const [
-                    Tab(
+                  tabs: [
+                    const Tab(
                       icon: Icon(Icons.qr_code_scanner, size: 20),
                       text: "Scanner",
                     ),
-                    Tab(icon: Icon(Icons.search, size: 20), text: "Rechercher"),
-                    Tab(
+                    const Tab(
+                      icon: Icon(Icons.search, size: 20),
+                      text: "Rechercher",
+                    ),
+                    const Tab(
                       icon: Icon(Icons.add_circle_outline, size: 20),
                       text: "Créer",
+                    ),
+                    Tab(
+                      icon: Badge(
+                        isLabelVisible: _cart.isNotEmpty,
+                        label: Text(_cart.length.toString()),
+                        child: const Icon(Icons.shopping_cart, size: 20),
+                      ),
+                      text: "Panier",
                     ),
                   ],
                 ),
@@ -501,29 +533,13 @@ class _MealComposerDialogState extends State<MealComposerDialog>
 
               // Content with TabBarView
               Expanded(
-                child: Column(
+                child: TabBarView(
+                  controller: _tabController,
                   children: [
-                    // Cart display at the top if not empty
-                    if (_cart.isNotEmpty)
-                      Container(
-                        constraints: const BoxConstraints(maxHeight: 100),
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                        color: AppColors.surfaceGlass,
-                        child: SingleChildScrollView(
-                          child: _buildCartDisplay(),
-                        ),
-                      ),
-                    // TabBarView
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildScannerTab(),
-                          _buildSearchTab(),
-                          _buildCreateTab(),
-                        ],
-                      ),
-                    ),
+                    _buildScannerTab(),
+                    _buildSearchTab(),
+                    _buildCreateTab(),
+                    _buildCartTab(),
                   ],
                 ),
               ),
@@ -1797,6 +1813,164 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                   );
                 },
               ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCartTab() {
+    return _CartTabContent(cart: _cart, onRemove: _removeFromCart);
+  }
+}
+
+// Separate widget with AutomaticKeepAliveClientMixin for cart persistence
+class _CartTabContent extends StatefulWidget {
+  final List<FoodModel> cart;
+  final Function(FoodModel) onRemove;
+
+  const _CartTabContent({required this.cart, required this.onRemove});
+
+  @override
+  State<_CartTabContent> createState() => _CartTabContentState();
+}
+
+class _CartTabContentState extends State<_CartTabContent>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+
+    if (widget.cart.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.shopping_cart_outlined,
+              size: 80,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Panier vide',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade400,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Ajoutez des aliments depuis les autres onglets',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: Colors.grey.shade400,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: widget.cart.length,
+      itemBuilder: (context, index) {
+        final food = widget.cart[index];
+        final hasImage = food.imageUrl != null && food.imageUrl!.isNotEmpty;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Food image or icon
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: hasImage
+                        ? null
+                        : AppColors.mealGradient.scale(0.3),
+                  ),
+                  child: hasImage
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            food.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.mealGradient.scale(0.3),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.fastfood,
+                                  color: Colors.white,
+                                  size: 30,
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      : const Icon(
+                          Icons.fastfood,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                ),
+                const SizedBox(width: 12),
+                // Food details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        food.name,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (food.brand != null && food.brand!.isNotEmpty)
+                        Text(
+                          food.brand!,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      const SizedBox(height: 4),
+                      Text(
+                        food.category,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppColors.mealGradient.colors.first,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Remove button
+                IconButton(
+                  icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
+                  onPressed: () => widget.onRemove(food),
+                ),
+              ],
             ),
           ),
         );

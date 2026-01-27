@@ -638,22 +638,39 @@ class DatabaseHelper {
     final offService = OFFService();
 
     // List of common French food barcodes from OpenFoodFacts
+    // Diversified: breakfast, lunch/dinner, snacks, drinks
     final popularBarcodes = [
+      // Breakfast items
       '3017620422003', // Nutella
-      '3270190127512', // Baguette tradition Paul
-      '3168930010883', // Yaourt nature Danone
-      '3073780970037', // Coca-Cola 33cl
-      '3270160311309', // Emmental râpé Président
-      '3229820129488', // Poulet rôti Père Dodu
-      '3560070462827', // Riz basmati Taureau Ailé
+      '3270190127512', // Confiture de fraises Carrefour BIO
+      '3229820129488', // Muesli Raisin Figue Abricot Bjorg
+      '3228857000906', // Pain AMS complet Harrys
+      '8712566451555', // Café Nespresso Volluto
+      // Lunch/Dinner - Proteins
+      '3760074380282', // Poulet rôti
+      '3250391807802', // Jambon Blanc Fleury Michon
+      '3250391616664', // Saumon fumé Atlantique
+      '3760091720207', // Steak haché 5% Charal
+      // Lunch/Dinner - Starches
       '3560071484477', // Pâtes penne Panzani
-      '3250391618583', // Pain de mie Harry's
-      '3228857000906', // Beurre doux Président
+      '3560070462827', // Riz basmati Uncle Ben's
+      '8076809513821', // Pâtes Barilla Fusilli
+      // Vegetables & Sides
       '3560070734016', // Tomates pelées en dés
-      '3222475787706', // Compote pomme Andros
-      '3083680085403', // Bananes
+      '3083680085403', // Pommes de terre
+      '3250391618583', // Légumes pour couscous
+      // Dairy
+      '3228857000906', // Beurre Président
+      '3270160311309', // Emmental râpé
+      '3250391675494', // Yaourt nature Activia
+      // Drinks
+      '3073780970037', // Coca-Cola 33cl
       '3560070342099', // Lait demi-écrémé Lactel
-      '3760154262378', // Saumon fumé
+      '5449000000996', // Eau Evian 1.5L
+      // Snacks
+      '7622210449283', // Prince goût chocolat
+      '3017620422003', // Kinder Bueno
+      '3222475787706', // Compote pomme Andros
     ];
 
     int successCount = 0;
@@ -712,9 +729,11 @@ class DatabaseHelper {
     } else {
       // Update existing food with new data (e.g., updated nutrition info)
       final existingId = existing.first['id'];
+      final updateMap = Map<String, dynamic>.from(food.toMap());
+      updateMap.remove('id'); // Remove id field to avoid NULL constraint error
       await db.update(
         'foods',
-        food.toMap(),
+        updateMap,
         where: 'id = ?',
         whereArgs: [existingId],
       );
@@ -751,12 +770,32 @@ class DatabaseHelper {
 
   Future<void> generateDemoData() async {
     print('[DB] Starting demo data generation...');
+
+    // First, enrich DB with real OFF products if not already done
+    final allFoods = await getAllFoods();
+    if (allFoods
+            .where((f) => f.barcode != null && f.barcode!.isNotEmpty)
+            .length <
+        5) {
+      print('[DB] Enriching DB with OFF products first...');
+      await enrichWithPopularOFFProducts();
+    }
+
     Database db = await database;
     await db.delete('events');
     print('[DB] Deleted all existing events');
 
     final now = DateTime.now();
     Batch batch = db.batch();
+
+    // Get real foods from DB for realistic meals
+    final availableFoods = await getAllFoods();
+    final basicFoods = availableFoods.where((f) => f.barcode == null).toList();
+    final offFoods = availableFoods.where((f) => f.barcode != null).toList();
+
+    print(
+      '[DB] Using ${basicFoods.length} basic foods + ${offFoods.length} OFF products',
+    );
 
     // Listes pour l'aléatoire
     final List<String> painLocations = [
@@ -767,92 +806,188 @@ class DatabaseHelper {
       "Épigastre",
     ];
 
-    // Repas déclencheurs avec BONS TAGS pour corrélations
-    final List<Map<String, dynamic>> triggerMeals = [
-      {
-        'foods': [
-          {'name': 'Bière', 'category': 'Boisson'},
-          {'name': 'Chips', 'category': 'En-cas'},
-        ],
-        'tags': ['Alcool', 'Gaz', 'Gluten', 'Gras', 'Glucides', 'Lipides'],
-      },
-      {
-        'foods': [
-          {'name': 'Curry', 'category': 'Repas'},
-          {'name': 'Riz blanc', 'category': 'Repas'},
-        ],
-        'tags': ['Épicé', 'Gras', 'Lipides', 'Glucides'],
-      },
-      {
-        'foods': [
-          {'name': 'Fromage', 'category': 'Repas'},
-          {'name': 'Jambon', 'category': 'Repas'},
-          {'name': 'Pomme de terre', 'category': 'Repas'},
-        ],
-        'tags': ['Gras', 'Lactose', 'Lipides', 'Protéine', 'Glucides'],
-      },
-      {
-        'foods': [
-          {'name': 'Burger', 'category': 'Repas'},
-          {'name': 'Frites', 'category': 'Repas'},
-          {'name': 'Coca-Cola', 'category': 'Boisson'},
-        ],
-        'tags': ['Gras', 'Gluten', 'Lipides', 'Glucides', 'Gaz'],
-      },
-      {
-        'foods': [
-          {'name': 'Pizza', 'category': 'Repas'},
-          {'name': 'Soda', 'category': 'Boisson'},
-        ],
-        'tags': ['Gluten', 'Lactose', 'Gras', 'Lipides', 'Glucides', 'Gaz'],
-      },
-    ];
+    // Helper to create meal with real foods
+    Map<String, dynamic> createMealFromFoods(List<FoodModel> foods) {
+      return {
+        'foods': foods
+            .map(
+              (f) => {
+                'name': f.name,
+                'category': f.category,
+                'barcode': f.barcode,
+                'brand': f.brand,
+                'imageUrl': f.imageUrl,
+                'proteins': f.proteins,
+                'fats': f.fats,
+                'carbs': f.carbs,
+                'fiber': f.fiber,
+                'sugars': f.sugars,
+              },
+            )
+            .toList(),
+        'tags': foods.expand((f) => f.tags).toSet().toList(),
+      };
+    }
 
-    // Repas sains avec nouveaux tags nutritionnels
-    final List<Map<String, dynamic>> healthyMeals = [
-      {
-        'foods': [
-          {'name': 'Poulet', 'category': 'Repas'},
-          {'name': 'Riz blanc', 'category': 'Repas'},
-        ],
-        'tags': ['Protéine', 'Glucides', 'Lipides'],
-      },
-      {
-        'foods': [
-          {'name': 'Saumon', 'category': 'Repas'},
-          {'name': 'Carotte', 'category': 'Repas'},
-        ],
-        'tags': ['Protéine', 'Lipides', 'Fibres'],
-      },
-      {
-        'foods': [
-          {'name': 'Pâtes', 'category': 'Repas'},
-          {'name': 'Huile Olive', 'category': 'Repas'},
-        ],
-        'tags': ['Glucides', 'Gluten', 'Lipides'],
-      },
-      {
-        'foods': [
-          {'name': 'Oeufs', 'category': 'Repas'},
-          {'name': 'Pomme de terre', 'category': 'Repas'},
-        ],
-        'tags': ['Protéine', 'Glucides', 'Lipides'],
-      },
-      {
-        'foods': [
-          {'name': 'Carotte', 'category': 'Repas'},
-          {'name': 'Pomme de terre', 'category': 'Repas'},
-        ],
-        'tags': ['Fibres', 'Glucides'],
-      },
-      {
-        'foods': [
-          {'name': 'Dinde', 'category': 'Repas'},
-          {'name': 'Riz blanc', 'category': 'Repas'},
-        ],
-        'tags': ['Protéine', 'Glucides'],
-      },
-    ];
+    // Combine all available foods for meal generation
+    final combinedFoods = [...basicFoods, ...offFoods];
+
+    if (combinedFoods.isEmpty) {
+      print('[DB] ⚠️ No foods available for demo generation!');
+      return;
+    }
+
+    // Group foods by meal type based on category and tags
+    final breakfastFoods = combinedFoods.where((f) {
+      final cat = f.category.toLowerCase();
+      final tags = f.tags.map((t) => t.toLowerCase()).toList();
+      return cat.contains('petit') ||
+          cat.contains('céréale') ||
+          tags.any(
+            (t) => [
+              'confiture',
+              'miel',
+              'beurre',
+              'croissant',
+              'pain',
+            ].contains(t.toLowerCase()),
+          ) ||
+          f.name.toLowerCase().contains('croissant') ||
+          f.name.toLowerCase().contains('muesli') ||
+          f.name.toLowerCase().contains('confiture') ||
+          f.name.toLowerCase().contains('nutella') ||
+          f.name.toLowerCase().contains('café') ||
+          f.name.toLowerCase().contains('pain');
+    }).toList();
+
+    final lunchFoods = combinedFoods.where((f) {
+      final cat = f.category.toLowerCase();
+      final tags = f.tags.map((t) => t.toLowerCase()).toList();
+      return cat.contains('plat') ||
+          cat.contains('féculent') ||
+          cat.contains('protéine') ||
+          cat.contains('viande') ||
+          tags.any(
+            (t) => [
+              'pâtes',
+              'riz',
+              'poulet',
+              'poisson',
+              'viande',
+            ].contains(t.toLowerCase()),
+          );
+    }).toList();
+
+    final dinnerFoods = combinedFoods.where((f) {
+      final cat = f.category.toLowerCase();
+      return cat.contains('plat') ||
+          cat.contains('viande') ||
+          cat.contains('légume') ||
+          cat.contains('protéine');
+    }).toList();
+
+    final snackFoods = combinedFoods.where((f) {
+      final cat = f.category.toLowerCase();
+      return cat.contains('snack') ||
+          cat.contains('fruit') ||
+          cat.contains('yaourt') ||
+          cat.contains('dessert') ||
+          cat.contains('boisson');
+    }).toList();
+
+    // Create realistic breakfast meals
+    final List<Map<String, dynamic>> breakfastMeals = [];
+    if (breakfastFoods.length >= 2) {
+      breakfastMeals.add(
+        createMealFromFoods([breakfastFoods[0], breakfastFoods[1]]),
+      );
+      if (breakfastFoods.length >= 3) {
+        breakfastMeals.add(
+          createMealFromFoods([breakfastFoods[1], breakfastFoods[2]]),
+        );
+      }
+    } else if (breakfastFoods.length == 1) {
+      breakfastMeals.add(createMealFromFoods([breakfastFoods[0]]));
+    } else if (combinedFoods.isNotEmpty) {
+      // Fallback: use first 2 foods
+      breakfastMeals.add(createMealFromFoods([combinedFoods[0]]));
+    }
+
+    // Create realistic lunch meals
+    final List<Map<String, dynamic>> lunchMealsList = [];
+    if (lunchFoods.length >= 2) {
+      lunchMealsList.add(createMealFromFoods([lunchFoods[0], lunchFoods[1]]));
+      if (lunchFoods.length >= 3) {
+        lunchMealsList.add(createMealFromFoods([lunchFoods[1], lunchFoods[2]]));
+      }
+    } else if (lunchFoods.length == 1) {
+      lunchMealsList.add(createMealFromFoods([lunchFoods[0]]));
+    } else if (combinedFoods.length >= 2) {
+      // Fallback: use any foods
+      lunchMealsList.add(
+        createMealFromFoods([combinedFoods[0], combinedFoods[1]]),
+      );
+    }
+
+    // Create realistic dinner meals
+    final List<Map<String, dynamic>> dinnerMealsList = [];
+    if (dinnerFoods.length >= 2) {
+      dinnerMealsList.add(
+        createMealFromFoods([dinnerFoods[0], dinnerFoods[1]]),
+      );
+      if (dinnerFoods.length >= 3) {
+        dinnerMealsList.add(
+          createMealFromFoods([dinnerFoods[1], dinnerFoods[2]]),
+        );
+      }
+    } else if (dinnerFoods.length == 1) {
+      dinnerMealsList.add(createMealFromFoods([dinnerFoods[0]]));
+    } else if (combinedFoods.length >= 2) {
+      dinnerMealsList.add(
+        createMealFromFoods([combinedFoods[0], combinedFoods[1]]),
+      );
+    }
+
+    // Create snack meals
+    final List<Map<String, dynamic>> snackMealsList = [];
+    if (snackFoods.isNotEmpty) {
+      snackMealsList.add(createMealFromFoods([snackFoods[0]]));
+      if (snackFoods.length >= 2) {
+        snackMealsList.add(createMealFromFoods([snackFoods[1]]));
+      }
+    }
+
+    // Trigger meals (riskier combinations - can reuse any category)
+    final List<Map<String, dynamic>> triggerMeals = [];
+    if (snackFoods.length >= 2) {
+      // Trigger: high-sugar or high-fat snacks
+      triggerMeals.add(createMealFromFoods([snackFoods[0], snackFoods[1]]));
+    } else if (combinedFoods.length >= 2) {
+      triggerMeals.add(
+        createMealFromFoods([combinedFoods[0], combinedFoods[1]]),
+      );
+    }
+
+    // Fallback: ensure we have at least one meal for each category
+    if (breakfastMeals.isEmpty && combinedFoods.isNotEmpty) {
+      breakfastMeals.add(createMealFromFoods([combinedFoods[0]]));
+    }
+    if (lunchMealsList.isEmpty && combinedFoods.isNotEmpty) {
+      lunchMealsList.add(createMealFromFoods([combinedFoods[0]]));
+    }
+    if (dinnerMealsList.isEmpty && combinedFoods.isNotEmpty) {
+      dinnerMealsList.add(createMealFromFoods([combinedFoods[0]]));
+    }
+    if (triggerMeals.isEmpty && combinedFoods.isNotEmpty) {
+      triggerMeals.add(createMealFromFoods([combinedFoods[0]]));
+    }
+
+    if (breakfastMeals.isEmpty ||
+        lunchMealsList.isEmpty ||
+        dinnerMealsList.isEmpty) {
+      print('[DB] ⚠️ Could not create meals from available foods!');
+      return;
+    }
 
     // Simulation state
     int daysUntilCrisis = 0; // Countdown
@@ -866,9 +1001,35 @@ class DatabaseHelper {
       bool riskDay = (weekDay == 5 || weekDay == 6);
 
       // -- MEALS --
+      // Breakfast (7h-9h)
+      final breakfast = breakfastMeals[i % breakfastMeals.length];
+      final breakfastFoodsList = breakfast['foods'] as List;
+      final breakfastTags = (breakfast['tags'] as List<dynamic>).join(',');
+      final breakfastTitle = breakfastFoodsList
+          .map((f) => f['name'])
+          .join(' + ');
+
+      batch.insert('events', {
+        'type': 'meal',
+        'dateTime': DateTime(
+          date.year,
+          date.month,
+          date.day,
+          8,
+          0,
+        ).toIso8601String(),
+        'title': breakfastTitle,
+        'subtitle': 'Maison',
+        'severity': 0,
+        'tags': breakfastTags,
+        'meta_data': jsonEncode({'foods': breakfastFoodsList}),
+        'isUrgent': 0,
+        'isSnack': 0,
+      });
+
       // Lunch is usually okay
-      final lunch = healthyMeals[i % healthyMeals.length];
-      final lunchFoods = lunch['foods'] as List<Map<String, dynamic>>;
+      final lunch = lunchMealsList[i % lunchMealsList.length];
+      final lunchFoods = lunch['foods'] as List;
       final lunchTags = (lunch['tags'] as List<dynamic>).join(',');
       final lunchTitle = lunchFoods.map((f) => f['name']).join(' + ');
 
@@ -885,7 +1046,7 @@ class DatabaseHelper {
         'subtitle': 'Maison',
         'severity': 0,
         'tags': lunchTags,
-        'meta_data': jsonEncode(lunchFoods),
+        'meta_data': jsonEncode({'foods': lunchFoods}),
         'isUrgent': 0,
         'isSnack': 0,
       });
@@ -908,9 +1069,11 @@ class DatabaseHelper {
             'subtitle': 'Diète',
             'severity': 0,
             'tags': 'Liquide,Sel',
-            'meta_data': jsonEncode([
-              {'name': 'Bouillon', 'category': 'Plat'},
-            ]),
+            'meta_data': jsonEncode({
+              'foods': [
+                {'name': 'Bouillon', 'category': 'Plat'},
+              ],
+            }),
             'isUrgent': 0,
             'isSnack': 0,
           });
@@ -933,7 +1096,7 @@ class DatabaseHelper {
             'subtitle': 'Sortie',
             'severity': 0,
             'tags': triggerTags,
-            'meta_data': jsonEncode(triggerFoods),
+            'meta_data': jsonEncode({'foods': triggerFoods}),
             'isUrgent': 0,
             'isSnack': 0,
           });
@@ -942,7 +1105,7 @@ class DatabaseHelper {
         }
       } else {
         // Normal Dinner
-        final dinner = healthyMeals[(i + 3) % healthyMeals.length];
+        final dinner = dinnerMealsList[(i + 3) % dinnerMealsList.length];
         final dinnerFoods = dinner['foods'] as List<Map<String, dynamic>>;
         final dinnerTags = (dinner['tags'] as List<dynamic>).join(',');
         final dinnerTitle = dinnerFoods.map((f) => f['name']).join(' + ');
@@ -960,7 +1123,7 @@ class DatabaseHelper {
           'subtitle': 'Maison',
           'severity': 0,
           'tags': dinnerTags,
-          'meta_data': jsonEncode(dinnerFoods),
+          'meta_data': jsonEncode({'foods': dinnerFoods}),
           'isUrgent': 0,
           'isSnack': 0,
         });
@@ -1104,7 +1267,15 @@ class DatabaseHelper {
   Future<int> updateEvent(int id, Map<String, dynamic> data) async {
     Database db = await database;
     print('[DB] Updating event $id with data: $data');
-    return await db.update('events', data, where: 'id = ?', whereArgs: [id]);
+    // Remove id field to avoid NULL constraint error
+    final updateData = Map<String, dynamic>.from(data);
+    updateData.remove('id');
+    return await db.update(
+      'events',
+      updateData,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // Example method to get all events
