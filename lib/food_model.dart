@@ -3,27 +3,27 @@ class FoodModel {
   final String name;
   final String category;
   final List<String> tags;
-  
+
   // OpenFoodFacts fields
   final String? barcode;
   final String? brand;
   final String? imageUrl;
-  
+
   // Nutrition per 100g
-  final double? energy;        // kcal
-  final double? proteins;      // g
-  final double? fats;          // g
-  final double? carbs;         // g
-  final double? fiber;         // g
-  final double? sugars;        // g
-  
+  final double? energy; // kcal
+  final double? proteins; // g
+  final double? fats; // g
+  final double? carbs; // g
+  final double? fiber; // g
+  final double? sugars; // g
+
   // Quality indicators
-  final String? nutriScore;    // 'A' to 'E'
-  final int? novaGroup;        // 1 to 4
+  final String? nutriScore; // 'A' to 'E'
+  final int? novaGroup; // 1 to 4
   final List<String> allergens;
-  
-  final double servingSize;    // default 100g
-  final bool isBasicFood;      // for foods without barcode
+
+  final double servingSize; // default 100g
+  final bool isBasicFood; // for foods without barcode
 
   FoodModel({
     this.id,
@@ -74,14 +74,19 @@ class FoodModel {
       id: map['id'] as int?,
       name: map['name'] as String? ?? 'Unknown',
       category: map['category'] as String? ?? 'Autre',
-      tags: map['tags'] != null 
-          ? (map['tags'] as String).split(',').where((e) => e.isNotEmpty).toList()
+      tags: map['tags'] != null
+          ? (map['tags'] as String)
+                .split(',')
+                .where((e) => e.isNotEmpty)
+                .toList()
           : [],
       barcode: map['barcode'] as String?,
       brand: map['brand'] as String?,
       imageUrl: map['imageUrl'] as String?,
       energy: map['energy'] != null ? (map['energy'] as num).toDouble() : null,
-      proteins: map['proteins'] != null ? (map['proteins'] as num).toDouble() : null,
+      proteins: map['proteins'] != null
+          ? (map['proteins'] as num).toDouble()
+          : null,
       fats: map['fats'] != null ? (map['fats'] as num).toDouble() : null,
       carbs: map['carbs'] != null ? (map['carbs'] as num).toDouble() : null,
       fiber: map['fiber'] != null ? (map['fiber'] as num).toDouble() : null,
@@ -89,11 +94,21 @@ class FoodModel {
       nutriScore: map['nutriScore'] as String?,
       novaGroup: map['novaGroup'] as int?,
       allergens: map['allergens'] != null
-          ? (map['allergens'] as String).split(',').where((e) => e.isNotEmpty).toList()
+          ? (map['allergens'] as String)
+                .split(',')
+                .where((e) => e.isNotEmpty)
+                .toList()
           : [],
-      servingSize: map['servingSize'] != null ? (map['servingSize'] as num).toDouble() : 100.0,
+      servingSize: map['servingSize'] != null
+          ? (map['servingSize'] as num).toDouble()
+          : 100.0,
       isBasicFood: map['isBasicFood'] == 1,
     );
+  }
+
+  // Alias for JSON deserialization (used when parsing meta_data)
+  factory FoodModel.fromJson(Map<String, dynamic> json) {
+    return FoodModel.fromMap(json);
   }
 
   @override

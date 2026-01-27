@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_theme.dart';
+import 'event_model.dart';
 
 class StoolEntryDialog extends StatefulWidget {
-  const StoolEntryDialog({super.key});
+  final EventModel? existingEvent;
+
+  const StoolEntryDialog({super.key, this.existingEvent});
 
   @override
   State<StoolEntryDialog> createState() => _StoolEntryDialogState();
@@ -23,6 +26,23 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
     6: "Boueuse, morceaux déchiquetés",
     7: "Liquide (aucune partie solide)",
   };
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Pre-fill data if editing existing event
+    if (widget.existingEvent != null) {
+      final event = widget.existingEvent!;
+      // Extract type from title "Type X"
+      final typeMatch = RegExp(r'Type (\d+)').firstMatch(event.title);
+      if (typeMatch != null) {
+        _selectedType = int.tryParse(typeMatch.group(1)!) ?? 4;
+      }
+      _isUrgent = event.isUrgent;
+      _hasBlood = event.tags.any((tag) => tag.toLowerCase().contains('sang'));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

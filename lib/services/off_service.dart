@@ -28,7 +28,10 @@ class OFFService {
   }
 
   /// Fetch product by barcode with optional cache
-  Future<FoodModel?> fetchByBarcode(String barcode, {bool forceRefresh = false}) async {
+  Future<FoodModel?> fetchByBarcode(
+    String barcode, {
+    bool forceRefresh = false,
+  }) async {
     if (!_isValidBarcode(barcode)) {
       return null;
     }
@@ -43,17 +46,19 @@ class OFFService {
 
     try {
       // Fetch from OpenFoodFacts API using HTTP
-      final response = await http.get(
-        Uri.parse('$_apiBaseUrl/product/$barcode.json'),
-        headers: {'User-Agent': _userAgent},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse('$_apiBaseUrl/product/$barcode.json'),
+            headers: {'User-Agent': _userAgent},
+          )
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode != 200) {
         return null;
       }
 
       final Map<String, dynamic> data = jsonDecode(response.body);
-      
+
       if (data['status'] != 1 || data['product'] == null) {
         return null;
       }
@@ -82,24 +87,62 @@ class OFFService {
     if (query.trim().isEmpty) return [];
 
     try {
+      // Encode query properly for URL
+      final encodedQuery = Uri.encodeQueryComponent(query.trim());
+
+      // Use the CGI search endpoint which properly handles text search
+      // tagtype_0=products&tag_contains_0=contains&tag_0=query
+      final url =
+          'https://world.openfoodfacts.org/cgi/search.pl?'
+          'search_terms=$encodedQuery&'
+          'search_simple=1&'
+          'action=process&'
+          'page_size=20&'
+          'json=1';
+
+      print('[OFF] 🌐 Requête URL: $url');
+
       // Search using OpenFoodFacts API
-      final response = await http.get(
-        Uri.parse('$_apiBaseUrl/search?search_terms=$query&page_size=20&json=true'),
-        headers: {'User-Agent': _userAgent},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(url), headers: {'User-Agent': _userAgent})
+          .timeout(const Duration(seconds: 60));
+
+      print('[OFF] 📥 Status: ${response.statusCode}');
 
       if (response.statusCode != 200) {
         return [];
       }
 
       final Map<String, dynamic> data = jsonDecode(response.body);
-      
+
+      print(
+        '[OFF] 📦 Count: ${data['count']}, Page: ${data['page']}, Page_size: ${data['page_size']}',
+      );
+
       if (data['products'] == null) {
         return [];
       }
 
       final List<dynamic> products = data['products'];
-      return products.map((product) => _mapProductToFoodModel(product, product['code'] ?? '')).toList();
+      print('[OFF] ✅ Returned ${products.length} products');
+
+      // Print first 3 product names for debugging
+      if (products.isNotEmpty) {
+        print('[OFF] 📝 First results:');
+        for (var i = 0; i < products.length && i < 3; i++) {
+          final name =
+              products[i]['product_name'] ??
+              products[i]['product_name_fr'] ??
+              'Unknown';
+          print('   ${i + 1}. $name');
+        }
+      }
+
+      return products
+          .map(
+            (product) => _mapProductToFoodModel(product, product['code'] ?? ''),
+          )
+          .toList();
     } on SocketException catch (e) {
       print('OFFService: Network error - $e');
       return [];
@@ -113,14 +156,24 @@ class OFFService {
   }
 
   /// Map OpenFoodFacts Product to FoodModel
-  FoodModel _mapProductToFoodModel(Map<String, dynamic> product, String barcode) {
-    final String name = product['product_name'] ?? product['product_name_fr'] ?? 'Produit inconnu';
+  FoodModel _mapProductToFoodModel(
+    Map<String, dynamic> product,
+    String barcode,
+  ) {
+    final String name =
+        product['product_name'] ??
+        product['product_name_fr'] ??
+        'Produit inconnu';
     final String? brand = product['brands'];
     final String? imageUrl = product['image_front_url'] ?? product['image_url'];
 
     // Extract nutrition per 100g (handle nulls silently)
     final nutriments = product['nutriments'] ?? {};
-    final double energy = _toDouble(nutriments['energy-kcal_100g'] ?? nutriments['energy_100g']) ?? 0.0;
+    final double energy =
+        _toDouble(
+          nutriments['energy-kcal_100g'] ?? nutriments['energy_100g'],
+        ) ??
+        0.0;
     final double proteins = _toDouble(nutriments['proteins_100g']) ?? 0.0;
     final double fats = _toDouble(nutriments['fat_100g']) ?? 0.0;
     final double carbs = _toDouble(nutriments['carbohydrates_100g']) ?? 0.0;
@@ -128,22 +181,50 @@ class OFFService {
     final double sugars = _toDouble(nutriments['sugars_100g']) ?? 0.0;
 
     // Quality indicators
-    final String? nutriScore = product['nutriscore_grade']?.toString().toUpperCase();
-    final int? novaGroup = product['nova_group'] is int ? product['nova_group'] : null;
+    final String? nutriScore = product['nutriscore_grade']
+        ?.toString()
+        .toUpperCase();
+    final int? novaGroup = product['nova_group'] is int
+        ? product['nova_group']
+        : null;
 
     // Determine category based on categories_tags
     String category = 'Snack';
     final List<dynamic> categoriesTags = product['categories_tags'] ?? [];
     if (categoriesTags.isNotEmpty) {
-      if (categoriesTags.any((t) => t.toString().contains('beverage') || t.toString().contains('boisson'))) {
+      if (categoriesTags.any(
+        (t) =>
+            t.toString().contains('beverage') ||
+            t.toString().contains('boisson'),
+      )) {
         category = 'Boisson';
-      } else if (categoriesTags.any((t) => t.toString().contains('dairy') || t.toString().contains('laitier'))) {
+      } else if (categoriesTags.any(
+        (t) =>
+            t.toString().contains('dairy') || t.toString().contains('laitier'),
+      )) {
         category = 'Snack';
-      } else if (categoriesTags.any((t) => t.toString().contains('meat') || t.toString().contains('viande') || t.toString().contains('fish') || t.toString().contains('poisson'))) {
+      } else if (categoriesTags.any(
+        (t) =>
+            t.toString().contains('meat') ||
+            t.toString().contains('viande') ||
+            t.toString().contains('fish') ||
+            t.toString().contains('poisson'),
+      )) {
         category = 'Protéine';
-      } else if (categoriesTags.any((t) => t.toString().contains('pasta') || t.toString().contains('rice') || t.toString().contains('bread') || t.toString().contains('cereals'))) {
+      } else if (categoriesTags.any(
+        (t) =>
+            t.toString().contains('pasta') ||
+            t.toString().contains('rice') ||
+            t.toString().contains('bread') ||
+            t.toString().contains('cereals'),
+      )) {
         category = 'Féculent';
-      } else if (categoriesTags.any((t) => t.toString().contains('meal') || t.toString().contains('pizza') || t.toString().contains('sandwich'))) {
+      } else if (categoriesTags.any(
+        (t) =>
+            t.toString().contains('meal') ||
+            t.toString().contains('pizza') ||
+            t.toString().contains('sandwich'),
+      )) {
         category = 'Repas';
       }
     }
@@ -152,27 +233,31 @@ class OFFService {
     List<String> allergensList = [];
     final List<dynamic> allergensRaw = product['allergens_tags'] ?? [];
     for (var allergen in allergensRaw) {
-      final cleaned = allergen.toString().replaceAll('en:', '').replaceAll('-', ' ');
+      final cleaned = allergen
+          .toString()
+          .replaceAll('en:', '')
+          .replaceAll('-', ' ');
       allergensList.add(cleaned);
     }
 
     // Build tags from analysis
     List<String> tags = [];
-    
+
     // Add allergen-based tags
     if (allergensList.any((a) => a.contains('gluten'))) tags.add('Gluten');
-    if (allergensList.any((a) => a.contains('milk') || a.contains('lactose'))) tags.add('Lactose');
+    if (allergensList.any((a) => a.contains('milk') || a.contains('lactose')))
+      tags.add('Lactose');
     if (allergensList.any((a) => a.contains('nuts'))) tags.add('Noix');
-    
+
     // Add nutrition-based tags
     if (sugars > 10.0) tags.add('Sucre');
     if (fats > 15.0) tags.add('Gras');
     if (fiber > 5.0) tags.add('Fibres');
-    
+
     // Add NOVA-based tags
     if (novaGroup == 4) tags.add('Industriel');
     if (novaGroup == 1) tags.add('Naturel');
-    
+
     // Add category tag
     if (category == 'Boisson') tags.add('Boisson');
     if (category == 'Protéine') tags.add('Protéine');
@@ -215,15 +300,11 @@ class OFFService {
       final int timestamp = DateTime.now().millisecondsSinceEpoch;
       final String foodData = jsonEncode(food.toMap());
 
-      await db.insert(
-        'products_cache',
-        {
-          'barcode': barcode,
-          'foodData': foodData,
-          'timestamp': timestamp,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('products_cache', {
+        'barcode': barcode,
+        'foodData': foodData,
+        'timestamp': timestamp,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (e) {
       print('OFFService: Error saving to cache - $e');
     }
@@ -233,7 +314,9 @@ class OFFService {
   Future<FoodModel?> _loadFromCache(String barcode) async {
     try {
       final db = await _dbHelper.database;
-      final int cutoff = DateTime.now().subtract(const Duration(days: 90)).millisecondsSinceEpoch;
+      final int cutoff = DateTime.now()
+          .subtract(const Duration(days: 90))
+          .millisecondsSinceEpoch;
 
       final List<Map<String, dynamic>> results = await db.query(
         'products_cache',

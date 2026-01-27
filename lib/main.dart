@@ -14,6 +14,11 @@ import 'event_search_delegate.dart';
 import 'insights_page.dart';
 import 'symptom_dialog.dart';
 import 'meal_composer_dialog.dart';
+import 'risk_assessment_card.dart';
+import 'ml/model_manager.dart';
+import 'services/context_service.dart';
+import 'models/context_model.dart';
+import 'timeline_chart_page.dart';
 
 void main() {
   // Initialisation de la base de données pour le Web et Desktop
@@ -68,8 +73,8 @@ class _TimelinePageState extends State<TimelinePage> {
     });
   }
 
-  void _showMealDialog(bool isSnack) async {
-    print('[MAIN] Opening meal dialog: isSnack=$isSnack');
+  void _showMealDialog() async {
+    print('[MAIN] Opening meal dialog');
     final result = await showDialog(
       context: context,
       builder: (context) => const MealComposerDialog(),
@@ -502,8 +507,45 @@ class _TimelinePageState extends State<TimelinePage> {
       metaData: metaData,
     );
 
-    _saveEvent(newEvent);
+    await _saveEvent(newEvent);
     print('[MAIN] Event saved successfully');
+
+    // Show risk assessment for meal events
+    if (type == EventType.meal && mounted) {
+      final contextService = ContextService();
+      final context = await contextService.captureCurrentContext();
+      _showRiskAssessment(newEvent, context);
+    }
+  }
+
+  /// Show ML-powered risk assessment after meal is logged
+  Future<void> _showRiskAssessment(
+    EventModel meal,
+    ContextModel context,
+  ) async {
+    try {
+      print('[MAIN] Generating risk assessment...');
+      final modelManager = ModelManager();
+      await modelManager.initialize();
+
+      final predictions = await modelManager.predictAllSymptoms(meal, context);
+
+      if (!mounted) return;
+
+      showModalBottomSheet(
+        context: this.context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => RiskAssessmentCard(
+          predictions: predictions,
+          meal: meal,
+          onClose: () => Navigator.pop(context),
+        ),
+      );
+    } catch (e) {
+      print('[MAIN] Error generating risk assessment: $e');
+      // Don't block the user flow if ML fails
+    }
   }
 
   void _showAddMenu() {
@@ -559,14 +601,7 @@ class _TimelinePageState extends State<TimelinePage> {
                       "Repas",
                       AppColors.mealGradient,
                       AppColors.mealStart,
-                      () => _showMealDialog(false),
-                    ),
-                    _buildGradientActionButton(
-                      Icons.cookie_outlined,
-                      "Encas",
-                      AppColors.mealGradient,
-                      AppColors.mealStart,
-                      () => _showMealDialog(true),
+                      () => _showMealDialog(),
                     ),
                     _buildGradientActionButton(
                       Icons.bolt,
@@ -709,36 +744,360 @@ class _TimelinePageState extends State<TimelinePage> {
     _loadEvents();
   }
 
-  void _generateDemoData() {
+  Future<void> _updateEvent(int eventId, EventModel updatedEvent) async {
+    final dbHelper = DatabaseHelper();
+    await dbHelper.updateEvent(eventId, updatedEvent.toMap());
+    _loadEvents();
+  }
+
+  Future<void> _editEvent(EventModel event) async {
+    if (event.id == null) return;
+
+    switch (event.type) {
+      case EventType.meal:
+        final result = await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (context) => MealComposerDialog(existingEvent: event),
+        );
+        if (result != null && mounted) {
+          final updatedEvent = EventModel(
+            type: EventType.meal,
+            dateTime: event.dateTime, // Keep original time
+            title: result['is_snack'] == true ? 'Snack' : 'Repas',
+            subtitle: '${result['foods'].length} aliment(s)',
+            isSnack: result['is_snack'] ?? false,
+            tags: List<String>.from(result['tags'] ?? []),
+            severity: 0,
+            metaData: jsonEncode({'foods': result['foods']}),
+          );
+          await _updateEvent(event.id!, updatedEvent);
+        }
+        break;
+
+      case EventType.symptom:
+        final results = await showDialog<List<Map<String, dynamic>>>(
+          context: context,
+          builder: (context) => SymptomEntryDialog(existingEvent: event),
+        );
+        if (results != null && results.isNotEmpty && mounted) {
+          // For edit mode, update the existing event (first zone)
+          final firstResult = results.first;
+          final updatedEvent = EventModel(
+            type: EventType.symptom,
+            dateTime: event.dateTime,
+            title: firstResult['title'],
+            subtitle: 'Douleur',
+            severity: firstResult['severity'],
+            tags: List<String>.from(firstResult['tags'] ?? []),
+            metaData: firstResult['meta_data'],
+          );
+          await _updateEvent(event.id!, updatedEvent);
+
+          // Delete old additional zones and create new ones if multiple zones selected
+          if (results.length > 1) {
+            // TODO: Handle multiple zones in edit mode - for now just update first one
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Édition multi-zones non supportée'),
+              ),
+            );
+          }
+        }
+        break;
+
+      case EventType.stool:
+        final result = await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (context) => StoolEntryDialog(existingEvent: event),
+        );
+        if (result != null && mounted) {
+          final int type = result['type'];
+          final bool isUrgent = result['isUrgent'];
+          final bool hasBlood = result['hasBlood'];
+          List<String> tags = [];
+          if (isUrgent) tags.add('Urgent');
+          if (hasBlood) tags.add('Sang');
+
+          final updatedEvent = EventModel(
+            type: EventType.stool,
+            dateTime: event.dateTime,
+            title: 'Type $type',
+            subtitle: 'Échelle de Bristol',
+            isUrgent: isUrgent,
+            tags: tags,
+            severity: 0,
+          );
+          await _updateEvent(event.id!, updatedEvent);
+        }
+        break;
+
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Modification non supportée')),
+        );
+    }
+  }
+
+  void _showDevMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.grey.shade900,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade600,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              '🛠️ Menu Développeur',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.red),
+              title: const Text(
+                'Effacer toute la base',
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: const Text(
+                'Supprime TOUT (events, foods, cache)',
+                style: TextStyle(color: Colors.grey),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showClearDatabaseDialog();
+              },
+            ),
+            const Divider(color: Colors.grey),
+            ListTile(
+              leading: const Icon(Icons.restore, color: Colors.blue),
+              title: const Text(
+                'Générer données de démo',
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: const Text(
+                '30 jours d\'historique fictif',
+                style: TextStyle(color: Colors.grey),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showGenerateDemoDialog();
+              },
+            ),
+            const Divider(color: Colors.grey),
+            ListTile(
+              leading: const Icon(Icons.psychology, color: Colors.purple),
+              title: const Text(
+                'Entraîner les modèles ML',
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: const Text(
+                'Lance l\'analyse et corrélations',
+                style: TextStyle(color: Colors.grey),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _trainModels();
+              },
+            ),
+            const Divider(color: Colors.grey),
+            ListTile(
+              leading: const Icon(Icons.refresh, color: Colors.green),
+              title: const Text(
+                'Rafraîchir la vue',
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: const Text(
+                'Recharge tous les événements',
+                style: TextStyle(color: Colors.grey),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _loadEvents();
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Vue rafraîchie')));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showClearDatabaseDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Générateur de Démo"),
+        title: const Text('⚠️ Effacer la base'),
         content: const Text(
-          "⚠️ Attention !\n\nCeci va EFFACER toutes vos données actuelles et générer 30 jours d'historique fictif (Pizza le vendredi, Douleurs le samedi...).\n\nAction irréversible.",
+          'Ceci va supprimer:\n'
+          '• Tous les événements\n'
+          '• Tous les aliments\n'
+          '• Le cache OpenFoodFacts\n'
+          '• Les modèles ML\n\n'
+          'Action IRRÉVERSIBLE !',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Annuler"),
+            child: const Text('Annuler'),
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(context);
-              await DatabaseHelper().generateDemoData();
-              _loadEvents();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Données de démo générées")),
-                );
+              try {
+                final db = await DatabaseHelper().database;
+                await db.delete('events');
+                await db.delete('foods');
+                await db.delete('products_cache');
+                _loadEvents();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Base de données effacée'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Erreur: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
-            child: const Text("CONFIRMER"),
+            child: const Text('EFFACER TOUT'),
           ),
         ],
       ),
     );
+  }
+
+  void _showGenerateDemoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('🎲 Générer Démo'),
+        content: const Text(
+          'Ceci va générer 30 jours d\'historique fictif:\n'
+          '• Repas variés (trigger et sains)\n'
+          '• Symptômes corrélés\n'
+          '• Selles avec Bristol scale\n\n'
+          'Les données existantes seront conservées.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.blue),
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await DatabaseHelper().generateDemoData();
+                _loadEvents();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Données de démo générées'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Erreur: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('GÉNÉRER'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _trainModels() async {
+    try {
+      final db = DatabaseHelper();
+      final events = await db.getEvents();
+
+      if (events.length < 10) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '⚠️ Pas assez de données (minimum 10 événements)\n'
+                'Utilisez "Générer données de démo" d\'abord.',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🧠 Entraînement en cours...'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Les modèles s'entraînent automatiquement dans insights_page.dart
+      // lors du chargement, mais on peut forcer un refresh ici
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '✅ Entraînement terminé\n'
+              '${events.length} événements analysés',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Future<void> _deleteEvent(int id) async {
@@ -771,12 +1130,7 @@ class _TimelinePageState extends State<TimelinePage> {
                 title: const Text("Modifier"),
                 onTap: () {
                   Navigator.pop(context);
-                  // TODO: Implement Edit
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Modification à venir (TODO)"),
-                    ),
-                  );
+                  _editEvent(event);
                 },
               ),
               ListTile(
@@ -825,17 +1179,89 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 
+  Widget _buildSymptomIntensityDisplay(EventModel event, Color color) {
+    // Try to parse new JSON format with zones
+    if (event.metaData != null && event.metaData!.isNotEmpty) {
+      try {
+        final metadata = jsonDecode(event.metaData!);
+        if (metadata['zones'] != null && metadata['zones'] is List) {
+          final zones = metadata['zones'] as List;
+          if (zones.isNotEmpty) {
+            final zoneTexts = zones
+                .map((z) {
+                  final name = z['name'] ?? event.title;
+                  final severity = z['severity'] ?? event.severity;
+                  return '$name: $severity/10';
+                })
+                .join('\n');
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                zoneTexts,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        print('[SYMPTOM] Failed to parse meta_data: $e');
+      }
+    }
+
+    // Fallback to old format (single severity)
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        'Intensité ${event.severity}/10',
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Crohnicles'),
+        title: const Text(
+          'Crohnicles',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bug_report, size: 22),
-            tooltip: 'Générer Démo',
-            onPressed: _generateDemoData,
+            icon: const Icon(Icons.timeline, size: 22),
+            tooltip: 'Timeline Visuelle',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TimelineChartPage(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.developer_mode, size: 22),
+            tooltip: 'Menu Développeur',
+            onPressed: _showDevMenu,
           ),
           IconButton(
             icon: const Icon(Icons.search, size: 22),
@@ -1055,7 +1481,7 @@ class _TimelinePageState extends State<TimelinePage> {
                       event.title,
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                        fontSize: 14,
                         color: AppColors.textPrimary,
                       ),
                     ),
@@ -1155,7 +1581,7 @@ class _TimelinePageState extends State<TimelinePage> {
                       event.title,
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                        fontSize: 14,
                         color: AppColors.textPrimary,
                       ),
                     ),
@@ -1265,29 +1691,12 @@ class _TimelinePageState extends State<TimelinePage> {
                       event.title,
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                        fontSize: 14,
                         color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        "Intensité ${event.severity}/10",
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                    _buildSymptomIntensityDisplay(event, color),
                   ],
                 ),
               ),

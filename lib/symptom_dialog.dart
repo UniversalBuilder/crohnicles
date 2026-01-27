@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_theme.dart';
+import 'event_model.dart';
 
 class SymptomEntryDialog extends StatefulWidget {
-  const SymptomEntryDialog({super.key});
+  final EventModel? existingEvent;
+
+  const SymptomEntryDialog({super.key, this.existingEvent});
 
   @override
   State<SymptomEntryDialog> createState() => _SymptomEntryDialogState();
@@ -13,8 +17,8 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // State partagé
-  double severity = 5.0;
+  // Per-zone severity tracking
+  Map<String, double> _zoneSeverities = {};
 
   // Sélection multiple
   Set<String> selectedAbdomenZones = {};
@@ -60,6 +64,46 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    // Pre-fill data if editing existing event
+    if (widget.existingEvent != null) {
+      final event = widget.existingEvent!;
+
+      // Try to parse new JSON format
+      if (event.metaData != null && event.metaData!.isNotEmpty) {
+        try {
+          final metadata = jsonDecode(event.metaData!);
+          if (metadata['zones'] != null && metadata['zones'] is List) {
+            final zones = metadata['zones'] as List;
+            for (var zone in zones) {
+              final name = zone['name'] as String?;
+              final severity = (zone['severity'] as num?)?.toDouble() ?? 5.0;
+              if (name != null) {
+                // Check if it's an abdomen zone
+                if (abdomenZones.contains(name)) {
+                  selectedAbdomenZones.add(name);
+                } else {
+                  // Assume it's a general zone
+                  selectedGeneralZones.add(name);
+                }
+                _zoneSeverities[name] = severity;
+              }
+            }
+          }
+        } catch (e) {
+          print('[SYMPTOM EDIT] Failed to parse meta_data: $e');
+          // Fallback: use title as single zone
+          selectedAbdomenZones.add(event.title);
+          _zoneSeverities[event.title] = event.severity.toDouble();
+        }
+      } else {
+        // Old format: single zone from title
+        if (abdomenZones.contains(event.title)) {
+          selectedAbdomenZones.add(event.title);
+        }
+        _zoneSeverities[event.title] = event.severity.toDouble();
+      }
+    }
   }
 
   @override
@@ -225,81 +269,47 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                         ),
                       ),
 
-                      // Severity slider
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            top: BorderSide(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              width: 1,
+                      // Per-zone severity editor
+                      if (selectedAbdomenZones.isNotEmpty ||
+                          selectedGeneralZones.isNotEmpty)
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 250),
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                width: 1,
+                              ),
                             ),
                           ),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "Intensité Globale",
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                  ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Intensité par zone",
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: AppColors.painGradient,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.painStart.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    "${severity.toInt()}/10",
-                                    style: GoogleFonts.inter(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
+                              ),
+                              const SizedBox(height: 12),
+                              Expanded(
+                                child: ListView(
+                                  children: [
+                                    ...selectedAbdomenZones.map(
+                                      (zone) => _buildZoneSeverityRow(zone),
                                     ),
-                                  ),
+                                    ...selectedGeneralZones.map((fullPath) {
+                                      final parts = fullPath.split(' > ');
+                                      return _buildZoneSeverityRow(parts[0]);
+                                    }),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            SliderTheme(
-                              data: SliderThemeData(
-                                activeTrackColor: AppColors.painStart,
-                                inactiveTrackColor: Colors.grey.shade300,
-                                thumbColor: AppColors.painEnd,
-                                overlayColor: AppColors.painStart.withValues(
-                                  alpha: 0.2,
-                                ),
-                                trackHeight: 6,
                               ),
-                              child: Slider(
-                                value: severity,
-                                min: 0,
-                                max: 10,
-                                divisions: 10,
-                                label: severity.round().toString(),
-                                onChanged: (v) => setState(() => severity = v),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -354,19 +364,33 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                             onTap: () {
                               List<Map<String, dynamic>> results = [];
                               for (var zone in selectedAbdomenZones) {
+                                final zoneSeverity =
+                                    (_zoneSeverities[zone] ?? 5.0).toInt();
                                 results.add({
                                   'title': zone,
-                                  'severity': severity.toInt(),
+                                  'severity': zoneSeverity,
                                   'tags': <String>[],
+                                  'meta_data': jsonEncode({
+                                    'zones': [
+                                      {'name': zone, 'severity': zoneSeverity},
+                                    ],
+                                  }),
                                 });
                               }
                               for (var fullPath in selectedGeneralZones) {
                                 final parts = fullPath.split(' > ');
                                 final title = parts[0];
+                                final zoneSeverity =
+                                    (_zoneSeverities[title] ?? 5.0).toInt();
                                 results.add({
                                   'title': title,
-                                  'severity': severity.toInt(),
+                                  'severity': zoneSeverity,
                                   'tags': parts.sublist(1),
+                                  'meta_data': jsonEncode({
+                                    'zones': [
+                                      {'name': title, 'severity': zoneSeverity},
+                                    ],
+                                  }),
                                 });
                               }
                               Navigator.pop(context, results);
@@ -686,6 +710,59 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildZoneSeverityRow(String zone) {
+    final severity = _zoneSeverities[zone] ?? 5.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(
+              zone,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 5,
+            child: SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: AppColors.painStart,
+                inactiveTrackColor: Colors.grey.shade300,
+                thumbColor: AppColors.painEnd,
+                overlayColor: AppColors.painStart.withValues(alpha: 0.2),
+                trackHeight: 4,
+              ),
+              child: Slider(
+                value: severity,
+                min: 0,
+                max: 10,
+                divisions: 10,
+                label: severity.round().toString(),
+                onChanged: (v) => setState(() => _zoneSeverities[zone] = v),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 40,
+            child: Text(
+              "${severity.toInt()}/10",
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: AppColors.painEnd,
+              ),
+              textAlign: TextAlign.end,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
