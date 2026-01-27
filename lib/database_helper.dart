@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'food_model.dart';
+import 'services/off_service.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -628,9 +629,98 @@ class DatabaseHelper {
     );
   }
 
+  /// Enrich local foods database with popular OFF products
+  /// This provides realistic demo data and better autocomplete
+  Future<void> enrichWithPopularOFFProducts() async {
+    print('[DB] 🌟 Enriching local DB with popular OFF products...');
+
+    // Import OFFService - only import here to avoid circular dependency
+    final offService = OFFService();
+
+    // List of common French food barcodes from OpenFoodFacts
+    final popularBarcodes = [
+      '3017620422003', // Nutella
+      '3270190127512', // Baguette tradition Paul
+      '3168930010883', // Yaourt nature Danone
+      '3073780970037', // Coca-Cola 33cl
+      '3270160311309', // Emmental râpé Président
+      '3229820129488', // Poulet rôti Père Dodu
+      '3560070462827', // Riz basmati Taureau Ailé
+      '3560071484477', // Pâtes penne Panzani
+      '3250391618583', // Pain de mie Harry's
+      '3228857000906', // Beurre doux Président
+      '3560070734016', // Tomates pelées en dés
+      '3222475787706', // Compote pomme Andros
+      '3083680085403', // Bananes
+      '3560070342099', // Lait demi-écrémé Lactel
+      '3760154262378', // Saumon fumé
+    ];
+
+    int successCount = 0;
+    for (final barcode in popularBarcodes) {
+      try {
+        final product = await offService.fetchByBarcode(barcode);
+        if (product != null) {
+          await insertOrUpdateFood(product);
+          successCount++;
+        }
+        // Delay to avoid rate limiting
+        await Future.delayed(const Duration(milliseconds: 200));
+      } catch (e) {
+        print('[DB] ⚠️ Failed to fetch barcode $barcode: $e');
+      }
+    }
+
+    print(
+      '[DB] ✅ Enriched local DB with $successCount/${popularBarcodes.length} OFF products',
+    );
+  }
+
   Future<int> insertFood(FoodModel food) async {
     Database db = await database;
     return await db.insert('foods', food.toMap());
+  }
+
+  /// Insert or update food if it already exists (by barcode or exact name)
+  /// Returns true if inserted/updated, false if already existed unchanged
+  Future<bool> insertOrUpdateFood(FoodModel food) async {
+    Database db = await database;
+
+    // Check if food already exists by barcode (if available) or exact name
+    List<Map<String, dynamic>> existing;
+    if (food.barcode != null && food.barcode!.isNotEmpty) {
+      existing = await db.query(
+        'foods',
+        where: 'barcode = ?',
+        whereArgs: [food.barcode],
+        limit: 1,
+      );
+    } else {
+      existing = await db.query(
+        'foods',
+        where: 'LOWER(name) = ?',
+        whereArgs: [food.name.toLowerCase()],
+        limit: 1,
+      );
+    }
+
+    if (existing.isEmpty) {
+      // Insert new food
+      await db.insert('foods', food.toMap());
+      print('[DB] ✅ Added new food to local DB: ${food.name}');
+      return true;
+    } else {
+      // Update existing food with new data (e.g., updated nutrition info)
+      final existingId = existing.first['id'];
+      await db.update(
+        'foods',
+        food.toMap(),
+        where: 'id = ?',
+        whereArgs: [existingId],
+      );
+      print('[DB] 🔄 Updated existing food: ${food.name}');
+      return true;
+    }
   }
 
   Future<List<FoodModel>> searchFoods(String query) async {

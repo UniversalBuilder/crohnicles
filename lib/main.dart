@@ -918,6 +918,22 @@ class _TimelinePageState extends State<TimelinePage> {
             ),
             const Divider(color: Colors.grey),
             ListTile(
+              leading: const Icon(Icons.cloud_download, color: Colors.orange),
+              title: const Text(
+                'Enrichir avec produits OFF populaires',
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: const Text(
+                'Télécharge ~15 produits réels depuis OpenFoodFacts',
+                style: TextStyle(color: Colors.grey),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _enrichWithOFFProducts();
+              },
+            ),
+            const Divider(color: Colors.grey),
+            ListTile(
               leading: const Icon(Icons.refresh, color: Colors.green),
               title: const Text(
                 'Rafraîchir la vue',
@@ -993,6 +1009,47 @@ class _TimelinePageState extends State<TimelinePage> {
         ],
       ),
     );
+  }
+
+  void _enrichWithOFFProducts() async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Expanded(
+              child: Text(
+                'Téléchargement des produits OpenFoodFacts...\nCela peut prendre 30-60 secondes.',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      await DatabaseHelper().enrichWithPopularOFFProducts();
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Base enrichie avec produits populaires'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _showGenerateDemoDialog() {

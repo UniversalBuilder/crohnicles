@@ -185,6 +185,15 @@ class _MealComposerDialogState extends State<MealComposerDialog>
       _cart.add(food);
       _searchController.clear();
     });
+
+    // Save OFF products to local DB for future offline access
+    if (food.barcode != null && food.barcode!.isNotEmpty) {
+      _dbHelper.insertOrUpdateFood(food).then((added) {
+        if (added) {
+          print('[CART] 💾 Saved OFF product to local DB: ${food.name}');
+        }
+      });
+    }
   }
 
   void _removeFromCart(FoodModel food) {
