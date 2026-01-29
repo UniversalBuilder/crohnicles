@@ -23,10 +23,10 @@ import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize date formatting for French locale (fixes LocaleDataException)
   await initializeDateFormatting('fr_FR', null);
-  
+
   // Initialisation de la base de données pour le Web et Desktop
   if (kIsWeb) {
     databaseFactory = databaseFactoryFfiWeb;
@@ -758,7 +758,8 @@ class _TimelinePageState extends State<TimelinePage> {
         );
         if (result != null && mounted) {
           // Parse foods - result['foods'] is now a List<Map>
-          final List<dynamic> foodsList = result['foods'] as List<dynamic>? ?? [];
+          final List<dynamic> foodsList =
+              result['foods'] as List<dynamic>? ?? [];
           final List<String> foodNames = foodsList
               .map(
                 (f) =>
@@ -1189,8 +1190,21 @@ class _TimelinePageState extends State<TimelinePage> {
     if (event.metaData != null && event.metaData!.isNotEmpty) {
       try {
         final metadata = jsonDecode(event.metaData!);
-        if (metadata['foods'] is List) {
-          foods = metadata['foods'];
+
+        if (metadata is List) {
+          foods = metadata;
+        } else if (metadata is Map && metadata.containsKey('foods')) {
+          var f = metadata['foods'];
+          if (f is String) {
+            try {
+              f = jsonDecode(f);
+            } catch (e) {
+              print('[MEAL DETAIL] Error decoding inner foods: $e');
+            }
+          }
+          if (f is List) {
+            foods = f;
+          }
         }
       } catch (e) {
         print('[MEAL DETAIL] Failed to parse meta_data: $e');

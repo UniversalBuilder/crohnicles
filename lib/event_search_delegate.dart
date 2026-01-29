@@ -49,7 +49,7 @@ class EventSearchDelegate extends SearchDelegate {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        
+
         final results = snapshot.data!;
         if (results.isEmpty) {
           return const Center(child: Text("Aucun résultat trouvé."));
@@ -68,7 +68,10 @@ class EventSearchDelegate extends SearchDelegate {
 
   Widget _buildEventCard(EventModel event, BuildContext context) {
     final dateTime = DateTime.parse(event.dateTime);
-    final formattedDate = DateFormat('d MMM yyyy • HH:mm', 'fr_FR').format(dateTime);
+    final formattedDate = DateFormat(
+      'd MMM yyyy • HH:mm',
+      'fr_FR',
+    ).format(dateTime);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -122,7 +125,9 @@ class EventSearchDelegate extends SearchDelegate {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: _getColorForType(event.type).withValues(alpha: 0.2),
+                        color: _getColorForType(
+                          event.type,
+                        ).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -259,12 +264,27 @@ class EventSearchDelegate extends SearchDelegate {
       final titleMatch = e.title.toLowerCase().contains(q);
       final tagMatch = e.tags.any((t) => t.toLowerCase().contains(q));
       final subMatch = e.subtitle.toLowerCase().contains(q);
-      
+
       // Search in meal foods
       if (e.type == EventType.meal && e.metaData != null) {
         try {
-          final data = jsonDecode(e.metaData!);
-          final foods = data['foods'] as List?;
+          final decoded = jsonDecode(e.metaData!);
+          List<dynamic>? foods;
+
+          if (decoded is List) {
+            foods = decoded;
+          } else if (decoded is Map && decoded.containsKey('foods')) {
+            var f = decoded['foods'];
+            if (f is String) {
+              try {
+                f = jsonDecode(f);
+              } catch (_) {}
+            }
+            if (f is List) {
+              foods = f;
+            }
+          }
+
           if (foods != null) {
             final foodMatch = foods.any((food) {
               final name = food['name'] as String?;
@@ -274,7 +294,7 @@ class EventSearchDelegate extends SearchDelegate {
           }
         } catch (_) {}
       }
-      
+
       return titleMatch || tagMatch || subMatch;
     }).toList();
   }

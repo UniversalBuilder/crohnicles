@@ -618,8 +618,27 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
         return const SizedBox.shrink();
       }
 
-      final data = jsonDecode(widget.meal.metaData!);
-      final foods = data['foods'] as List?;
+      final decoded = jsonDecode(widget.meal.metaData!);
+      List<dynamic>? foods;
+
+      if (decoded is List) {
+        foods = decoded;
+      } else if (decoded is Map && decoded.containsKey('foods')) {
+        var foodsRaw = decoded['foods'];
+
+        // Handle double-encoded JSON case
+        if (foodsRaw is String) {
+          try {
+            foodsRaw = jsonDecode(foodsRaw);
+          } catch (e) {
+            print('[RiskAssessmentCard] Failed to decode inner foods JSON: $e');
+          }
+        }
+
+        if (foodsRaw is List) {
+          foods = foodsRaw;
+        }
+      }
 
       if (foods == null || foods.isEmpty) {
         return const SizedBox.shrink();
@@ -637,8 +656,19 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
           ),
           const SizedBox(height: 12),
           ...foods.map((food) {
-            final name = food['name'] ?? 'Inconnu';
-            final tags = (food['tags'] as List?)?.cast<String>() ?? [];
+            String name = 'Inconnu';
+            if (food is Map && food.containsKey('name')) {
+              name = food['name'];
+            }
+            
+            List<String> tags = [];
+            if (food is Map && food.containsKey('tags')) {
+              if (food['tags'] is List) {
+                 tags = (food['tags'] as List).map((e) => e.toString()).toList();
+              } else if (food['tags'] is String) {
+                 tags = (food['tags'] as String).split(',').where((e) => e.isNotEmpty).toList();
+              }
+            }
 
             // Determine if risky based on tags
             final riskyTags = [

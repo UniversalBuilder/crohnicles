@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,6 +11,7 @@ import 'ml/model_manager.dart';
 import 'event_detail_page.dart';
 import 'services/training_service.dart';
 import 'ml/model_status_page.dart';
+import 'methodology_page.dart';
 
 class InsightsPage extends StatefulWidget {
   const InsightsPage({super.key});
@@ -260,7 +262,10 @@ class _InsightsPageState extends State<InsightsPage> {
       }
 
       // Trigger training
-      final result = await trainingService.trainModels();
+      TrainingResult result;
+      
+      // Call service (logic handles platform switch internally now)
+      result = await trainingService.trainModels();
       
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog

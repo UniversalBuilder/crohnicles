@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io'; 
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import '../database_helper.dart';
 import '../event_model.dart';
@@ -178,6 +180,7 @@ class ModelManager {
   final DatabaseHelper _db = DatabaseHelper();
 
   final Map<String, ModelMetadata> _models = {};
+  Map<String, Map<String, double>> _statisticalModels = {};
   bool _isInitialized = false;
 
   /// Load all models from assets
@@ -186,7 +189,7 @@ class ModelManager {
 
     print('[ModelManager] Initializing...');
 
-    // Load all available models from symptom taxonomy
+    // 1. Load ML Models (Desktop trained)
     for (final config in SymptomTaxonomy.models) {
       try {
         final jsonString = await rootBundle.loadString(
@@ -199,20 +202,38 @@ class ModelManager {
           '[ModelManager] ✓ Loaded ${config.modelKey} model (trained: ${_models[config.modelKey]!.trainingDate})',
         );
       } catch (e) {
-        // Models are optional - system will use correlation-based fallback
-        // This is expected on first launch or if models haven't been trained yet
+        // Models are optional
       }
+    }
+
+    // 2. Load Statistical Models (Mobile trained)
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/statistical_model.json');
+      if (await file.exists()) {
+        final jsonString = await file.readAsString();
+        final json = jsonDecode(jsonString);
+        if (json['correlations'] != null) {
+          _statisticalModels = Map<String, Map<String, double>>.from(
+            (json['correlations'] as Map).map(
+              (key, value) => MapEntry(
+                key,
+                Map<String, double>.from(value),
+              ),
+            ),
+          );
+          print('[ModelManager] ✓ Loaded Statistical Models');
+        }
+      }
+    } catch (e) {
+      print('[ModelManager] Error loading stats: $e');
     }
 
     _isInitialized = true;
 
-    if (_models.isEmpty) {
+    if (_models.isEmpty && _statisticalModels.isEmpty) {
       print(
-        '[ModelManager] ℹ No trained models found - using correlation-based predictions',
-      );
-    } else {
-      print(
-        '[ModelManager] ✓ Initialization complete (${_models.length} models loaded)',
+        '[ModelManager] ℹ No trained models found - using default heuristics',
       );
     }
   }
@@ -243,7 +264,12 @@ class ModelManager {
       }
     }
 
-    // If no models loaded, use fallback correlation-based predictions
+    // If no ML models loaded, try Statistical Models
+    if (predictions.isEmpty && _statisticalModels.isNotEmpty) {
+      return _predictWithStats(meal, context, features);
+    }
+    
+    // Fallback if nothing else
     if (predictions.isEmpty) {
       return _fallbackPredictions(meal, context);
     }
@@ -369,6 +395,101 @@ class ModelManager {
     return factors.take(5).toList();
   }
 
+  /// Use Statistical Engine for predictions
+  Future<List<RiskPrediction>> _predictWithStats(
+    EventModel meal,
+    ContextModel context,
+    Map<String, double> features,
+  ) async {
+    final predictions = <RiskPrediction>[];
+    
+    // Add specific keywords to features for matching
+    if (meal.metaData != null && meal.metaData!.isNotEmpty) {
+        try {
+          final meta = jsonDecode(meal.metaData!);
+          if (meta['foods'] is List) {
+            for (var food in meta['foods']) {
+              if (food is Map && food['name'] != null) {
+                final name = (food['name'] as String).toLowerCase();
+                if (name.contains('soda') || name.contains('coca')) features['keyword_soda'] = 1.0;
+                if (name.contains('café')) features['keyword_coffee'] = 1.0;
+                if (name.contains('lait')) features['keyword_milk'] = 1.0;
+                if (name.contains('pain')) features['keyword_bread'] = 1.0;
+              }
+            }
+          }
+        } catch (_) {}
+    }
+
+    for (final symptom in _statisticalModels.keys) {
+      final correlations = _statisticalModels[symptom]!;
+      double totalRisk = 0.0;
+      final explainedFactors = <TopFactor>[];
+      
+      // Calculate risk based on present features
+      features.forEach((key, value) {
+        if (value > 0 && correlations.containsKey(key)) {
+          final probability = correlations[key]!;
+          // Only count significant risks
+          if (probability > 0.1) {
+            totalRisk += probability * 0.5; // Scale down individual contributions
+            
+            // Add to explanation
+            explainedFactors.add(TopFactor(
+              featureName: key, 
+              contribution: probability, 
+              humanReadable: '${_humanReadableFeature(key)} (${(probability * 100).toStringAsFixed(0)}%)'
+            ));
+          }
+        }
+      });
+      
+      // Cap risk at 0.95
+      totalRisk = totalRisk.clamp(0.0, 0.95);
+      
+      // Sort factors
+      explainedFactors.sort((a, b) => b.contribution.compareTo(a.contribution));
+
+      // Determine explanation text
+      String explanation = "Risque faible basé sur vos statistiques.";
+      if (totalRisk > 0.6) {
+         explanation = "Risque élevé basé sur vos historiques précédents.";
+      } else if (totalRisk > 0.3) {
+         explanation = "Risque modéré détecté.";
+      }
+
+      predictions.add(RiskPrediction(
+        symptomType: symptom, 
+        riskScore: totalRisk, 
+        confidence: 0.8, // Stats are usually reliable if they exist
+        topFactors: explainedFactors.take(3).toList(), 
+        explanation: explanation, 
+        similarMealIds: []
+      ));
+    }
+    
+    // If stats are empty for some reason, fallback
+    if (predictions.isEmpty) {
+        return _fallbackPredictions(meal, context);
+    }
+    
+    return predictions;
+  }
+  
+  String _humanReadableFeature(String key) {
+    switch (key) {
+      case 'tag_gluten': return 'Gluten';
+      case 'tag_lactose': return 'Lactose';
+      case 'tag_gras': return 'Aliments gras';
+      case 'tag_sucre': return 'Sucre';
+      case 'keyword_soda': return 'Soda/Boisson gazeuse';
+      case 'keyword_coffee': return 'Café';
+      case 'keyword_milk': return 'Lait';
+      case 'is_late_night': return 'Repas tardif';
+      default: return key.replaceAll('tag_', '').replaceAll('_', ' ');
+    }
+  }
+
   /// Generate human-readable explanation
   String _generateExplanation(
     String symptomType,
@@ -429,6 +550,43 @@ class ModelManager {
       if (tagsLower.contains('épicé')) riskScore += 0.1;
       if (tagsLower.contains('alcool')) riskScore += 0.15;
       if (tagsLower.contains('gaz')) riskScore += 0.1;
+
+      // Check food names in metadata for specific triggers (Soda, etc.)
+      if (meal.metaData != null && meal.metaData!.isNotEmpty) {
+        try {
+          final meta = jsonDecode(meal.metaData!);
+          if (meta['foods'] is List) {
+            for (var food in meta['foods']) {
+              if (food is Map && food['name'] != null) {
+                final name = (food['name'] as String).toLowerCase();
+
+                // Bloating specific triggers
+                if (config.modelKey == 'bloating') {
+                  if (name.contains('soda') ||
+                      name.contains('coca') ||
+                      name.contains('pepsi') ||
+                      name.contains('gazeu') ||
+                      name.contains('limonade')) {
+                    riskScore += 0.4; // High impact on bloating
+                  }
+                  if (name.contains('haricot') || name.contains('chou')) {
+                    riskScore += 0.3;
+                  }
+                }
+
+                // Generic triggers based on name
+                if (name.contains('frit') ||
+                    name.contains('mcdo') ||
+                    name.contains('kebab')) {
+                  riskScore += 0.2;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      }
 
       riskScore = riskScore.clamp(0.0, 1.0);
 

@@ -4,6 +4,7 @@ import '../app_theme.dart';
 import '../database_helper.dart';
 import '../services/training_service.dart';
 import '../symptom_taxonomy.dart';
+import '../methodology_page.dart';
 
 class ModelStatusPage extends StatefulWidget {
   const ModelStatusPage({super.key});
@@ -81,7 +82,7 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _buildCorrelationExplanationCard(),
+                _buildMethodologyButton(),
                 const SizedBox(height: 16),
                 _buildDataAvailabilityCard(),
                 const SizedBox(height: 16),
@@ -90,6 +91,64 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
                 _buildTrainingHistoryCard(),
               ],
             ),
+    );
+  }
+
+  Widget _buildMethodologyButton() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+               // Use dynamic import or lazy load to avoid massive refactor just for this link
+               // For now assuming MethodologyPage is available via routing or we import it.
+               builder: (context) => const MethodologyPage(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.info_outline, color: Colors.blue),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Comment ça marche ?",
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      "Comprendre le moteur statistique et les prédictions",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

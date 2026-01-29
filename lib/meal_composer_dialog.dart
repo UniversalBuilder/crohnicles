@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -70,12 +71,23 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     }
 
     // Initialize TabController with initial index based on edit mode
-    // In edit mode, start on Cart tab (index 3) to show the cart
-    // In create mode, start on Scanner tab (index 0)
+    // In edit mode, start on Cart tab to show the cart
+    // In create mode, start on Scanner tab (Mobile) or Search tab (Desktop)
+    final bool isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final int tabCount = isMobile ? 4 : 3;
+    final int cartIndex = isMobile ? 3 : 2;
+
+    // Default start tab: Scanner (0) on Mobile, Search (0) on Desktop (since Scanner is removed)
+    int initialIndex = isMobile ? 0 : 0;
+
+    if (isEditMode && _cart.isNotEmpty) {
+      initialIndex = cartIndex;
+    }
+
     _tabController = TabController(
-      length: 4,
+      length: tabCount,
       vsync: this,
-      initialIndex: isEditMode && _cart.isNotEmpty ? 3 : 0,
+      initialIndex: initialIndex,
     );
   }
 
@@ -290,13 +302,21 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    final newFood = FoodModel(
+                    var newFood = FoodModel(
                       id: 0,
                       name: name,
                       category: selectedCategory,
                       tags: selectedTags,
                     );
-                    await _dbHelper.insertFood(newFood);
+                    final id = await _dbHelper.insertFood(newFood);
+                    // Update food with valid ID
+                    newFood = FoodModel(
+                      id: id,
+                      name: name,
+                      category: selectedCategory,
+                      tags: selectedTags,
+                    );
+
                     if (mounted) {
                       Navigator.pop(context);
                       _addToCart(newFood);
@@ -324,7 +344,9 @@ class _MealComposerDialogState extends State<MealComposerDialog>
 
     // Return raw objects, let the caller handle serialization
     final result = {
-      'foods': _cart.map((f) => f.toMap()).toList(), // List<Map<String, dynamic>>
+      'foods': _cart
+          .map((f) => f.toMap())
+          .toList(), // List<Map<String, dynamic>>
       'tags': allTags,
       'is_snack': _isSnack,
     };
@@ -506,10 +528,11 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                     fontSize: 13,
                   ),
                   tabs: [
-                    const Tab(
-                      icon: Icon(Icons.qr_code_scanner, size: 20),
-                      text: "Scanner",
-                    ),
+                    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+                      const Tab(
+                        icon: Icon(Icons.qr_code_scanner, size: 20),
+                        text: "Scanner",
+                      ),
                     const Tab(
                       icon: Icon(Icons.search, size: 20),
                       text: "Rechercher",
@@ -535,7 +558,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildScannerTab(),
+                    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+                      _buildScannerTab(),
                     _buildSearchTab(),
                     _buildCreateTab(),
                     _buildCartTab(),
@@ -1249,7 +1273,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   // Tab 2: Search (existing functionality)
   Widget _buildSearchTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 300),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1579,167 +1603,48 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   }
 
   Widget _buildAutocomplete() {
-    return Autocomplete<FoodModel>(
-      optionsBuilder: (textEditingValue) async {
-        if (textEditingValue.text.isEmpty) {
-          return const Iterable<FoodModel>.empty();
-        }
-        return await _search(textEditingValue.text);
-      },
-      displayStringForOption: (FoodModel option) => option.name,
-      onSelected: (FoodModel selection) {
-        _addToCart(selection);
-        // Clear search field after adding to cart
-        _searchController.clear();
-      },
-      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-        _searchController.text = controller.text;
-        controller.addListener(() {
-          _searchController.text = controller.text;
-        });
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          decoration: InputDecoration(
-            hintText: 'Ex: Pâtes, Poulet, Pomme...',
-            prefixIcon: ShaderMask(
-              shaderCallback: (bounds) =>
-                  AppColors.mealGradient.createShader(bounds),
-              child: const Icon(Icons.search, color: Colors.white),
-            ),
-            suffixIcon: controller.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, size: 20),
-                    onPressed: () {
-                      controller.clear();
-                    },
-                  )
-                : null,
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: AppColors.mealGradient.colors.first,
-                width: 2,
-              ),
-            ),
-          ),
-          onSubmitted: (value) {
-            onFieldSubmitted();
-          },
-        );
-      },
-      optionsViewBuilder: (context, onSelected, options) {
-        return Align(
-          alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              width: 400,
-              constraints: const BoxConstraints(maxHeight: 300),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppColors.mealGradient.colors.first.withValues(
-                    alpha: 0.3,
-                  ),
-                  width: 1.5,
-                ),
-              ),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(8),
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final FoodModel option = options.elementAt(index);
-                  final isFromOFF =
-                      option.barcode != null && option.barcode!.isNotEmpty;
-
-                  return ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.mealGradient.colors.first.withValues(
-                              alpha: 0.2,
-                            ),
-                            AppColors.mealGradient.colors.last.withValues(
-                              alpha: 0.1,
-                            ),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ShaderMask(
-                        shaderCallback: (bounds) =>
-                            AppColors.mealGradient.createShader(bounds),
-                        child: Icon(
-                          isFromOFF ? Icons.cloud_done : Icons.restaurant,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    title: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            option.name,
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (isFromOFF)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blue.shade200),
-                            ),
-                            child: Text(
-                              'OFF',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.blue.shade700,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    subtitle: Text(
-                      '${option.category}${option.tags.isNotEmpty ? " • ${option.tags.join(", ")}" : ""}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    onTap: () {
-                      onSelected(option);
-                    },
-                  );
+    return TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: 'Ex: Pâtes, Poulet, Pomme...',
+        prefixIcon: ShaderMask(
+          shaderCallback: (bounds) =>
+              AppColors.mealGradient.createShader(bounds),
+          child: const Icon(Icons.search, color: Colors.white),
+        ),
+        suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 20),
+                onPressed: () {
+                  _searchController.clear();
+                  _search(''); // Clear results by triggering empty search
                 },
-              ),
-            ),
+              )
+            : null,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: AppColors.mealGradient.colors.first,
+            width: 2,
           ),
-        );
+        ),
+      ),
+      onChanged: (value) {
+        setState(() {}); // Rebuild to toggle suffix icon
+        _search(value);
+      },
+      onSubmitted: (value) {
+        _searchOpenFoodFacts();
       },
     );
   }

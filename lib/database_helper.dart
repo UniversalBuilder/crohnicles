@@ -52,7 +52,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       dbPath,
-      version: 9,
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -313,8 +313,18 @@ class DatabaseHelper {
       });
     }
     if (oldVersion < 9) {
-      print('[DB] Migrating to v9: Updating with comprehensive generic food list');
+      print(
+        '[DB] Migrating to v9: Updating with comprehensive generic food list',
+      );
       // Remove old basic foods to avoid duplicates/outdated ones
+      await db.delete('foods', where: 'isBasicFood = ?', whereArgs: [1]);
+      await _seedGenericFoods(db);
+    }
+    if (oldVersion < 10) {
+      print(
+        '[DB] Migrating to v10: Refreshing generic foods (Adding aliases like Coca)',
+      );
+      // Remove old basic foods to avoid duplicates before re-seeding
       await db.delete('foods', where: 'isBasicFood = ?', whereArgs: [1]);
       await _seedGenericFoods(db);
     }
@@ -325,9 +335,9 @@ class DatabaseHelper {
     Batch batch = db.batch();
     for (var food in genericFoods) {
       batch.insert(
-        'foods', 
-        food.toMap(), 
-        conflictAlgorithm: ConflictAlgorithm.replace
+        'foods',
+        food.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
     await batch.commit(noResult: true);
@@ -765,16 +775,27 @@ class DatabaseHelper {
   }
 
   Future<List<FoodModel>> searchFoods(String query) async {
-    print('[DB] Searching foods with query: "${query}"');
+    print('[DB] Searching foods with query: "$query"');
     Database db = await database;
+    
+    // Debug: Check if DB has data
+    if (query.length > 2) {
+       final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM foods'));
+       print('[DB] Food table count: $count');
+       if (count == 0) {
+         print('[DB] Table empty, attempting re-seed...');
+         await _seedGenericFoods(db);
+       }
+    }
+
     final List<Map<String, dynamic>> maps = await db.query(
       'foods',
-      where: 'name LIKE ?',
-      whereArgs: ['%$query%'],
-      orderBy: 'isBasicFood DESC, length(name) ASC', 
+      where: 'LOWER(name) LIKE ?',
+      whereArgs: ['%${query.toLowerCase()}%'],
+      orderBy: 'isBasicFood DESC, length(name) ASC',
       limit: 20,
     );
-    print('[DB] Found ${maps.length} results for "${query}"');
+    print('[DB] Found ${maps.length} results for "$query"');
     return List.generate(maps.length, (i) {
       return FoodModel.fromMap(maps[i]);
     });
@@ -793,7 +814,7 @@ class DatabaseHelper {
 
   Future<void> generateDemoData() async {
     print('[DB] Starting realistic demo data generation (v9)...');
-    
+
     Database db = await database;
     await db.delete('events');
     print('[DB] Deleted all existing events');
@@ -807,7 +828,7 @@ class DatabaseHelper {
       where: 'isBasicFood = 1',
     );
     final basicFoods = foodMaps.map((m) => FoodModel.fromMap(m)).toList();
-    
+
     if (basicFoods.isEmpty) {
       print('[DB] ⚠️ No generic foods found! Seeding...');
       await _seedGenericFoods(db);
@@ -817,7 +838,9 @@ class DatabaseHelper {
     }
 
     // 2. Categorize Foods for Meal Construction
-    final proteins = basicFoods.where((f) => f.tags.contains('Protéine')).toList();
+    final proteins = basicFoods
+        .where((f) => f.tags.contains('Protéine'))
+        .toList();
     final carbs = basicFoods.where((f) => f.tags.contains('Féculent')).toList();
     final veggies = basicFoods.where((f) => f.tags.contains('Légume')).toList();
     final fruits = basicFoods.where((f) => f.tags.contains('Fruit')).toList();
@@ -826,8 +849,9 @@ class DatabaseHelper {
     final snacks = basicFoods.where((f) => f.category == 'En-cas').toList();
 
     // Helper to get random item
-    FoodModel random(List<FoodModel> list) => list[DateTime.now().microsecond % list.length];
-    
+    FoodModel random(List<FoodModel> list) =>
+        list[DateTime.now().microsecond % list.length];
+
     // Helper to create meal
     Map<String, dynamic> createMeal(List<FoodModel> foods) {
       return {
@@ -840,59 +864,75 @@ class DatabaseHelper {
     // Let's simulate a user sensitive to Gluten and Spicy food
     final sensitiveToGluten = true;
     final sensitiveToSpicy = true;
-    
+
     // 4. Generate 60 Days of Data
     for (int i = 60; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
-      
+
       // Weather Context (Simplified random)
       final temp = 15.0 + (i % 10);
       final weatherContext = jsonEncode({
         'temperature': temp.toStringAsFixed(1),
         'pressure': (1013 - (i % 5)).toStringAsFixed(1),
-        'weather': (i % 7 == 0) ? 'rainy' : 'sunny'
+        'weather': (i % 7 == 0) ? 'rainy' : 'sunny',
       });
 
       // === BREAKFAST (8:00) ===
       final breakfastFoods = [
         random(drinks), // Coffee/Tea
-        random(carbs.where((f) => f.name.contains('Pain') || f.name.contains('Avoine')).toList()),
+        random(
+          carbs
+              .where(
+                (f) => f.name.contains('Pain') || f.name.contains('Avoine'),
+              )
+              .toList(),
+        ),
         (i % 2 == 0) ? random(dairy) : random(fruits),
       ];
       final bMeal = createMeal(breakfastFoods);
-      
+
       batch.insert('events', {
         'type': 'meal',
-        'dateTime': DateTime(date.year, date.month, date.day, 8, 0).toIso8601String(),
+        'dateTime': DateTime(
+          date.year,
+          date.month,
+          date.day,
+          8,
+          0,
+        ).toIso8601String(),
         'title': 'Petit-déjeuner',
         'subtitle': breakfastFoods.map((f) => f.name).join(', '),
         'severity': 0,
         'tags': (bMeal['tags'] as List).join(','),
         'meta_data': jsonEncode({'foods': bMeal['foods'], 'is_snack': false}),
         'context_data': weatherContext,
-        'isUrgent': 0, 'isSnack': 0,
+        'isUrgent': 0,
+        'isSnack': 0,
       });
 
       // === LUNCH (12:30) ===
-      final lunchFoods = [
-        random(proteins),
-        random(carbs),
-        random(veggies),
-      ];
+      final lunchFoods = [random(proteins), random(carbs), random(veggies)];
       // Randomly add a dessert
       if (i % 3 == 0) lunchFoods.add(random(fruits));
-      
+
       final lMeal = createMeal(lunchFoods);
       batch.insert('events', {
         'type': 'meal',
-        'dateTime': DateTime(date.year, date.month, date.day, 12, 30).toIso8601String(),
+        'dateTime': DateTime(
+          date.year,
+          date.month,
+          date.day,
+          12,
+          30,
+        ).toIso8601String(),
         'title': 'Déjeuner',
         'subtitle': lunchFoods.map((f) => f.name).join(', '),
         'severity': 0,
         'tags': (lMeal['tags'] as List).join(','),
         'meta_data': jsonEncode({'foods': lMeal['foods'], 'is_snack': false}),
         'context_data': weatherContext,
-        'isUrgent': 0, 'isSnack': 0,
+        'isUrgent': 0,
+        'isSnack': 0,
       });
 
       // === DINNER (19:30) ===
@@ -902,17 +942,24 @@ class DatabaseHelper {
         (i % 5 == 0) ? random(carbs) : random(veggies), // Less carbs at night
       ];
       final dMeal = createMeal(dinnerFoods);
-      
+
       batch.insert('events', {
         'type': 'meal',
-        'dateTime': DateTime(date.year, date.month, date.day, 19, 30).toIso8601String(),
+        'dateTime': DateTime(
+          date.year,
+          date.month,
+          date.day,
+          19,
+          30,
+        ).toIso8601String(),
         'title': 'Dîner',
         'subtitle': dinnerFoods.map((f) => f.name).join(', '),
         'severity': 0,
         'tags': (dMeal['tags'] as List).join(','),
         'meta_data': jsonEncode({'foods': dMeal['foods'], 'is_snack': false}),
         'context_data': weatherContext,
-        'isUrgent': 0, 'isSnack': 0,
+        'isUrgent': 0,
+        'isSnack': 0,
       });
 
       // === SNACK (16:00) - Occasional ===
@@ -921,14 +968,21 @@ class DatabaseHelper {
         final sMeal = createMeal(snackFoods);
         batch.insert('events', {
           'type': 'meal',
-          'dateTime': DateTime(date.year, date.month, date.day, 16, 0).toIso8601String(),
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            16,
+            0,
+          ).toIso8601String(),
           'title': 'Goûter',
           'subtitle': snackFoods[0].name,
           'severity': 0,
           'tags': (sMeal['tags'] as List).join(','),
           'meta_data': jsonEncode({'foods': sMeal['foods'], 'is_snack': true}),
           'context_data': weatherContext,
-          'isUrgent': 0, 'isSnack': 1,
+          'isUrgent': 0,
+          'isSnack': 1,
         });
       }
 
@@ -948,56 +1002,87 @@ class DatabaseHelper {
       }
 
       // Reaction: 2-4 hours after meal (simplified to afternoon/evening/next morning)
-      
-      if (triggerGluten && (i % 3 != 0)) { // 66% chance of reaction
+
+      if (triggerGluten && (i % 3 != 0)) {
+        // 66% chance of reaction
         batch.insert('events', {
           'type': 'symptom',
-          'dateTime': DateTime(date.year, date.month, date.day, 14, 30).toIso8601String(),
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            14,
+            30,
+          ).toIso8601String(),
           'title': 'Ballonnement',
           'subtitle': 'Post-repas',
           'severity': 4 + (i % 3),
           'tags': 'Gaz,Digestion',
           'context_data': weatherContext,
-          'isUrgent': 0, 'isSnack': 0,
+          'isUrgent': 0,
+          'isSnack': 0,
         });
       }
 
-      if (triggerSpicy && (i % 2 == 0)) { // 50% chance
+      if (triggerSpicy && (i % 2 == 0)) {
+        // 50% chance
         batch.insert('events', {
           'type': 'symptom',
-          'dateTime': DateTime(date.year, date.month, date.day, 21, 0).toIso8601String(),
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            21,
+            0,
+          ).toIso8601String(),
           'title': 'Brûlures d\'estomac',
           'subtitle': 'Acide',
           'severity': 6,
           'tags': 'Inflammation',
           'context_data': weatherContext,
-          'isUrgent': 0, 'isSnack': 0,
+          'isUrgent': 0,
+          'isSnack': 0,
         });
       }
 
       // Random good/bad days independent of food (Flare-ups)
-      if (i == 10 || i == 11 || i == 12) { // A 3-day flare up
-         batch.insert('events', {
+      if (i == 10 || i == 11 || i == 12) {
+        // A 3-day flare up
+        batch.insert('events', {
           'type': 'symptom',
-          'dateTime': DateTime(date.year, date.month, date.day, 10, 0).toIso8601String(),
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            10,
+            0,
+          ).toIso8601String(),
           'title': 'Douleur Abdominale',
           'subtitle': 'Crise',
           'severity': 8,
           'tags': 'Inflammation,Général',
           'context_data': weatherContext,
-          'isUrgent': 1, 'isSnack': 0,
+          'isUrgent': 1,
+          'isSnack': 0,
         });
-        
+
         // Diarrhea during flare
         batch.insert('events', {
           'type': 'stool',
-          'dateTime': DateTime(date.year, date.month, date.day, 11, 0).toIso8601String(),
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            11,
+            0,
+          ).toIso8601String(),
           'title': 'Type 7',
           'subtitle': 'Eau',
           'severity': 0,
           'tags': 'Urgent,Sang',
           'context_data': weatherContext,
-          'isUrgent': 1, 'isSnack': 0,
+          'isUrgent': 1,
+          'isSnack': 0,
         });
       }
 
@@ -1005,19 +1090,28 @@ class DatabaseHelper {
       if (i != 10 && i != 11 && i != 12) {
         batch.insert('events', {
           'type': 'stool',
-          'dateTime': DateTime(date.year, date.month, date.day, 8, 30).toIso8601String(),
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            8,
+            30,
+          ).toIso8601String(),
           'title': 'Type 4',
           'subtitle': 'Normal',
           'severity': 0,
           'tags': 'Normal',
           'context_data': weatherContext,
-          'isUrgent': 0, 'isSnack': 0,
+          'isUrgent': 0,
+          'isSnack': 0,
         });
       }
     }
 
     await batch.commit();
-    print('[DB] Generated 60 days of realistic demo data based on Generic Foods.');
+    print(
+      '[DB] Generated 60 days of realistic demo data based on Generic Foods.',
+    );
   }
 
   // --- Analysis Helpers ---

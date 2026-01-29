@@ -28,45 +28,39 @@ class _EventDetailPageState extends State<EventDetailPage> {
   Future<void> _loadRelatedEvents() async {
     final db = DatabaseHelper();
     final eventTime = DateTime.parse(widget.event.dateTime);
-    
+
     if (widget.event.type == EventType.meal) {
       // Find symptoms 2-24h after this meal
       final startTime = eventTime.add(const Duration(hours: 2));
       final endTime = eventTime.add(const Duration(hours: 24));
-      
+
       final allEvents = await db.getEvents();
-      _relatedEvents = allEvents
-          .map((e) => EventModel.fromMap(e))
-          .where((e) {
-            if (e.type != EventType.symptom || e.severity < 6) return false;
-            try {
-              final eTime = DateTime.parse(e.dateTime);
-              return eTime.isAfter(startTime) && eTime.isBefore(endTime);
-            } catch (e) {
-              return false;
-            }
-          })
-          .toList();
+      _relatedEvents = allEvents.map((e) => EventModel.fromMap(e)).where((e) {
+        if (e.type != EventType.symptom || e.severity < 6) return false;
+        try {
+          final eTime = DateTime.parse(e.dateTime);
+          return eTime.isAfter(startTime) && eTime.isBefore(endTime);
+        } catch (e) {
+          return false;
+        }
+      }).toList();
     } else if (widget.event.type == EventType.symptom) {
       // Find meals 2-24h before this symptom
       final startTime = eventTime.subtract(const Duration(hours: 24));
       final endTime = eventTime.subtract(const Duration(hours: 2));
-      
+
       final allEvents = await db.getEvents();
-      _relatedEvents = allEvents
-          .map((e) => EventModel.fromMap(e))
-          .where((e) {
-            if (e.type != EventType.meal) return false;
-            try {
-              final eTime = DateTime.parse(e.dateTime);
-              return eTime.isAfter(startTime) && eTime.isBefore(endTime);
-            } catch (e) {
-              return false;
-            }
-          })
-          .toList();
+      _relatedEvents = allEvents.map((e) => EventModel.fromMap(e)).where((e) {
+        if (e.type != EventType.meal) return false;
+        try {
+          final eTime = DateTime.parse(e.dateTime);
+          return eTime.isAfter(startTime) && eTime.isBefore(endTime);
+        } catch (e) {
+          return false;
+        }
+      }).toList();
     }
-    
+
     setState(() => _isLoading = false);
   }
 
@@ -99,7 +93,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
   @override
   Widget build(BuildContext context) {
     final eventTime = DateTime.parse(widget.event.dateTime);
-    
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -108,9 +102,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                decoration: BoxDecoration(
-                  gradient: _getGradient(),
-                ),
+                decoration: BoxDecoration(gradient: _getGradient()),
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
@@ -140,8 +132,10 @@ class _EventDetailPageState extends State<EventDetailPage> {
                           ),
                         ),
                         Text(
-                          DateFormat('EEEE d MMMM yyyy • HH:mm', 'fr_FR')
-                              .format(eventTime),
+                          DateFormat(
+                            'EEEE d MMMM yyyy • HH:mm',
+                            'fr_FR',
+                          ).format(eventTime),
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             color: Colors.white.withValues(alpha: 0.9),
@@ -194,12 +188,16 @@ class _EventDetailPageState extends State<EventDetailPage> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             if (widget.event.subtitle.isNotEmpty) ...[
-              _buildDetailRow(Icons.info_outline, 'Note', widget.event.subtitle),
+              _buildDetailRow(
+                Icons.info_outline,
+                'Note',
+                widget.event.subtitle,
+              ),
               const SizedBox(height: 12),
             ],
-            
+
             if (widget.event.tags.isNotEmpty) ...[
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,9 +212,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                         return Chip(
                           label: Text(tag),
                           labelStyle: GoogleFonts.inter(fontSize: 12),
-                          backgroundColor: _getGradient()
-                              .colors
-                              .first
+                          backgroundColor: _getGradient().colors.first
                               .withValues(alpha: 0.15),
                         );
                       }).toList(),
@@ -226,8 +222,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
               ),
               const SizedBox(height: 12),
             ],
-            
-            if (widget.event.type == EventType.symptom && widget.event.severity > 0) ...[
+
+            if (widget.event.type == EventType.symptom &&
+                widget.event.severity > 0) ...[
               _buildDetailRow(
                 Icons.speed,
                 'Sévérité',
@@ -235,8 +232,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
               ),
               const SizedBox(height: 12),
             ],
-            
-            if (widget.event.type == EventType.meal && widget.event.metaData != null)
+
+            if (widget.event.type == EventType.meal &&
+                widget.event.metaData != null)
               _buildFoodsList(),
           ],
         ),
@@ -246,8 +244,21 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
   Widget _buildFoodsList() {
     try {
-      final foods = jsonDecode(widget.event.metaData!) as List<dynamic>;
-      
+      final decoded = jsonDecode(widget.event.metaData!);
+      List<dynamic> foods;
+
+      if (decoded is List) {
+        foods = decoded;
+      } else if (decoded is Map && decoded.containsKey('foods')) {
+        var foodsRaw = decoded['foods'];
+        if (foodsRaw is String) {
+          foodsRaw = jsonDecode(foodsRaw);
+        }
+        foods = foodsRaw as List<dynamic>;
+      } else {
+        return const SizedBox.shrink();
+      }
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -305,17 +316,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
         const SizedBox(width: 12),
         Text(
           '$label: ',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
         ),
-        Expanded(
-          child: Text(
-            value,
-            style: GoogleFonts.inter(fontSize: 14),
-          ),
-        ),
+        Expanded(child: Text(value, style: GoogleFonts.inter(fontSize: 14))),
       ],
     );
   }
@@ -324,7 +327,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
     final title = widget.event.type == EventType.meal
         ? 'Symptômes dans les 24h suivantes'
         : 'Repas suspectés (24h avant)';
-    
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -335,11 +338,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
           children: [
             Row(
               children: [
-                Icon(
-                  Icons.link,
-                  color: _getGradient().colors.first,
-                  size: 20,
-                ),
+                Icon(Icons.link, color: _getGradient().colors.first, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   title,
@@ -357,7 +356,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                   .difference(DateTime.parse(widget.event.dateTime))
                   .inHours
                   .abs();
-              
+
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
@@ -447,7 +446,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Supprimer'),
-                  content: const Text('Voulez-vous vraiment supprimer cet événement ?'),
+                  content: const Text(
+                    'Voulez-vous vraiment supprimer cet événement ?',
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
@@ -461,11 +462,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
                   ],
                 ),
               );
-              
+
               if (confirm == true && widget.event.id != null) {
                 await DatabaseHelper().deleteEvent(widget.event.id!);
                 if (mounted) {
-                  Navigator.pop(context, true); // Return true to refresh timeline
+                  Navigator.pop(
+                    context,
+                    true,
+                  ); // Return true to refresh timeline
                 }
               }
             },

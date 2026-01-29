@@ -19,13 +19,21 @@ class FeatureExtractor {
     // === MEAL TAG FEATURES (One-hot encoded) ===
     final tags = meal.tags.map((t) => t.toLowerCase()).toList();
     features['tag_feculent'] = tags.contains('féculent') ? 1.0 : 0.0;
-    features['tag_proteine'] = tags.contains('protéine') || tags.contains('viande') ? 1.0 : 0.0;
+    features['tag_proteine'] =
+        tags.contains('protéine') || tags.contains('viande') ? 1.0 : 0.0;
     features['tag_legume'] = tags.contains('légume') ? 1.0 : 0.0;
-    features['tag_produit_laitier'] = tags.contains('produit laitier') || tags.contains('fromage') ? 1.0 : 0.0;
+    features['tag_produit_laitier'] =
+        tags.contains('produit laitier') || tags.contains('fromage')
+        ? 1.0
+        : 0.0;
     features['tag_fruit'] = tags.contains('fruit') ? 1.0 : 0.0;
-    features['tag_epices'] = tags.contains('épices') || tags.contains('épicé') ? 1.0 : 0.0;
+    features['tag_epices'] = tags.contains('épices') || tags.contains('épicé')
+        ? 1.0
+        : 0.0;
     features['tag_gras'] = tags.contains('gras') ? 1.0 : 0.0;
-    features['tag_sucre'] = tags.contains('sucré') || tags.contains('sucre') ? 1.0 : 0.0;
+    features['tag_sucre'] = tags.contains('sucré') || tags.contains('sucre')
+        ? 1.0
+        : 0.0;
     features['tag_fermente'] = tags.contains('fermenté') ? 1.0 : 0.0;
     features['tag_gluten'] = tags.contains('gluten') ? 1.0 : 0.0;
     features['tag_alcool'] = tags.contains('alcool') ? 1.0 : 0.0;
@@ -33,7 +41,7 @@ class FeatureExtractor {
     // === NUTRITION FEATURES ===
     final foods = _extractFoodsFromMetadata(meal.metaData);
     final nutrition = _aggregateNutrition(foods);
-    
+
     features['protein_g'] = nutrition['proteins'] ?? 0.0;
     features['fat_g'] = nutrition['fats'] ?? 0.0;
     features['carb_g'] = nutrition['carbs'] ?? 0.0;
@@ -61,19 +69,29 @@ class FeatureExtractor {
     // === TIMING FEATURES ===
     features['hour_of_day'] = mealTime.hour.toDouble();
     features['day_of_week'] = mealTime.weekday.toDouble();
-    features['is_weekend'] = (mealTime.weekday == DateTime.saturday || 
-                              mealTime.weekday == DateTime.sunday) ? 1.0 : 0.0;
-    
+    features['is_weekend'] =
+        (mealTime.weekday == DateTime.saturday ||
+            mealTime.weekday == DateTime.sunday)
+        ? 1.0
+        : 0.0;
+
     // Meal type (breakfast, lunch, dinner, snack)
-    features['is_breakfast'] = _isMealType(mealTime.hour, 'breakfast') ? 1.0 : 0.0;
+    features['is_breakfast'] = _isMealType(mealTime.hour, 'breakfast')
+        ? 1.0
+        : 0.0;
     features['is_lunch'] = _isMealType(mealTime.hour, 'lunch') ? 1.0 : 0.0;
     features['is_dinner'] = _isMealType(mealTime.hour, 'dinner') ? 1.0 : 0.0;
     features['is_snack'] = meal.isSnack ? 1.0 : 0.0;
-    features['is_late_night'] = mealTime.hour >= 21 || mealTime.hour < 5 ? 1.0 : 0.0;
+    features['is_late_night'] = mealTime.hour >= 21 || mealTime.hour < 5
+        ? 1.0
+        : 0.0;
 
     // Time since last meal
     if (lastMealTime != null) {
-      final minutesSinceLastMeal = mealTime.difference(lastMealTime).inMinutes.toDouble();
+      final minutesSinceLastMeal = mealTime
+          .difference(lastMealTime)
+          .inMinutes
+          .toDouble();
       features['minutes_since_last_meal'] = minutesSinceLastMeal;
       features['hours_since_last_meal'] = minutesSinceLastMeal / 60.0;
     } else {
@@ -85,18 +103,28 @@ class FeatureExtractor {
 
     // === CONTEXT FEATURES ===
     if (context != null) {
-      features['temperature_celsius'] = context.temperature ?? 15.0; // Default moderate temp
-      features['pressure_hpa'] = context.barometricPressure ?? 1013.0; // Default sea level
+      features['temperature_celsius'] =
+          context.temperature ?? 15.0; // Default moderate temp
+      features['pressure_hpa'] =
+          context.barometricPressure ?? 1013.0; // Default sea level
       features['pressure_change_6h'] = context.pressureChange6h ?? 0.0;
       features['humidity'] = context.humidity ?? 50.0;
       features['is_high_humidity'] = context.isHighHumidity ? 1.0 : 0.0;
       features['is_pressure_dropping'] = context.isPressureDropping ? 1.0 : 0.0;
 
       // Weather condition (one-hot)
-      features['weather_sunny'] = context.weatherCondition == 'sunny' ? 1.0 : 0.0;
-      features['weather_rainy'] = context.weatherCondition == 'rainy' ? 1.0 : 0.0;
-      features['weather_cloudy'] = context.weatherCondition == 'cloudy' ? 1.0 : 0.0;
-      features['weather_stormy'] = context.weatherCondition == 'stormy' ? 1.0 : 0.0;
+      features['weather_sunny'] = context.weatherCondition == 'sunny'
+          ? 1.0
+          : 0.0;
+      features['weather_rainy'] = context.weatherCondition == 'rainy'
+          ? 1.0
+          : 0.0;
+      features['weather_cloudy'] = context.weatherCondition == 'cloudy'
+          ? 1.0
+          : 0.0;
+      features['weather_stormy'] = context.weatherCondition == 'stormy'
+          ? 1.0
+          : 0.0;
 
       // Time of day and season from context
       features['time_morning'] = context.timeOfDay == 'morning' ? 1.0 : 0.0;
@@ -134,13 +162,35 @@ class FeatureExtractor {
   }
 
   /// Extract foods from meal metadata JSON
-  static List<Map<String, dynamic>> _extractFoodsFromMetadata(String? metaData) {
+  static List<Map<String, dynamic>> _extractFoodsFromMetadata(
+    String? metaData,
+  ) {
     if (metaData == null || metaData.isEmpty) return [];
 
     try {
       final decoded = jsonDecode(metaData);
+
+      // Handle legacy list format: [...]
       if (decoded is List) {
         return decoded.cast<Map<String, dynamic>>();
+      }
+
+      // Handle new object format: {foods: [...]}
+      if (decoded is Map && decoded.containsKey('foods')) {
+        var foodsData = decoded['foods'];
+
+        // Handle double-encoded string
+        if (foodsData is String) {
+          try {
+            foodsData = jsonDecode(foodsData);
+          } catch (e) {
+            print('[FeatureExtractor] Error decoding inner foods JSON: $e');
+          }
+        }
+
+        if (foodsData is List) {
+          return foodsData.cast<Map<String, dynamic>>();
+        }
       }
     } catch (e) {
       print('[FeatureExtractor] Error parsing metadata: $e');
@@ -149,7 +199,9 @@ class FeatureExtractor {
   }
 
   /// Aggregate nutrition data from multiple foods
-  static Map<String, double> _aggregateNutrition(List<Map<String, dynamic>> foods) {
+  static Map<String, double> _aggregateNutrition(
+    List<Map<String, dynamic>> foods,
+  ) {
     final totals = <String, double>{
       'proteins': 0.0,
       'fats': 0.0,
@@ -204,7 +256,10 @@ class FeatureExtractor {
   }
 
   /// Calculate cosine similarity between two feature vectors
-  static double cosineSimilarity(Map<String, double> features1, Map<String, double> features2) {
+  static double cosineSimilarity(
+    Map<String, double> features1,
+    Map<String, double> features2,
+  ) {
     double dotProduct = 0.0;
     double norm1 = 0.0;
     double norm2 = 0.0;
@@ -240,7 +295,10 @@ class FeatureExtractor {
       'hours_since_last_meal', 'meals_today_count',
       // Context weather (10)
       'temperature_celsius', 'pressure_hpa', 'pressure_change_6h', 'humidity',
-      'is_high_humidity', 'is_pressure_dropping', 'weather_sunny', 'weather_rainy',
+      'is_high_humidity',
+      'is_pressure_dropping',
+      'weather_sunny',
+      'weather_rainy',
       'weather_cloudy', 'weather_stormy',
       // Context time/season (8)
       'time_morning', 'time_afternoon', 'time_evening', 'time_night',

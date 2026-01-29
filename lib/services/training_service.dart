@@ -5,6 +5,8 @@ import '../database_helper.dart';
 import '../symptom_taxonomy.dart';
 import '../ml/model_manager.dart';
 
+import 'statistical_engine.dart';
+
 /// Service for managing ML model training
 class TrainingService {
   static final TrainingService _instance = TrainingService._internal();
@@ -25,11 +27,30 @@ class TrainingService {
 
   /// Check if training is supported on current platform
   bool isTrainingSupported() {
-    return Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    // Now supported on all platforms thanks to StatisticalEngine
+    return true; 
   }
 
   /// Trigger manual training process
   Future<TrainingResult> trainModels() async {
+    // 0. Use Statistical Engine on Mobile
+    if (Platform.isAndroid || Platform.isIOS) {
+       _isTraining = true;
+       try {
+         final result = await StatisticalEngine().train();
+         if (result.success) {
+            // Reload model manager to pick up new stats
+            try {
+              final modelManager = ModelManager();
+              await modelManager.initialize();
+            } catch (_) {}
+         }
+         return result;
+       } finally {
+         _isTraining = false;
+       }
+    }
+
     // Check platform support first
     if (!isTrainingSupported()) {
       return TrainingResult(
