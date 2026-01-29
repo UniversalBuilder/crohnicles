@@ -55,40 +55,50 @@
   ],
   "tree_structure": {
     "is_leaf": false,
-    "feature": "fiber_g",
-    "threshold": 11.199999809265137,
+    "feature": "carb_pct",
+    "threshold": 54.091928482055664,
     "left": {
-      "is_leaf": true,
-      "value": 0,
-      "probability": 0.0
+      "is_leaf": false,
+      "feature": "energy_kcal",
+      "threshold": 329.6450004577637,
+      "left": {
+        "is_leaf": true,
+        "value": 0,
+        "probability": 0.0
+      },
+      "right": {
+        "is_leaf": true,
+        "value": 0,
+        "probability": 0.0
+      }
     },
     "right": {
       "is_leaf": false,
-      "feature": "temperature_celsius",
-      "threshold": 13.75,
+      "feature": "fat_g",
+      "threshold": 9.914999961853027,
       "left": {
         "is_leaf": false,
-        "feature": "day_of_week",
-        "threshold": 2.5,
+        "feature": "humidity",
+        "threshold": 74.5,
         "left": {
+          "is_leaf": true,
+          "value": 0,
+          "probability": 0.0
+        },
+        "right": {
           "is_leaf": false,
-          "feature": "humidity",
-          "threshold": 78.5,
+          "feature": "day_of_week",
+          "threshold": 2.5,
           "left": {
             "is_leaf": true,
-            "value": 0,
-            "probability": 0.0
+            "value": 1,
+            "probability": 0.6862745098039216
           },
           "right": {
             "is_leaf": true,
             "value": 1,
-            "probability": 0.813953488372093
+            "probability": 0.9130434782608696
           }
-        },
-        "right": {
-          "is_leaf": true,
-          "value": 1,
-          "probability": 0.8823529411764706
         }
       },
       "right": {
@@ -104,7 +114,7 @@
     "recall": 0.0,
     "f1": 0.0
   },
-  "training_date": "2026-01-29T10:55:38.364944",
+  "training_date": "2026-01-29T13:32:13.742175",
   "lookback_days": 90,
   "time_window_hours": 8
 }

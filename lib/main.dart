@@ -90,35 +90,26 @@ class _TimelinePageState extends State<TimelinePage> {
     if (result != null && result is Map) {
       // Get isSnack from result
       final bool resultIsSnack = result['is_snack'] as bool? ?? false;
+      final List<dynamic> foodsList = result['foods'] as List<dynamic>? ?? [];
 
-      // Decode foods JSON and generate title
+      // Generate title
+      final List<String> foodNames = foodsList
+          .map(
+            (f) => f is Map ? f['name'] as String? ?? 'Aliment' : f.toString(),
+          )
+          .toList();
+
       String title;
-      if (result['foods'] != null && result['foods'] is String) {
-        try {
-          final List<dynamic> foodsList = jsonDecode(result['foods']);
-          final List<String> foodNames = foodsList
-              .map(
-                (f) =>
-                    f is Map ? f['name'] as String? ?? 'Aliment' : f.toString(),
-              )
-              .toList();
-
-          if (foodNames.isEmpty) {
-            title = resultIsSnack ? 'Encas' : 'Repas';
-          } else if (foodNames.length == 1) {
-            title = foodNames[0];
-          } else if (foodNames.length == 2) {
-            title = '${foodNames[0]} + ${foodNames[1]}';
-          } else {
-            title = resultIsSnack
-                ? 'Encas de ${foodNames.length} aliments'
-                : 'Repas de ${foodNames.length} aliments';
-          }
-        } catch (e) {
-          title = resultIsSnack ? 'Encas' : 'Repas';
-        }
-      } else {
+      if (foodNames.isEmpty) {
         title = resultIsSnack ? 'Encas' : 'Repas';
+      } else if (foodNames.length == 1) {
+        title = foodNames[0];
+      } else if (foodNames.length == 2) {
+        title = '${foodNames[0]} + ${foodNames[1]}';
+      } else {
+        title = resultIsSnack
+            ? 'Encas de ${foodNames.length} aliments'
+            : 'Repas de ${foodNames.length} aliments';
       }
 
       _addEvent(
@@ -126,7 +117,7 @@ class _TimelinePageState extends State<TimelinePage> {
         title,
         isSnack: resultIsSnack,
         tags: result['tags'] as List<String>? ?? [],
-        metaData: result['foods'],
+        metaData: jsonEncode({'foods': foodsList}),
       );
       if (mounted) Navigator.of(context).pop(); // Ferme le menu du bas
     }
@@ -766,8 +757,8 @@ class _TimelinePageState extends State<TimelinePage> {
           builder: (context) => MealComposerDialog(existingEvent: event),
         );
         if (result != null && mounted) {
-          // Parse foods - result['foods'] is already a JSON string
-          final List<dynamic> foodsList = jsonDecode(result['foods']);
+          // Parse foods - result['foods'] is now a List<Map>
+          final List<dynamic> foodsList = result['foods'] as List<dynamic>? ?? [];
           final List<String> foodNames = foodsList
               .map(
                 (f) =>

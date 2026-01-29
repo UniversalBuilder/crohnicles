@@ -55,8 +55,8 @@
   ],
   "tree_structure": {
     "is_leaf": false,
-    "feature": "sugar_g",
-    "threshold": 70.6500015258789,
+    "feature": "carb_pct",
+    "threshold": 76.78940200805664,
     "left": {
       "is_leaf": true,
       "value": 0,
@@ -65,7 +65,7 @@
     "right": {
       "is_leaf": true,
       "value": 1,
-      "probability": 0.9078947368421053
+      "probability": 0.9078947368421052
     }
   },
   "metrics": {
@@ -74,7 +74,7 @@
     "recall": 1.0,
     "f1": 0.4
   },
-  "training_date": "2026-01-29T10:55:38.305430",
+  "training_date": "2026-01-29T13:32:13.685656",
   "lookback_days": 90,
   "time_window_hours": 8
 }

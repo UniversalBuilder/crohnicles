@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'food_model.dart';
+import 'data/generic_foods.dart';
 import 'services/off_service.dart';
 import 'services/training_service.dart';
 
@@ -51,7 +52,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       dbPath,
-      version: 8,
+      version: 9,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -90,8 +91,8 @@ class DatabaseHelper {
     // ML and Analytics tables
     await _createMLTables(db);
 
-    print('[DB] Seeding basic foods...');
-    await _seedBasicFoods(db);
+    print('[DB] Seeding generic foods...');
+    await _seedGenericFoods(db);
     print('[DB] Cleaning old cache...');
     await cleanOldCache(db);
     print('[DB] Database created successfully');
@@ -311,6 +312,26 @@ class DatabaseHelper {
         'isBasicFood': 1,
       });
     }
+    if (oldVersion < 9) {
+      print('[DB] Migrating to v9: Updating with comprehensive generic food list');
+      // Remove old basic foods to avoid duplicates/outdated ones
+      await db.delete('foods', where: 'isBasicFood = ?', whereArgs: [1]);
+      await _seedGenericFoods(db);
+    }
+  }
+
+  Future<void> _seedGenericFoods(Database db) async {
+    print('[DB] Seeding generic foods from generic_foods.dart...');
+    Batch batch = db.batch();
+    for (var food in genericFoods) {
+      batch.insert(
+        'foods', 
+        food.toMap(), 
+        conflictAlgorithm: ConflictAlgorithm.replace
+      );
+    }
+    await batch.commit(noResult: true);
+    print('[DB] Seeded ${genericFoods.length} generic foods.');
   }
 
   Future<void> _seedBasicFoods(Database db) async {
@@ -750,6 +771,7 @@ class DatabaseHelper {
       'foods',
       where: 'name LIKE ?',
       whereArgs: ['%$query%'],
+      orderBy: 'isBasicFood DESC, length(name) ASC', 
       limit: 20,
     );
     print('[DB] Found ${maps.length} results for "${query}"');
@@ -770,18 +792,8 @@ class DatabaseHelper {
   }
 
   Future<void> generateDemoData() async {
-    print('[DB] Starting demo data generation...');
-
-    // First, enrich DB with real OFF products if not already done
-    final allFoods = await getAllFoods();
-    if (allFoods
-            .where((f) => f.barcode != null && f.barcode!.isNotEmpty)
-            .length <
-        5) {
-      print('[DB] Enriching DB with OFF products first...');
-      await enrichWithPopularOFFProducts();
-    }
-
+    print('[DB] Starting realistic demo data generation (v9)...');
+    
     Database db = await database;
     await db.delete('events');
     print('[DB] Deleted all existing events');
@@ -789,644 +801,223 @@ class DatabaseHelper {
     final now = DateTime.now();
     Batch batch = db.batch();
 
-    // Get real foods from DB for realistic meals
-    final availableFoods = await getAllFoods();
-    final basicFoods = availableFoods.where((f) => f.barcode == null).toList();
-    final offFoods = availableFoods.where((f) => f.barcode != null).toList();
-
-    print(
-      '[DB] Using ${basicFoods.length} basic foods + ${offFoods.length} OFF products',
+    // 1. Load Generic Foods from DB
+    final List<Map<String, dynamic>> foodMaps = await db.query(
+      'foods',
+      where: 'isBasicFood = 1',
     );
+    final basicFoods = foodMaps.map((m) => FoodModel.fromMap(m)).toList();
+    
+    if (basicFoods.isEmpty) {
+      print('[DB] ⚠️ No generic foods found! Seeding...');
+      await _seedGenericFoods(db);
+      // Reload
+      final reloaded = await db.query('foods', where: 'isBasicFood = 1');
+      basicFoods.addAll(reloaded.map((m) => FoodModel.fromMap(m)).toList());
+    }
 
-    // Listes pour l'aléatoire
-    final List<String> painLocations = [
-      "Fosse Iliaque D.",
-      "Hypogastre",
-      "Ombilic",
-      "Flanc Gauche",
-      "Épigastre",
-    ];
+    // 2. Categorize Foods for Meal Construction
+    final proteins = basicFoods.where((f) => f.tags.contains('Protéine')).toList();
+    final carbs = basicFoods.where((f) => f.tags.contains('Féculent')).toList();
+    final veggies = basicFoods.where((f) => f.tags.contains('Légume')).toList();
+    final fruits = basicFoods.where((f) => f.tags.contains('Fruit')).toList();
+    final dairy = basicFoods.where((f) => f.tags.contains('Laitage')).toList();
+    final drinks = basicFoods.where((f) => f.category == 'Boisson').toList();
+    final snacks = basicFoods.where((f) => f.category == 'En-cas').toList();
 
-    // Helper to create meal with real foods
-    Map<String, dynamic> createMealFromFoods(List<FoodModel> foods) {
+    // Helper to get random item
+    FoodModel random(List<FoodModel> list) => list[DateTime.now().microsecond % list.length];
+    
+    // Helper to create meal
+    Map<String, dynamic> createMeal(List<FoodModel> foods) {
       return {
-        'foods': foods
-            .map(
-              (f) => {
-                'name': f.name,
-                'category': f.category,
-                'barcode': f.barcode,
-                'brand': f.brand,
-                'imageUrl': f.imageUrl,
-                'proteins': f.proteins,
-                'fats': f.fats,
-                'carbs': f.carbs,
-                'fiber': f.fiber,
-                'sugars': f.sugars,
-              },
-            )
-            .toList(),
+        'foods': foods.map((f) => f.toMap()).toList(),
         'tags': foods.expand((f) => f.tags).toSet().toList(),
       };
     }
 
-    // Combine all available foods for meal generation
-    final combinedFoods = [...basicFoods, ...offFoods];
-
-    if (combinedFoods.isEmpty) {
-      print('[DB] ⚠️ No foods available for demo generation!');
-      return;
-    }
-
-    // Group foods by meal type based on category and tags
-    final breakfastFoods = combinedFoods.where((f) {
-      final cat = f.category.toLowerCase();
-      final tags = f.tags.map((t) => t.toLowerCase()).toList();
-      return cat.contains('petit') ||
-          cat.contains('céréale') ||
-          tags.any(
-            (t) => [
-              'confiture',
-              'miel',
-              'beurre',
-              'croissant',
-              'pain',
-            ].contains(t.toLowerCase()),
-          ) ||
-          f.name.toLowerCase().contains('croissant') ||
-          f.name.toLowerCase().contains('muesli') ||
-          f.name.toLowerCase().contains('confiture') ||
-          f.name.toLowerCase().contains('nutella') ||
-          f.name.toLowerCase().contains('café') ||
-          f.name.toLowerCase().contains('pain');
-    }).toList();
-
-    final lunchFoods = combinedFoods.where((f) {
-      final cat = f.category.toLowerCase();
-      final tags = f.tags.map((t) => t.toLowerCase()).toList();
-      return cat.contains('plat') ||
-          cat.contains('féculent') ||
-          cat.contains('protéine') ||
-          cat.contains('viande') ||
-          tags.any(
-            (t) => [
-              'pâtes',
-              'riz',
-              'poulet',
-              'poisson',
-              'viande',
-            ].contains(t.toLowerCase()),
-          );
-    }).toList();
-
-    final dinnerFoods = combinedFoods.where((f) {
-      final cat = f.category.toLowerCase();
-      return cat.contains('plat') ||
-          cat.contains('viande') ||
-          cat.contains('légume') ||
-          cat.contains('protéine');
-    }).toList();
-
-    final snackFoods = combinedFoods.where((f) {
-      final cat = f.category.toLowerCase();
-      return cat.contains('snack') ||
-          cat.contains('fruit') ||
-          cat.contains('yaourt') ||
-          cat.contains('dessert') ||
-          cat.contains('boisson');
-    }).toList();
-
-    // Create realistic breakfast meals
-    final List<Map<String, dynamic>> breakfastMeals = [];
-    if (breakfastFoods.length >= 2) {
-      breakfastMeals.add(
-        createMealFromFoods([breakfastFoods[0], breakfastFoods[1]]),
-      );
-      if (breakfastFoods.length >= 3) {
-        breakfastMeals.add(
-          createMealFromFoods([breakfastFoods[1], breakfastFoods[2]]),
-        );
-      }
-    } else if (breakfastFoods.length == 1) {
-      breakfastMeals.add(createMealFromFoods([breakfastFoods[0]]));
-    } else if (combinedFoods.isNotEmpty) {
-      // Fallback: use first 2 foods
-      breakfastMeals.add(createMealFromFoods([combinedFoods[0]]));
-    }
-
-    // Create realistic lunch meals
-    final List<Map<String, dynamic>> lunchMealsList = [];
-    if (lunchFoods.length >= 2) {
-      lunchMealsList.add(createMealFromFoods([lunchFoods[0], lunchFoods[1]]));
-      if (lunchFoods.length >= 3) {
-        lunchMealsList.add(createMealFromFoods([lunchFoods[1], lunchFoods[2]]));
-      }
-    } else if (lunchFoods.length == 1) {
-      lunchMealsList.add(createMealFromFoods([lunchFoods[0]]));
-    } else if (combinedFoods.length >= 2) {
-      // Fallback: use any foods
-      lunchMealsList.add(
-        createMealFromFoods([combinedFoods[0], combinedFoods[1]]),
-      );
-    }
-
-    // Create realistic dinner meals
-    final List<Map<String, dynamic>> dinnerMealsList = [];
-    if (dinnerFoods.length >= 2) {
-      dinnerMealsList.add(
-        createMealFromFoods([dinnerFoods[0], dinnerFoods[1]]),
-      );
-      if (dinnerFoods.length >= 3) {
-        dinnerMealsList.add(
-          createMealFromFoods([dinnerFoods[1], dinnerFoods[2]]),
-        );
-      }
-    } else if (dinnerFoods.length == 1) {
-      dinnerMealsList.add(createMealFromFoods([dinnerFoods[0]]));
-    } else if (combinedFoods.length >= 2) {
-      dinnerMealsList.add(
-        createMealFromFoods([combinedFoods[0], combinedFoods[1]]),
-      );
-    }
-
-    // Create snack meals
-    final List<Map<String, dynamic>> snackMealsList = [];
-    if (snackFoods.isNotEmpty) {
-      snackMealsList.add(createMealFromFoods([snackFoods[0]]));
-      if (snackFoods.length >= 2) {
-        snackMealsList.add(createMealFromFoods([snackFoods[1]]));
-      }
-    }
-
-    // Trigger meals (riskier combinations - can reuse any category)
-    final List<Map<String, dynamic>> triggerMeals = [];
-    if (snackFoods.length >= 2) {
-      // Trigger: high-sugar or high-fat snacks
-      triggerMeals.add(createMealFromFoods([snackFoods[0], snackFoods[1]]));
-    } else if (combinedFoods.length >= 2) {
-      triggerMeals.add(
-        createMealFromFoods([combinedFoods[0], combinedFoods[1]]),
-      );
-    }
-
-    // Fallback: ensure we have at least one meal for each category
-    if (breakfastMeals.isEmpty && combinedFoods.isNotEmpty) {
-      breakfastMeals.add(createMealFromFoods([combinedFoods[0]]));
-    }
-    if (lunchMealsList.isEmpty && combinedFoods.isNotEmpty) {
-      lunchMealsList.add(createMealFromFoods([combinedFoods[0]]));
-    }
-    if (dinnerMealsList.isEmpty && combinedFoods.isNotEmpty) {
-      dinnerMealsList.add(createMealFromFoods([combinedFoods[0]]));
-    }
-    if (triggerMeals.isEmpty && combinedFoods.isNotEmpty) {
-      triggerMeals.add(createMealFromFoods([combinedFoods[0]]));
-    }
-
-    if (breakfastMeals.isEmpty ||
-        lunchMealsList.isEmpty ||
-        dinnerMealsList.isEmpty) {
-      print('[DB] ⚠️ Could not create meals from available foods!');
-      return;
-    }
-
-    // Simulation state
-    int daysUntilCrisis = 0; // Countdown
-    bool inCrisis = false;
-
-    // Weather simulation state (realistic patterns)
-    double baseTemperature = 18.0; // Base temperature in °C
-    double basePressure = 1013.0; // Base pressure in hPa
-    String weatherTrend = 'stable'; // stable, warming, cooling, stormy
-
-    for (int i = 30; i >= 0; i--) {
+    // 3. User Profile Simulation (Sensitivities)
+    // Let's simulate a user sensitive to Gluten and Spicy food
+    final sensitiveToGluten = true;
+    final sensitiveToSpicy = true;
+    
+    // 4. Generate 60 Days of Data
+    for (int i = 60; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
-      final weekDay = date.weekday;
-
-      // Determine if today is a "Risk" day (Friday/Saturday)
-      bool riskDay = (weekDay == 5 || weekDay == 6);
-
-      // === REALISTIC WEATHER SIMULATION ===
-      // Temperature varies with season and time of day
-      final month = date.month;
-      double seasonalTemp = baseTemperature;
-      if (month >= 3 && month <= 5) seasonalTemp += 2; // Spring
-      if (month >= 6 && month <= 8) seasonalTemp += 8; // Summer
-      if (month >= 9 && month <= 11) seasonalTemp -= 2; // Fall
-      if (month == 12 || month <= 2) seasonalTemp -= 5; // Winter
-
-      // Random daily variation
-      final dailyVariation = (i % 7 - 3) * 0.5;
-      seasonalTemp += dailyVariation;
-
-      // Weather trend evolution
-      if (i % 5 == 0) {
-        final trendRandom = i % 4;
-        weatherTrend = ['stable', 'warming', 'cooling', 'stormy'][trendRandom];
-      }
-
-      // Pressure changes with weather trend
-      if (weatherTrend == 'stable') {
-        basePressure += (i % 3 - 1) * 0.5;
-      } else if (weatherTrend == 'warming') {
-        basePressure += 2.0;
-        seasonalTemp += 1.0;
-      } else if (weatherTrend == 'cooling') {
-        basePressure -= 1.5;
-        seasonalTemp -= 1.5;
-      } else if (weatherTrend == 'stormy') {
-        basePressure -= 3.0;
-        seasonalTemp -= 0.5;
-      }
-
-      // Clamp pressure to realistic range
-      basePressure = basePressure.clamp(990.0, 1030.0);
-      seasonalTemp = seasonalTemp.clamp(5.0, 35.0);
-
-      // Humidity inversely correlated with temperature
-      final humidity = (80.0 - (seasonalTemp - 10.0) * 1.5).clamp(30.0, 90.0);
-
-      // Weather conditions based on pressure and trend
-      String weatherCondition;
-      if (basePressure < 1000 && weatherTrend == 'stormy') {
-        weatherCondition = 'rainy';
-      } else if (basePressure < 1005) {
-        weatherCondition = 'cloudy';
-      } else if (basePressure > 1020) {
-        weatherCondition = 'sunny';
-      } else {
-        weatherCondition = (i % 3 == 0) ? 'cloudy' : 'sunny';
-      }
-
-      final contextData = jsonEncode({
-        'temperature': seasonalTemp.toStringAsFixed(1),
-        'pressure': basePressure.toStringAsFixed(1),
-        'humidity': humidity.toStringAsFixed(0),
-        'weather': weatherCondition,
+      
+      // Weather Context (Simplified random)
+      final temp = 15.0 + (i % 10);
+      final weatherContext = jsonEncode({
+        'temperature': temp.toStringAsFixed(1),
+        'pressure': (1013 - (i % 5)).toStringAsFixed(1),
+        'weather': (i % 7 == 0) ? 'rainy' : 'sunny'
       });
 
-      // -- MEALS --
-      // Breakfast (7h-9h)
-      final breakfast = breakfastMeals[i % breakfastMeals.length];
-      final breakfastFoodsList = breakfast['foods'] as List;
-      final breakfastTags = (breakfast['tags'] as List<dynamic>).join(',');
-      final breakfastTitle = breakfastFoodsList
-          .map((f) => f['name'])
-          .join(' + ');
-
+      // === BREAKFAST (8:00) ===
+      final breakfastFoods = [
+        random(drinks), // Coffee/Tea
+        random(carbs.where((f) => f.name.contains('Pain') || f.name.contains('Avoine')).toList()),
+        (i % 2 == 0) ? random(dairy) : random(fruits),
+      ];
+      final bMeal = createMeal(breakfastFoods);
+      
       batch.insert('events', {
         'type': 'meal',
-        'dateTime': DateTime(
-          date.year,
-          date.month,
-          date.day,
-          8,
-          0,
-        ).toIso8601String(),
-        'title': breakfastTitle,
-        'subtitle': 'Maison',
+        'dateTime': DateTime(date.year, date.month, date.day, 8, 0).toIso8601String(),
+        'title': 'Petit-déjeuner',
+        'subtitle': breakfastFoods.map((f) => f.name).join(', '),
         'severity': 0,
-        'tags': breakfastTags,
-        'meta_data': jsonEncode({'foods': breakfastFoodsList}),
-        'context_data': contextData,
-        'isUrgent': 0,
-        'isSnack': 0,
+        'tags': (bMeal['tags'] as List).join(','),
+        'meta_data': jsonEncode({'foods': bMeal['foods'], 'is_snack': false}),
+        'context_data': weatherContext,
+        'isUrgent': 0, 'isSnack': 0,
       });
 
-      // Lunch is usually okay
-      final lunch = lunchMealsList[i % lunchMealsList.length];
-      final lunchFoods = lunch['foods'] as List;
-      final lunchTags = (lunch['tags'] as List<dynamic>).join(',');
-      final lunchTitle = lunchFoods.map((f) => f['name']).join(' + ');
-
+      // === LUNCH (12:30) ===
+      final lunchFoods = [
+        random(proteins),
+        random(carbs),
+        random(veggies),
+      ];
+      // Randomly add a dessert
+      if (i % 3 == 0) lunchFoods.add(random(fruits));
+      
+      final lMeal = createMeal(lunchFoods);
       batch.insert('events', {
         'type': 'meal',
-        'dateTime': DateTime(
-          date.year,
-          date.month,
-          date.day,
-          12,
-          30,
-        ).toIso8601String(),
-        'title': lunchTitle,
-        'subtitle': 'Maison',
+        'dateTime': DateTime(date.year, date.month, date.day, 12, 30).toIso8601String(),
+        'title': 'Déjeuner',
+        'subtitle': lunchFoods.map((f) => f.name).join(', '),
         'severity': 0,
-        'tags': lunchTags,
-        'meta_data': jsonEncode({'foods': lunchFoods}),
-        'context_data': contextData,
-        'isUrgent': 0,
-        'isSnack': 0,
+        'tags': (lMeal['tags'] as List).join(','),
+        'meta_data': jsonEncode({'foods': lMeal['foods'], 'is_snack': false}),
+        'context_data': weatherContext,
+        'isUrgent': 0, 'isSnack': 0,
       });
 
-      // Dinner
-      if (riskDay) {
-        // Trigger Food!
-        // Sauf si on est déjà en crise, auquel cas on mange léger
-        if (inCrisis) {
-          batch.insert('events', {
-            'type': 'meal',
-            'dateTime': DateTime(
-              date.year,
-              date.month,
-              date.day,
-              20,
-              0,
-            ).toIso8601String(),
-            'title': 'Bouillon',
-            'subtitle': 'Diète',
-            'severity': 0,
-            'tags': 'Liquide,Sel',
-            'meta_data': jsonEncode({
-              'foods': [
-                {'name': 'Bouillon', 'category': 'Plat'},
-              ],
-            }),
-            'context_data': contextData,
-            'isUrgent': 0,
-            'isSnack': 0,
-          });
-        } else {
-          final trigger = triggerMeals[i % triggerMeals.length];
-          final triggerFoods = trigger['foods'] as List<Map<String, dynamic>>;
-          final triggerTags = (trigger['tags'] as List<dynamic>).join(',');
-          final triggerTitle = triggerFoods.map((f) => f['name']).join(' + ');
+      // === DINNER (19:30) ===
+      // Dinner is lighter: often just soup or veggies + protein
+      final dinnerFoods = [
+        random(proteins),
+        (i % 5 == 0) ? random(carbs) : random(veggies), // Less carbs at night
+      ];
+      final dMeal = createMeal(dinnerFoods);
+      
+      batch.insert('events', {
+        'type': 'meal',
+        'dateTime': DateTime(date.year, date.month, date.day, 19, 30).toIso8601String(),
+        'title': 'Dîner',
+        'subtitle': dinnerFoods.map((f) => f.name).join(', '),
+        'severity': 0,
+        'tags': (dMeal['tags'] as List).join(','),
+        'meta_data': jsonEncode({'foods': dMeal['foods'], 'is_snack': false}),
+        'context_data': weatherContext,
+        'isUrgent': 0, 'isSnack': 0,
+      });
 
-          batch.insert('events', {
-            'type': 'meal',
-            'dateTime': DateTime(
-              date.year,
-              date.month,
-              date.day,
-              20,
-              0,
-            ).toIso8601String(),
-            'title': triggerTitle,
-            'subtitle': 'Sortie',
-            'severity': 0,
-            'tags': triggerTags,
-            'meta_data': jsonEncode({'foods': triggerFoods}),
-            'context_data': contextData,
-            'isUrgent': 0,
-            'isSnack': 0,
-          });
-          // Triggering a crisis for tomorrow or day after
-          if (daysUntilCrisis == 0) daysUntilCrisis = (i % 2) + 1;
-        }
-      } else {
-        // Normal Dinner
-        final dinner = dinnerMealsList[(i + 3) % dinnerMealsList.length];
-        final dinnerFoods = dinner['foods'] as List<Map<String, dynamic>>;
-        final dinnerTags = (dinner['tags'] as List<dynamic>).join(',');
-        final dinnerTitle = dinnerFoods.map((f) => f['name']).join(' + ');
-
+      // === SNACK (16:00) - Occasional ===
+      if (i % 2 == 0) {
+        final snackFoods = [random(snacks)];
+        final sMeal = createMeal(snackFoods);
         batch.insert('events', {
           'type': 'meal',
-          'dateTime': DateTime(
-            date.year,
-            date.month,
-            date.day,
-            19,
-            30,
-          ).toIso8601String(),
-          'title': dinnerTitle,
-          'subtitle': 'Maison',
+          'dateTime': DateTime(date.year, date.month, date.day, 16, 0).toIso8601String(),
+          'title': 'Goûter',
+          'subtitle': snackFoods[0].name,
           'severity': 0,
-          'tags': dinnerTags,
-          'meta_data': jsonEncode({'foods': dinnerFoods}),
-          'context_data': contextData,
-          'isUrgent': 0,
-          'isSnack': 0,
+          'tags': (sMeal['tags'] as List).join(','),
+          'meta_data': jsonEncode({'foods': sMeal['foods'], 'is_snack': true}),
+          'context_data': weatherContext,
+          'isUrgent': 0, 'isSnack': 1,
         });
       }
 
-      // -- BODY RESPONSE --
+      // === SYMPTOM GENERATION LOGIC ===
+      // Check triggers from today's meals
+      bool triggerGluten = false;
+      bool triggerSpicy = false;
+      bool triggerFibers = false;
 
-      // Gestion état de crise
-      if (daysUntilCrisis == 1) {
-        inCrisis = true;
-        daysUntilCrisis = 0;
-      } else if (daysUntilCrisis > 1) {
-        daysUntilCrisis--;
-      } else if (inCrisis) {
-        // End crisis randomly after 1-2 days
-        if (i % 3 == 0) inCrisis = false;
+      final todaysMeals = [bMeal, lMeal, dMeal];
+      for (var meal in todaysMeals) {
+        final tags = (meal['tags'] as List).map((t) => t.toString()).toList();
+        if (sensitiveToGluten && tags.contains('Gluten')) triggerGluten = true;
+        if (sensitiveToSpicy && tags.contains('Épicé')) triggerSpicy = true;
+        // Assume high fiber if lots of veggies/fruits
+        if (tags.where((t) => t == 'Fibres').length >= 2) triggerFibers = true;
       }
 
-      if (inCrisis) {
-        // BAD DAY - Multiple symptom types for ML training
-        // CRITICAL: Symptoms must appear 4-8h AFTER meals for ML correlation
-
-        // 1. Pain (Inflammation tag) - 5h after breakfast (8h → 13h)
+      // Reaction: 2-4 hours after meal (simplified to afternoon/evening/next morning)
+      
+      if (triggerGluten && (i % 3 != 0)) { // 66% chance of reaction
         batch.insert('events', {
           'type': 'symptom',
-          'dateTime': DateTime(
-            date.year,
-            date.month,
-            date.day,
-            13,
-            0,
-          ).toIso8601String(),
-          'title': painLocations[i % painLocations.length],
-          'subtitle': 'Douleur vive',
-          'severity': 7 + (i % 3), // 7, 8, 9
-          'tags': 'Inflammation',
-          'context_data': contextData,
+          'dateTime': DateTime(date.year, date.month, date.day, 14, 30).toIso8601String(),
+          'title': 'Ballonnement',
+          'subtitle': 'Post-repas',
+          'severity': 4 + (i % 3),
+          'tags': 'Gaz,Digestion',
+          'context_data': weatherContext,
           'isUrgent': 0, 'isSnack': 0,
         });
+      }
 
-        // 2. Bloating (Gaz tag) - 6h after lunch (12:30 → 18:30)
+      if (triggerSpicy && (i % 2 == 0)) { // 50% chance
         batch.insert('events', {
           'type': 'symptom',
-          'dateTime': DateTime(
-            date.year,
-            date.month,
-            date.day,
-            18,
-            30,
-          ).toIso8601String(),
-          'title': 'Ballonnement important',
-          'subtitle': 'Distension',
-          'severity': 6 + (i % 2),
-          'tags': 'Gaz',
-          'context_data': contextData,
-          'isUrgent': 0,
-          'isSnack': 0,
+          'dateTime': DateTime(date.year, date.month, date.day, 21, 0).toIso8601String(),
+          'title': 'Brûlures d\'estomac',
+          'subtitle': 'Acide',
+          'severity': 6,
+          'tags': 'Inflammation',
+          'context_data': weatherContext,
+          'isUrgent': 0, 'isSnack': 0,
         });
+      }
 
-        // 3. Joint pain (Articulations tag) - 7h after breakfast (8h → 15h)
-        if (i % 2 == 0) {
-          batch.insert('events', {
-            'type': 'symptom',
-            'dateTime': DateTime(
-              date.year,
-              date.month,
-              date.day,
-              15,
-              0,
-            ).toIso8601String(),
-            'title': 'Douleur articulaire',
-            'subtitle': 'Genou',
-            'severity': 5 + (i % 3),
-            'tags': 'Articulations',
-            'context_data': contextData,
-            'isUrgent': 0,
-            'isSnack': 0,
-          });
-        }
+      // Random good/bad days independent of food (Flare-ups)
+      if (i == 10 || i == 11 || i == 12) { // A 3-day flare up
+         batch.insert('events', {
+          'type': 'symptom',
+          'dateTime': DateTime(date.year, date.month, date.day, 10, 0).toIso8601String(),
+          'title': 'Douleur Abdominale',
+          'subtitle': 'Crise',
+          'severity': 8,
+          'tags': 'Inflammation,Général',
+          'context_data': weatherContext,
+          'isUrgent': 1, 'isSnack': 0,
+        });
+        
+        // Diarrhea during flare
+        batch.insert('events', {
+          'type': 'stool',
+          'dateTime': DateTime(date.year, date.month, date.day, 11, 0).toIso8601String(),
+          'title': 'Type 7',
+          'subtitle': 'Eau',
+          'severity': 0,
+          'tags': 'Urgent,Sang',
+          'context_data': weatherContext,
+          'isUrgent': 1, 'isSnack': 0,
+        });
+      }
 
-        // 4. Systemic symptoms (Général tag) - 5-6h after lunch (12:30 → 17:30)
-        if (i % 3 == 0) {
-          batch.insert('events', {
-            'type': 'symptom',
-            'dateTime': DateTime(
-              date.year,
-              date.month,
-              date.day,
-              17,
-              30,
-            ).toIso8601String(),
-            'title': 'Fatigue intense',
-            'subtitle': 'Épuisement',
-            'severity': 7 + (i % 2),
-            'tags': 'Général',
-            'context_data': contextData,
-            'isUrgent': 0,
-            'isSnack': 0,
-          });
-        }
-
-        // Stools (Multiple) with Urgent tag
-        int stoolCount = 3 + (i % 3); // 3 to 5 times
-        for (int s = 0; s < stoolCount; s++) {
-          batch.insert('events', {
-            'type': 'stool',
-            'dateTime': DateTime(
-              date.year,
-              date.month,
-              date.day,
-              8 + (s * 3),
-              15,
-            ).toIso8601String(),
-            'title': 'Type ${6 + (s % 2)}', // 6 or 7
-            'subtitle': 'Diarrhée',
-            'severity': 0,
-            'tags': 'Urgent,Liquide',
-            'context_data': contextData,
-            'isUrgent': 1, 'isSnack': 0,
-          });
-        }
-      } else {
-        // GOOD DAY / NORMAL - Still some symptoms for training diversity
-
-        // Occasional mild bloating (Gaz tag)
-        if (i % 4 == 0) {
-          batch.insert('events', {
-            'type': 'symptom',
-            'dateTime': DateTime(
-              date.year,
-              date.month,
-              date.day,
-              15,
-              0,
-            ).toIso8601String(),
-            'title': 'Ballonnement léger',
-            'subtitle': 'Gêne',
-            'severity': 2 + (i % 2),
-            'tags': 'Gaz',
-            'context_data': contextData,
-            'isUrgent': 0,
-            'isSnack': 0,
-          });
-        }
-
-        // Occasional mild pain (Inflammation tag)
-        if (i % 6 == 0) {
-          batch.insert('events', {
-            'type': 'symptom',
-            'dateTime': DateTime(
-              date.year,
-              date.month,
-              date.day,
-              16,
-              30,
-            ).toIso8601String(),
-            'title': 'Crampes légères',
-            'subtitle': 'Abdomen',
-            'severity': 3 + (i % 2),
-            'tags': 'Inflammation',
-            'context_data': contextData,
-            'isUrgent': 0,
-            'isSnack': 0,
-          });
-        }
-
-        // Occasional joint stiffness (Articulations tag)
-        if (i % 7 == 0) {
-          batch.insert('events', {
-            'type': 'symptom',
-            'dateTime': DateTime(
-              date.year,
-              date.month,
-              date.day,
-              8,
-              30,
-            ).toIso8601String(),
-            'title': 'Raideur matinale',
-            'subtitle': 'Articulations',
-            'severity': 3 + (i % 2),
-            'tags': 'Articulations',
-            'context_data': contextData,
-            'isUrgent': 0,
-            'isSnack': 0,
-          });
-        }
-
-        // Occasional fatigue (Général tag)
-        if (i % 5 == 0) {
-          batch.insert('events', {
-            'type': 'symptom',
-            'dateTime': DateTime(
-              date.year,
-              date.month,
-              date.day,
-              14,
-              0,
-            ).toIso8601String(),
-            'title': 'Fatigue modérée',
-            'subtitle': 'Après repas',
-            'severity': 4 + (i % 2),
-            'tags': 'Général',
-            'context_data': contextData,
-            'isUrgent': 0,
-            'isSnack': 0,
-          });
-        }
-
-        // Normal Stool (maybe skip a day occasionally)
-        if (i % 7 != 0) {
-          batch.insert('events', {
-            'type': 'stool',
-            'dateTime': DateTime(
-              date.year,
-              date.month,
-              date.day,
-              9,
-              0,
-            ).toIso8601String(),
-            'title': 'Type ${3 + (i % 2)}', // 3 or 4
-            'subtitle': 'Normal',
-            'severity': 0, 'tags': '',
-            'context_data': contextData,
-            'isUrgent': 0, 'isSnack': 0,
-          });
-        }
+      // Daily Stool (Morning) - Normal if no flare
+      if (i != 10 && i != 11 && i != 12) {
+        batch.insert('events', {
+          'type': 'stool',
+          'dateTime': DateTime(date.year, date.month, date.day, 8, 30).toIso8601String(),
+          'title': 'Type 4',
+          'subtitle': 'Normal',
+          'severity': 0,
+          'tags': 'Normal',
+          'context_data': weatherContext,
+          'isUrgent': 0, 'isSnack': 0,
+        });
       }
     }
 
-    final results = await batch.commit();
-    print(
-      '[DB] Demo data generation complete! ${results.length} events inserted',
-    );
+    await batch.commit();
+    print('[DB] Generated 60 days of realistic demo data based on Generic Foods.');
   }
 
   // --- Analysis Helpers ---

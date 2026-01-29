@@ -57,7 +57,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
           if (metadata['foods'] is List) {
             for (var foodJson in metadata['foods']) {
               try {
-                _cart.add(FoodModel.fromJson(foodJson));
+                _cart.add(FoodModel.fromMap(foodJson));
               } catch (e) {
                 print('[MEAL EDIT] Failed to parse food: $e');
               }
@@ -322,8 +322,9 @@ class _MealComposerDialogState extends State<MealComposerDialog>
 
     final allTags = _recalculateTags();
 
+    // Return raw objects, let the caller handle serialization
     final result = {
-      'foods': jsonEncode(_cart.map((f) => f.toMap()).toList()),
+      'foods': _cart.map((f) => f.toMap()).toList(), // List<Map<String, dynamic>>
       'tags': allTags,
       'is_snack': _isSnack,
     };
