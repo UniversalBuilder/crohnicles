@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'food_model.dart';
 import 'services/off_service.dart';
+import 'services/training_service.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -743,7 +744,7 @@ class DatabaseHelper {
   }
 
   Future<List<FoodModel>> searchFoods(String query) async {
-    print('[DB] Searching foods with query: \"$query\"');
+    print('[DB] Searching foods with query: "${query}"');
     Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'foods',
@@ -751,7 +752,7 @@ class DatabaseHelper {
       whereArgs: ['%$query%'],
       limit: 20,
     );
-    print('[DB] Found ${maps.length} results for \"$query\"');
+    print('[DB] Found ${maps.length} results for "${query}"');
     return List.generate(maps.length, (i) {
       return FoodModel.fromMap(maps[i]);
     });
@@ -993,12 +994,76 @@ class DatabaseHelper {
     int daysUntilCrisis = 0; // Countdown
     bool inCrisis = false;
 
+    // Weather simulation state (realistic patterns)
+    double baseTemperature = 18.0; // Base temperature in °C
+    double basePressure = 1013.0; // Base pressure in hPa
+    String weatherTrend = 'stable'; // stable, warming, cooling, stormy
+
     for (int i = 30; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
       final weekDay = date.weekday;
 
       // Determine if today is a "Risk" day (Friday/Saturday)
       bool riskDay = (weekDay == 5 || weekDay == 6);
+
+      // === REALISTIC WEATHER SIMULATION ===
+      // Temperature varies with season and time of day
+      final month = date.month;
+      double seasonalTemp = baseTemperature;
+      if (month >= 3 && month <= 5) seasonalTemp += 2; // Spring
+      if (month >= 6 && month <= 8) seasonalTemp += 8; // Summer
+      if (month >= 9 && month <= 11) seasonalTemp -= 2; // Fall
+      if (month == 12 || month <= 2) seasonalTemp -= 5; // Winter
+
+      // Random daily variation
+      final dailyVariation = (i % 7 - 3) * 0.5;
+      seasonalTemp += dailyVariation;
+
+      // Weather trend evolution
+      if (i % 5 == 0) {
+        final trendRandom = i % 4;
+        weatherTrend = ['stable', 'warming', 'cooling', 'stormy'][trendRandom];
+      }
+
+      // Pressure changes with weather trend
+      if (weatherTrend == 'stable') {
+        basePressure += (i % 3 - 1) * 0.5;
+      } else if (weatherTrend == 'warming') {
+        basePressure += 2.0;
+        seasonalTemp += 1.0;
+      } else if (weatherTrend == 'cooling') {
+        basePressure -= 1.5;
+        seasonalTemp -= 1.5;
+      } else if (weatherTrend == 'stormy') {
+        basePressure -= 3.0;
+        seasonalTemp -= 0.5;
+      }
+
+      // Clamp pressure to realistic range
+      basePressure = basePressure.clamp(990.0, 1030.0);
+      seasonalTemp = seasonalTemp.clamp(5.0, 35.0);
+
+      // Humidity inversely correlated with temperature
+      final humidity = (80.0 - (seasonalTemp - 10.0) * 1.5).clamp(30.0, 90.0);
+
+      // Weather conditions based on pressure and trend
+      String weatherCondition;
+      if (basePressure < 1000 && weatherTrend == 'stormy') {
+        weatherCondition = 'rainy';
+      } else if (basePressure < 1005) {
+        weatherCondition = 'cloudy';
+      } else if (basePressure > 1020) {
+        weatherCondition = 'sunny';
+      } else {
+        weatherCondition = (i % 3 == 0) ? 'cloudy' : 'sunny';
+      }
+
+      final contextData = jsonEncode({
+        'temperature': seasonalTemp.toStringAsFixed(1),
+        'pressure': basePressure.toStringAsFixed(1),
+        'humidity': humidity.toStringAsFixed(0),
+        'weather': weatherCondition,
+      });
 
       // -- MEALS --
       // Breakfast (7h-9h)
@@ -1023,6 +1088,7 @@ class DatabaseHelper {
         'severity': 0,
         'tags': breakfastTags,
         'meta_data': jsonEncode({'foods': breakfastFoodsList}),
+        'context_data': contextData,
         'isUrgent': 0,
         'isSnack': 0,
       });
@@ -1047,6 +1113,7 @@ class DatabaseHelper {
         'severity': 0,
         'tags': lunchTags,
         'meta_data': jsonEncode({'foods': lunchFoods}),
+        'context_data': contextData,
         'isUrgent': 0,
         'isSnack': 0,
       });
@@ -1074,6 +1141,7 @@ class DatabaseHelper {
                 {'name': 'Bouillon', 'category': 'Plat'},
               ],
             }),
+            'context_data': contextData,
             'isUrgent': 0,
             'isSnack': 0,
           });
@@ -1097,6 +1165,7 @@ class DatabaseHelper {
             'severity': 0,
             'tags': triggerTags,
             'meta_data': jsonEncode({'foods': triggerFoods}),
+            'context_data': contextData,
             'isUrgent': 0,
             'isSnack': 0,
           });
@@ -1124,6 +1193,7 @@ class DatabaseHelper {
           'severity': 0,
           'tags': dinnerTags,
           'meta_data': jsonEncode({'foods': dinnerFoods}),
+          'context_data': contextData,
           'isUrgent': 0,
           'isSnack': 0,
         });
@@ -1143,25 +1213,89 @@ class DatabaseHelper {
       }
 
       if (inCrisis) {
-        // BAD DAY
-        // Pain
+        // BAD DAY - Multiple symptom types for ML training
+        // CRITICAL: Symptoms must appear 4-8h AFTER meals for ML correlation
+
+        // 1. Pain (Inflammation tag) - 5h after breakfast (8h → 13h)
         batch.insert('events', {
           'type': 'symptom',
           'dateTime': DateTime(
             date.year,
             date.month,
             date.day,
-            9,
+            13,
             0,
           ).toIso8601String(),
-          'title': painLocations[i % painLocations.length], // Rotate locations
+          'title': painLocations[i % painLocations.length],
           'subtitle': 'Douleur vive',
           'severity': 7 + (i % 3), // 7, 8, 9
           'tags': 'Inflammation',
+          'context_data': contextData,
           'isUrgent': 0, 'isSnack': 0,
         });
 
-        // Stools (Multiple)
+        // 2. Bloating (Gaz tag) - 6h after lunch (12:30 → 18:30)
+        batch.insert('events', {
+          'type': 'symptom',
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            18,
+            30,
+          ).toIso8601String(),
+          'title': 'Ballonnement important',
+          'subtitle': 'Distension',
+          'severity': 6 + (i % 2),
+          'tags': 'Gaz',
+          'context_data': contextData,
+          'isUrgent': 0,
+          'isSnack': 0,
+        });
+
+        // 3. Joint pain (Articulations tag) - 7h after breakfast (8h → 15h)
+        if (i % 2 == 0) {
+          batch.insert('events', {
+            'type': 'symptom',
+            'dateTime': DateTime(
+              date.year,
+              date.month,
+              date.day,
+              15,
+              0,
+            ).toIso8601String(),
+            'title': 'Douleur articulaire',
+            'subtitle': 'Genou',
+            'severity': 5 + (i % 3),
+            'tags': 'Articulations',
+            'context_data': contextData,
+            'isUrgent': 0,
+            'isSnack': 0,
+          });
+        }
+
+        // 4. Systemic symptoms (Général tag) - 5-6h after lunch (12:30 → 17:30)
+        if (i % 3 == 0) {
+          batch.insert('events', {
+            'type': 'symptom',
+            'dateTime': DateTime(
+              date.year,
+              date.month,
+              date.day,
+              17,
+              30,
+            ).toIso8601String(),
+            'title': 'Fatigue intense',
+            'subtitle': 'Épuisement',
+            'severity': 7 + (i % 2),
+            'tags': 'Général',
+            'context_data': contextData,
+            'isUrgent': 0,
+            'isSnack': 0,
+          });
+        }
+
+        // Stools (Multiple) with Urgent tag
         int stoolCount = 3 + (i % 3); // 3 to 5 times
         for (int s = 0; s < stoolCount; s++) {
           batch.insert('events', {
@@ -1172,17 +1306,82 @@ class DatabaseHelper {
               date.day,
               8 + (s * 3),
               15,
-            ).toIso8601String(), // Spread out
+            ).toIso8601String(),
             'title': 'Type ${6 + (s % 2)}', // 6 or 7
             'subtitle': 'Diarrhée',
             'severity': 0,
             'tags': 'Urgent,Liquide',
+            'context_data': contextData,
             'isUrgent': 1, 'isSnack': 0,
           });
         }
       } else {
-        // GOOD DAY / NORMAL
-        // Occasional mild discomfort
+        // GOOD DAY / NORMAL - Still some symptoms for training diversity
+
+        // Occasional mild bloating (Gaz tag)
+        if (i % 4 == 0) {
+          batch.insert('events', {
+            'type': 'symptom',
+            'dateTime': DateTime(
+              date.year,
+              date.month,
+              date.day,
+              15,
+              0,
+            ).toIso8601String(),
+            'title': 'Ballonnement léger',
+            'subtitle': 'Gêne',
+            'severity': 2 + (i % 2),
+            'tags': 'Gaz',
+            'context_data': contextData,
+            'isUrgent': 0,
+            'isSnack': 0,
+          });
+        }
+
+        // Occasional mild pain (Inflammation tag)
+        if (i % 6 == 0) {
+          batch.insert('events', {
+            'type': 'symptom',
+            'dateTime': DateTime(
+              date.year,
+              date.month,
+              date.day,
+              16,
+              30,
+            ).toIso8601String(),
+            'title': 'Crampes légères',
+            'subtitle': 'Abdomen',
+            'severity': 3 + (i % 2),
+            'tags': 'Inflammation',
+            'context_data': contextData,
+            'isUrgent': 0,
+            'isSnack': 0,
+          });
+        }
+
+        // Occasional joint stiffness (Articulations tag)
+        if (i % 7 == 0) {
+          batch.insert('events', {
+            'type': 'symptom',
+            'dateTime': DateTime(
+              date.year,
+              date.month,
+              date.day,
+              8,
+              30,
+            ).toIso8601String(),
+            'title': 'Raideur matinale',
+            'subtitle': 'Articulations',
+            'severity': 3 + (i % 2),
+            'tags': 'Articulations',
+            'context_data': contextData,
+            'isUrgent': 0,
+            'isSnack': 0,
+          });
+        }
+
+        // Occasional fatigue (Général tag)
         if (i % 5 == 0) {
           batch.insert('events', {
             'type': 'symptom',
@@ -1190,13 +1389,14 @@ class DatabaseHelper {
               date.year,
               date.month,
               date.day,
-              18,
+              14,
               0,
             ).toIso8601String(),
-            'title': 'Ballonnement',
-            'subtitle': 'Gène',
-            'severity': 2 + (i % 2),
-            'tags': 'Gaz',
+            'title': 'Fatigue modérée',
+            'subtitle': 'Après repas',
+            'severity': 4 + (i % 2),
+            'tags': 'Général',
+            'context_data': contextData,
             'isUrgent': 0,
             'isSnack': 0,
           });
@@ -1215,7 +1415,9 @@ class DatabaseHelper {
             ).toIso8601String(),
             'title': 'Type ${3 + (i % 2)}', // 3 or 4
             'subtitle': 'Normal',
-            'severity': 0, 'tags': '', 'isUrgent': 0, 'isSnack': 0,
+            'severity': 0, 'tags': '',
+            'context_data': contextData,
+            'isUrgent': 0, 'isSnack': 0,
           });
         }
       }
@@ -1578,6 +1780,295 @@ class DatabaseHelper {
     }
 
     return nutrition;
+  }
+
+  /// Check if we have sufficient data for ML training
+  Future<TrainingDataStatus> checkTrainingDataAvailability() async {
+    final db = await database;
+
+    // Count meals in last 90 days
+    final mealResult = await db.rawQuery("""
+      SELECT COUNT(*) as count
+      FROM events
+      WHERE type = 'meal'
+      AND dateTime >= datetime('now', '-90 days')
+    """);
+
+    final mealCount = mealResult.first['count'] as int;
+
+    // Count symptoms in last 90 days
+    final symptomResult = await db.rawQuery("""
+      SELECT COUNT(*) as count
+      FROM events
+      WHERE type = 'symptom'
+      AND dateTime >= datetime('now', '-90 days')
+    """);
+
+    final symptomCount = symptomResult.first['count'] as int;
+
+    final hasEnoughData = mealCount >= 30 && symptomCount >= 10;
+
+    final message = hasEnoughData
+        ? 'Ready to train: $mealCount meals, $symptomCount symptoms'
+        : 'Need 30+ meals and 10+ symptoms (have: $mealCount meals, $symptomCount symptoms)';
+
+    print('[DB] Training data check: $message');
+
+    return TrainingDataStatus(
+      mealCount: mealCount,
+      symptomCount: symptomCount,
+      hasEnoughData: hasEnoughData,
+      message: message,
+    );
+  }
+
+  /// Check training data availability by symptom type
+  /// Returns detailed status for each model type including correlation counts
+  Future<Map<String, Map<String, dynamic>>> checkTrainingDataByType() async {
+    final db = await database;
+    final statusByType = <String, Map<String, dynamic>>{};
+
+    print('[DB] Checking training data by symptom type...');
+
+    // Import symptom taxonomy mappings
+    final symptomMappings = {
+      'pain': 'Inflammation',
+      'diarrhea': 'Urgent',
+      'bloating': 'Gaz',
+      'joints': 'Articulations',
+      'skin': 'Peau',
+      'oral': 'Bouche/ORL',
+      'systemic': 'Général',
+    };
+
+    for (final entry in symptomMappings.entries) {
+      final modelKey = entry.key;
+      final frenchTag = entry.value;
+
+      // Count symptoms with this tag (90-day window)
+      final symptomResult = await db.rawQuery(
+        """
+        SELECT COUNT(*) as count
+        FROM events
+        WHERE type = 'symptom'
+        AND tags LIKE ?
+        AND dateTime >= datetime('now', '-90 days')
+      """,
+        ['%$frenchTag%'],
+      );
+
+      final symptomCount = symptomResult.first['count'] as int;
+
+      // Count meal-symptom correlations (4-8 hour window)
+      final correlationResult = await db.rawQuery(
+        """
+        SELECT COUNT(*) as count
+        FROM events m
+        INNER JOIN events s ON (
+          julianday(s.dateTime) - julianday(m.dateTime)
+        ) * 24 BETWEEN 4 AND 8
+        WHERE m.type = 'meal'
+        AND s.type = 'symptom'
+        AND s.tags LIKE ?
+        AND m.dateTime >= datetime('now', '-90 days')
+        AND s.dateTime >= datetime('now', '-90 days')
+      """,
+        ['%$frenchTag%'],
+      );
+
+      final correlationCount = correlationResult.first['count'] as int;
+
+      // Count total meals (for context)
+      final mealResult = await db.rawQuery("""
+        SELECT COUNT(*) as count
+        FROM events
+        WHERE type = 'meal'
+        AND dateTime >= datetime('now', '-90 days')
+      """);
+
+      final mealCount = mealResult.first['count'] as int;
+
+      // Determine readiness
+      final minSamples =
+          (modelKey == 'pain' ||
+              modelKey == 'diarrhea' ||
+              modelKey == 'bloating')
+          ? 30
+          : 20;
+      final isReady = mealCount >= 30 && correlationCount >= 5;
+
+      statusByType[modelKey] = {
+        'french_tag': frenchTag,
+        'symptom_count': symptomCount,
+        'correlation_count': correlationCount,
+        'meal_count': mealCount,
+        'min_samples': minSamples,
+        'is_ready': isReady,
+        'status': isReady ? 'ready' : 'insufficient_data',
+      };
+
+      print(
+        '[DB]   $modelKey ($frenchTag): $symptomCount symptoms, $correlationCount correlations → ${isReady ? "ready" : "need more data"}',
+      );
+    }
+
+    return statusByType;
+  }
+
+  /// Get suspect ingredients based on symptom correlation (90-day window)
+  Future<List<Map<String, dynamic>>> getSuspectIngredients({
+    double minCorrelation = 0.3,
+  }) async {
+    final db = await database;
+
+    print('[DB] Analyzing suspect ingredients...');
+
+    // Get all meals in last 90 days with their foods
+    final mealsResult = await db.rawQuery("""
+      SELECT id, dateTime, meta_data
+      FROM events
+      WHERE type = 'meal'
+      AND dateTime >= datetime('now', '-90 days')
+      ORDER BY dateTime DESC
+    """);
+
+    if (mealsResult.isEmpty) {
+      return [];
+    }
+
+    // Count symptom occurrences within 4-8h after each food
+    Map<String, int> foodSymptomCount = {};
+    Map<String, int> foodTotalCount = {};
+
+    for (final meal in mealsResult) {
+      final metaData = meal['meta_data'] as String?;
+      if (metaData == null || metaData.isEmpty) continue;
+
+      try {
+        final data = jsonDecode(metaData);
+        final foods = data['foods'] as List?;
+        if (foods == null) continue;
+
+        // Check for symptoms 4-8 hours after this meal
+        final symptomResult = await db.rawQuery(
+          """
+          SELECT COUNT(*) as count
+          FROM events
+          WHERE type = 'symptom'
+          AND julianday(dateTime) - julianday(?) BETWEEN ${4.0 / 24} AND ${8.0 / 24}
+        """,
+          [meal['dateTime']],
+        );
+
+        final hasSymptom = (symptomResult.first['count'] as int) > 0;
+
+        // Count each food
+        for (final food in foods) {
+          final foodName = food['name'] as String?;
+          if (foodName == null) continue;
+
+          foodTotalCount[foodName] = (foodTotalCount[foodName] ?? 0) + 1;
+          if (hasSymptom) {
+            foodSymptomCount[foodName] = (foodSymptomCount[foodName] ?? 0) + 1;
+          }
+        }
+      } catch (e) {
+        print('[DB] Error parsing meal $meal: $e');
+        continue;
+      }
+    }
+
+    // Calculate correlation ratios
+    List<Map<String, dynamic>> suspects = [];
+
+    for (final foodName in foodTotalCount.keys) {
+      final total = foodTotalCount[foodName]!;
+      final symptomOccurrences = foodSymptomCount[foodName] ?? 0;
+      final ratio = symptomOccurrences / total;
+
+      if (ratio >= minCorrelation && total >= 3) {
+        suspects.add({
+          'food_name': foodName,
+          'symptom_count': symptomOccurrences,
+          'total_count': total,
+          'correlation_ratio': ratio,
+        });
+      }
+    }
+
+    // Sort by correlation ratio descending
+    suspects.sort(
+      (a, b) => (b['correlation_ratio'] as double).compareTo(
+        a['correlation_ratio'] as double,
+      ),
+    );
+
+    print(
+      '[DB] Found ${suspects.length} suspect ingredients (min correlation: $minCorrelation)',
+    );
+
+    return suspects;
+  }
+
+  /// Get latest training history entries
+  Future<List<Map<String, dynamic>>> getLatestTrainingHistory({
+    int limit = 10,
+  }) async {
+    final db = await database;
+
+    final result = await db.query(
+      'training_history',
+      orderBy: 'trained_at DESC',
+      limit: limit,
+    );
+
+    return result;
+  }
+
+  /// Get weather correlation with symptoms
+  Future<Map<String, dynamic>> getWeatherCorrelations() async {
+    final db = await database;
+
+    // Query symptoms with weather data from last 90 days
+    final results = await db.rawQuery('''
+      SELECT 
+        json_extract(context_data, '\$.weather_condition') as weather,
+        CAST(json_extract(context_data, '\$.pressure_hpa') as REAL) as pressure,
+        CAST(json_extract(context_data, '\$.temperature_celsius') as REAL) as temperature,
+        CAST(json_extract(context_data, '\$.humidity') as REAL) as humidity,
+        tags,
+        COUNT(*) as symptom_count,
+        AVG(severity) as avg_severity
+      FROM events
+      WHERE type = 'symptom' 
+        AND context_data IS NOT NULL
+        AND datetime(dateTime) >= datetime('now', '-90 days')
+      GROUP BY weather, 
+        CAST(json_extract(context_data, '\$.pressure_hpa') as INTEGER) / 10,
+        tags
+      HAVING symptom_count >= 2
+      ORDER BY symptom_count DESC
+    ''');
+
+    // Analyze low pressure correlation
+    final lowPressureSymptoms = results.where((r) {
+      final pressure = r['pressure'];
+      return pressure != null && pressure is num && pressure < 1010;
+    }).toList();
+
+    // Analyze rainy day correlation
+    final rainyDaySymptoms = results.where((r) {
+      final weather = r['weather'];
+      return weather != null &&
+          weather.toString().toLowerCase().contains('rain');
+    }).toList();
+
+    return {
+      'all_patterns': results,
+      'low_pressure_symptoms': lowPressureSymptoms,
+      'rainy_day_symptoms': rainyDaySymptoms,
+      'total_weather_events': results.length,
+    };
   }
 
   int max(int a, int b) => a > b ? a : b;

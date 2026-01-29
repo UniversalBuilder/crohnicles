@@ -9,7 +9,7 @@ import 'models/timeline_event_group.dart';
 import 'event_detail_page.dart';
 
 class TimelineChartPage extends StatefulWidget {
-  const TimelineChartPage({Key? key}) : super(key: key);
+  const TimelineChartPage({super.key});
 
   @override
   State<TimelineChartPage> createState() => _TimelineChartPageState();
@@ -518,7 +518,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                '${avgSeverity.toStringAsFixed(1)}',
+                avgSeverity.toStringAsFixed(1),
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,

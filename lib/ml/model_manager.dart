@@ -3,6 +3,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import '../database_helper.dart';
 import '../event_model.dart';
 import '../models/context_model.dart';
+import '../symptom_taxonomy.dart';
 import 'feature_extractor.dart';
 
 /// Risk prediction result for a meal
@@ -108,13 +109,11 @@ class TreeNode {
     }
 
     final featureValue = features[feature] ?? 0.0;
-    final decision = featureValue <= threshold!
-        ? 'left'
-        : 'right';
-    
+    final decision = featureValue <= threshold! ? 'left' : 'right';
+
     final humanFeature = _humanizeFeature(feature!);
     final path = [
-      '$humanFeature ${decision == "left" ? "≤" : ">"} ${threshold!.toStringAsFixed(2)}'
+      '$humanFeature ${decision == "left" ? "≤" : ">"} ${threshold!.toStringAsFixed(2)}',
     ];
 
     if (decision == 'left') {
@@ -177,7 +176,7 @@ class ModelMetadata {
 /// Manages ML model loading and inference
 class ModelManager {
   final DatabaseHelper _db = DatabaseHelper();
-  
+
   final Map<String, ModelMetadata> _models = {};
   bool _isInitialized = false;
 
@@ -187,17 +186,18 @@ class ModelManager {
 
     print('[ModelManager] Initializing...');
 
-    final symptomTypes = ['pain', 'diarrhea', 'bloating'];
-    
-    for (final symptomType in symptomTypes) {
+    // Load all available models from symptom taxonomy
+    for (final config in SymptomTaxonomy.models) {
       try {
         final jsonString = await rootBundle.loadString(
-          'assets/models/${symptomType}_predictor.json',
+          'assets/models/${config.modelKey}_predictor.json',
         );
         final json = jsonDecode(jsonString);
-        _models[symptomType] = ModelMetadata.fromJson(json);
-        
-        print('[ModelManager] ✓ Loaded $symptomType model (trained: ${_models[symptomType]!.trainingDate})');
+        _models[config.modelKey] = ModelMetadata.fromJson(json);
+
+        print(
+          '[ModelManager] ✓ Loaded ${config.modelKey} model (trained: ${_models[config.modelKey]!.trainingDate})',
+        );
       } catch (e) {
         // Models are optional - system will use correlation-based fallback
         // This is expected on first launch or if models haven't been trained yet
@@ -205,11 +205,15 @@ class ModelManager {
     }
 
     _isInitialized = true;
-    
+
     if (_models.isEmpty) {
-      print('[ModelManager] ℹ No trained models found - using correlation-based predictions');
+      print(
+        '[ModelManager] ℹ No trained models found - using correlation-based predictions',
+      );
     } else {
-      print('[ModelManager] ✓ Initialization complete (${_models.length} models loaded)');
+      print(
+        '[ModelManager] ✓ Initialization complete (${_models.length} models loaded)',
+      );
     }
   }
 
@@ -232,11 +236,7 @@ class ModelManager {
 
     for (final symptomType in _models.keys) {
       try {
-        final prediction = await _predictSingle(
-          symptomType,
-          features,
-          meal,
-        );
+        final prediction = await _predictSingle(symptomType, features, meal);
         predictions.add(prediction);
       } catch (e) {
         print('[ModelManager] Error predicting $symptomType: $e');
@@ -265,7 +265,11 @@ class ModelManager {
 
     // Get decision path for explanation
     final decisionPath = model.tree.getDecisionPath(features);
-    final explanation = _generateExplanation(symptomType, riskScore, decisionPath);
+    final explanation = _generateExplanation(
+      symptomType,
+      riskScore,
+      decisionPath,
+    );
 
     // Extract top contributing factors
     final topFactors = await _extractTopFactors(features, model, riskScore);
@@ -291,60 +295,73 @@ class ModelManager {
   ) async {
     // For a real implementation, we'd need feature importance from training
     // For now, we'll use a heuristic based on feature values and known correlations
-    
+
     final factors = <TopFactor>[];
 
     // High-risk tags
     if (features['tag_gras'] == 1.0) {
-      factors.add(TopFactor(
-        featureName: 'tag_gras',
-        contribution: 0.15,
-        humanReadable: 'Aliments riches en graisses',
-      ));
+      factors.add(
+        TopFactor(
+          featureName: 'tag_gras',
+          contribution: 0.15,
+          humanReadable: 'Aliments riches en graisses',
+        ),
+      );
     }
 
     if (features['tag_gluten'] == 1.0) {
-      factors.add(TopFactor(
-        featureName: 'tag_gluten',
-        contribution: 0.12,
-        humanReadable: 'Présence de gluten',
-      ));
+      factors.add(
+        TopFactor(
+          featureName: 'tag_gluten',
+          contribution: 0.12,
+          humanReadable: 'Présence de gluten',
+        ),
+      );
     }
 
     if (features['tag_produit_laitier'] == 1.0) {
-      factors.add(TopFactor(
-        featureName: 'tag_produit_laitier',
-        contribution: 0.10,
-        humanReadable: 'Produits laitiers',
-      ));
+      factors.add(
+        TopFactor(
+          featureName: 'tag_produit_laitier',
+          contribution: 0.10,
+          humanReadable: 'Produits laitiers',
+        ),
+      );
     }
 
     // Late night meals
     if (features['is_late_night'] == 1.0) {
-      factors.add(TopFactor(
-        featureName: 'is_late_night',
-        contribution: 0.08,
-        humanReadable: 'Repas tardif (après 22h)',
-      ));
+      factors.add(
+        TopFactor(
+          featureName: 'is_late_night',
+          contribution: 0.08,
+          humanReadable: 'Repas tardif (après 22h)',
+        ),
+      );
     }
 
     // High fat content
     final fatGrams = features['fat_g'] ?? 0.0;
     if (fatGrams > 25) {
-      factors.add(TopFactor(
-        featureName: 'fat_g',
-        contribution: 0.09,
-        humanReadable: 'Taux élevé de lipides (${fatGrams.toStringAsFixed(0)}g)',
-      ));
+      factors.add(
+        TopFactor(
+          featureName: 'fat_g',
+          contribution: 0.09,
+          humanReadable:
+              'Taux élevé de lipides (${fatGrams.toStringAsFixed(0)}g)',
+        ),
+      );
     }
 
     // Weather factors
     if (features['is_pressure_dropping'] == 1.0) {
-      factors.add(TopFactor(
-        featureName: 'is_pressure_dropping',
-        contribution: 0.06,
-        humanReadable: 'Baisse de pression atmosphérique',
-      ));
+      factors.add(
+        TopFactor(
+          featureName: 'is_pressure_dropping',
+          contribution: 0.06,
+          humanReadable: 'Baisse de pression atmosphérique',
+        ),
+      );
     }
 
     // Sort by contribution and take top 5
@@ -358,11 +375,13 @@ class ModelManager {
     double riskScore,
     List<String> decisionPath,
   ) {
-    final symptomName = {
-      'pain': 'douleurs abdominales',
-      'diarrhea': 'diarrhée',
-      'bloating': 'ballonnements',
-    }[symptomType] ?? symptomType;
+    final symptomName =
+        {
+          'pain': 'douleurs abdominales',
+          'diarrhea': 'diarrhée',
+          'bloating': 'ballonnements',
+        }[symptomType] ??
+        symptomType;
 
     if (riskScore < 0.3) {
       return 'Risque faible de $symptomName. Ce repas présente peu de facteurs déclencheurs habituels.';
@@ -396,13 +415,14 @@ class ModelManager {
   ) async {
     final predictions = <RiskPrediction>[];
 
-    for (final symptomType in ['pain', 'diarrhea', 'bloating']) {
+    // Use correlation-based fallback for all defined symptom types
+    for (final config in SymptomTaxonomy.models) {
       // Simple heuristic based on known trigger tags
       double riskScore = 0.3; // Base risk
 
       // Use case-insensitive tag matching
       final tagsLower = meal.tags.map((t) => t.toLowerCase()).toList();
-      
+
       if (tagsLower.contains('gras')) riskScore += 0.2;
       if (tagsLower.contains('gluten')) riskScore += 0.15;
       if (tagsLower.contains('lactose')) riskScore += 0.15;
@@ -412,14 +432,17 @@ class ModelManager {
 
       riskScore = riskScore.clamp(0.0, 1.0);
 
-      predictions.add(RiskPrediction(
-        symptomType: symptomType,
-        riskScore: riskScore,
-        confidence: 0.6, // Moderate confidence for correlation-based
-        topFactors: [],
-        explanation: 'Basé sur les corrélations observées dans votre historique',
-        similarMealIds: [],
-      ));
+      predictions.add(
+        RiskPrediction(
+          symptomType: config.modelKey,
+          riskScore: riskScore,
+          confidence: 0.5, // Lower confidence for correlation-based fallback
+          topFactors: [],
+          explanation:
+              'Estimation basée sur des corrélations simples (modèle ML non entraîné)',
+          similarMealIds: [],
+        ),
+      );
     }
 
     return predictions;

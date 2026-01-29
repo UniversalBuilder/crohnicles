@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'ml/model_manager.dart';
@@ -12,11 +13,11 @@ class RiskAssessmentCard extends StatefulWidget {
   final VoidCallback onClose;
 
   const RiskAssessmentCard({
-    Key? key,
+    super.key,
     required this.predictions,
     required this.meal,
     required this.onClose,
-  }) : super(key: key);
+  });
 
   @override
   State<RiskAssessmentCard> createState() => _RiskAssessmentCardState();
@@ -118,6 +119,28 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
     return names[symptomType] ?? symptomType;
   }
 
+  /// Build subtitle that distinguishes ML predictions from correlation fallback
+  Widget _buildSubtitle() {
+    // Check average confidence to determine if using ML models or fallback
+    final avgConfidence = widget.predictions.isEmpty
+        ? 0.0
+        : widget.predictions.map((p) => p.confidence).reduce((a, b) => a + b) /
+              widget.predictions.length;
+
+    final isUsingML = avgConfidence > 0.65;
+
+    return Text(
+      isUsingML
+          ? 'Prédictions par IA entraînée sur vos données'
+          : 'Corrélations simples (modèles ML non entraînés)',
+      style: GoogleFonts.inter(
+        fontSize: 13,
+        color: Colors.grey.shade600,
+        fontStyle: isUsingML ? FontStyle.normal : FontStyle.italic,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -177,13 +200,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          Text(
-                            'Prédictions basées sur vos données',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
+                          _buildSubtitle(),
                         ],
                       ),
                     ),
@@ -244,7 +261,17 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
             child: TabBarView(
               controller: _tabController,
               children: widget.predictions.map((pred) {
-                return _buildPredictionContent(pred);
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildPredictionContent(pred),
+                      const SizedBox(height: 24),
+                      _buildMealFoodsList(),
+                    ],
+                  ),
+                );
               }).toList(),
             ),
           ),
@@ -583,6 +610,114 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
         ],
       ),
     );
+  }
+
+  Widget _buildMealFoodsList() {
+    try {
+      if (widget.meal.metaData == null || widget.meal.metaData!.isEmpty) {
+        return const SizedBox.shrink();
+      }
+
+      final data = jsonDecode(widget.meal.metaData!);
+      final foods = data['foods'] as List?;
+
+      if (foods == null || foods.isEmpty) {
+        return const SizedBox.shrink();
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Aliments dans ce repas',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...foods.map((food) {
+            final name = food['name'] ?? 'Inconnu';
+            final tags = (food['tags'] as List?)?.cast<String>() ?? [];
+
+            // Determine if risky based on tags
+            final riskyTags = [
+              'gras',
+              'gluten',
+              'lactose',
+              'épicé',
+              'alcool',
+              'fermenté',
+            ];
+            final foodRiskyTags = tags
+                .where((tag) => riskyTags.contains(tag.toLowerCase()))
+                .toList();
+            final isRisky = foodRiskyTags.isNotEmpty;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isRisky ? Colors.red.shade50 : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isRisky ? Colors.red.shade200 : Colors.grey.shade200,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isRisky ? Icons.warning_amber : Icons.check_circle_outline,
+                    color: isRisky
+                        ? Colors.red.shade700
+                        : Colors.green.shade700,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (tags.isNotEmpty)
+                          Text(
+                            tags.join(', '),
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        if (isRisky && foodRiskyTags.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '⚠️ Potentiellement risqué: ${foodRiskyTags.join(', ')}',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: Colors.red.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      );
+    } catch (e) {
+      print('[RiskAssessmentCard] Error parsing meal foods: $e');
+      return const SizedBox.shrink();
+    }
   }
 
   Widget _buildExplanationPoint(String title, String description) {

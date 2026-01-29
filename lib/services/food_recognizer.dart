@@ -122,7 +122,7 @@ class FoodRecognizer {
       final predictions = _parseTopPredictions(output[0], topK: 3);
 
       for (var pred in predictions) {
-        print('[FoodRecognizer] ${pred}');
+        print('[FoodRecognizer] $pred');
       }
 
       return predictions;

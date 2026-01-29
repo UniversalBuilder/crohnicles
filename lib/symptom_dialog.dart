@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_theme.dart';
 import 'event_model.dart';
+import 'symptom_taxonomy.dart';
 
 class SymptomEntryDialog extends StatefulWidget {
   final EventModel? existingEvent;
@@ -18,7 +19,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
   late TabController _tabController;
 
   // Per-zone severity tracking
-  Map<String, double> _zoneSeverities = {};
+  final Map<String, double> _zoneSeverities = {};
 
   // Sélection multiple
   Set<String> selectedAbdomenZones = {};
@@ -366,10 +367,20 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                               for (var zone in selectedAbdomenZones) {
                                 final zoneSeverity =
                                     (_zoneSeverities[zone] ?? 5.0).toInt();
+
+                                // Infer ML tag for abdomen symptoms
+                                final mlTag = SymptomTaxonomy.inferMLTag(
+                                  zone,
+                                  'Abdomen',
+                                );
+                                final tags = mlTag != null
+                                    ? [mlTag]
+                                    : <String>[];
+
                                 results.add({
                                   'title': zone,
                                   'severity': zoneSeverity,
-                                  'tags': <String>[],
+                                  'tags': tags,
                                   'meta_data': jsonEncode({
                                     'zones': [
                                       {'name': zone, 'severity': zoneSeverity},
@@ -382,10 +393,23 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                                 final title = parts[0];
                                 final zoneSeverity =
                                     (_zoneSeverities[title] ?? 5.0).toInt();
+
+                                // Infer ML tag from category path
+                                final category = parts.length > 1
+                                    ? parts[1]
+                                    : title;
+                                final mlTag = SymptomTaxonomy.inferMLTag(
+                                  title,
+                                  category,
+                                );
+                                final tags = mlTag != null
+                                    ? [mlTag]
+                                    : parts.sublist(1);
+
                                 results.add({
                                   'title': title,
                                   'severity': zoneSeverity,
-                                  'tags': parts.sublist(1),
+                                  'tags': tags,
                                   'meta_data': jsonEncode({
                                     'zones': [
                                       {'name': title, 'severity': zoneSeverity},

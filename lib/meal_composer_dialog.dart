@@ -17,7 +17,7 @@ import 'services/food_recognizer.dart';
 class MealComposerDialog extends StatefulWidget {
   final EventModel? existingEvent;
 
-  const MealComposerDialog({Key? key, this.existingEvent}) : super(key: key);
+  const MealComposerDialog({super.key, this.existingEvent});
 
   @override
   _MealComposerDialogState createState() => _MealComposerDialogState();
@@ -31,8 +31,6 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   late TabController _tabController;
   bool _isSnack = false;
   Timer? _debounce;
-
-  String? _selectedCategoryFilter;
 
   // Search state
   List<FoodModel> _localResults = [];
@@ -254,7 +252,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: selectedCategory,
+                    initialValue: selectedCategory,
                     items: ['Boisson', 'Féculent', 'Protéine', 'Snack', 'Repas']
                         .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                         .toList(),
@@ -1576,81 +1574,6 @@ class _MealComposerDialogState extends State<MealComposerDialog>
           ),
         );
       },
-    );
-  }
-
-  Widget _buildCartDisplay() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.mealGradient.colors.first.withValues(alpha: 0.1),
-            AppColors.mealGradient.colors.last.withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.mealGradient.colors.first.withValues(alpha: 0.3),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              ShaderMask(
-                shaderCallback: (bounds) =>
-                    AppColors.mealGradient.createShader(bounds),
-                child: const Icon(
-                  Icons.shopping_cart,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Panier (${_cart.length})',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _cart.map((food) {
-              return Chip(
-                avatar: ShaderMask(
-                  shaderCallback: (bounds) =>
-                      AppColors.mealGradient.createShader(bounds),
-                  child: _getCategoryIcon(food.category),
-                ),
-                label: Text(
-                  food.name,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                deleteIcon: const Icon(Icons.close, size: 16),
-                onDeleted: () => _removeFromCart(food),
-                backgroundColor: Colors.white,
-                side: BorderSide(
-                  color: AppColors.mealGradient.colors.first.withValues(
-                    alpha: 0.3,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
     );
   }
 

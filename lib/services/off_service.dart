@@ -87,6 +87,9 @@ class OFFService {
     if (query.trim().isEmpty) return [];
 
     try {
+      // Rate limiting: 200ms delay to avoid API throttling (max 5 req/sec)
+      await Future.delayed(const Duration(milliseconds: 200));
+      
       // Encode query properly for URL
       final encodedQuery = Uri.encodeQueryComponent(query.trim());
 
@@ -272,8 +275,9 @@ class OFFService {
 
     // Add allergen-based tags
     if (allergensList.any((a) => a.contains('gluten'))) tags.add('Gluten');
-    if (allergensList.any((a) => a.contains('milk') || a.contains('lactose')))
+    if (allergensList.any((a) => a.contains('milk') || a.contains('lactose'))) {
       tags.add('Lactose');
+    }
     if (allergensList.any((a) => a.contains('nuts'))) tags.add('Noix');
 
     // Add nutrition-based tags

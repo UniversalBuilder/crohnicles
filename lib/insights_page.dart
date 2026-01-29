@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'event_model.dart';
@@ -7,6 +8,8 @@ import 'app_theme.dart';
 import 'package:intl/intl.dart';
 import 'ml/model_manager.dart';
 import 'event_detail_page.dart';
+import 'services/training_service.dart';
+import 'ml/model_status_page.dart';
 
 class InsightsPage extends StatefulWidget {
   const InsightsPage({super.key});
@@ -133,8 +136,8 @@ class _InsightsPageState extends State<InsightsPage> {
     try {
       modelManager = ModelManager();
       await modelManager.initialize();
-      // Check if initialization succeeded (models loaded)
-      hasModels = true; // If initialize didn't throw, we have at least fallback
+      // Check if models are actually loaded (not just fallback)
+      hasModels = modelManager.isReady;
     } catch (e) {
       print('[INSIGHTS] Model loading failed (using fallback): $e');
     }
@@ -183,8 +186,9 @@ class _InsightsPageState extends State<InsightsPage> {
             if (tag.isEmpty ||
                 tag == "Repas" ||
                 tag == "Encas" ||
-                tag == "Grignotage")
+                tag == "Grignotage") {
               continue;
+            }
             suspectCounts[tag] = (suspectCounts[tag] ?? 0) + 1;
           }
         } else {
@@ -203,6 +207,103 @@ class _InsightsPageState extends State<InsightsPage> {
       top[k] = suspectCounts[k]!;
     }
     return top;
+  }
+
+  /// Trigger ML model training
+  Future<void> _triggerTraining() async {
+    final trainingService = TrainingService();
+    
+    // Show loading dialog
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Entraînement des modèles en cours...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // Check data availability first
+      final dataStatus = await trainingService.checkDataAvailability();
+      
+      if (!dataStatus.hasEnoughData) {
+        if (!mounted) return;
+        Navigator.pop(context); // Close loading dialog
+        
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Données insuffisantes'),
+            content: Text(dataStatus.message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      // Trigger training
+      final result = await trainingService.trainModels();
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      // Show result
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(result.success ? 'Entraînement réussi' : 'Erreur'),
+          content: Text(result.message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                if (result.success) {
+                  // Reload data to show new predictions
+                  setState(() => _isLoading = true);
+                  _loadData();
+                }
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Erreur'),
+          content: Text('Échec de l\'entraînement: $e'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -227,6 +328,25 @@ class _InsightsPageState extends State<InsightsPage> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            tooltip: 'Statut des Modèles ML',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ModelStatusPage(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.model_training),
+            tooltip: Platform.isAndroid || Platform.isIOS
+                ? 'Entraînement (Desktop uniquement)'
+                : 'Entraîner les modèles ML',
+            onPressed: _triggerTraining,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Rafraîchir les statistiques',
@@ -498,13 +618,11 @@ class _InsightsPageState extends State<InsightsPage> {
                               ),
                             ),
                             subtitle: Text(
-                              (e.dateTime.length > 10
+                              "${e.dateTime.length > 10
                                       ? DateFormat(
                                           'dd/MM HH:mm',
                                         ).format(DateTime.parse(e.dateTime))
-                                      : e.dateTime) +
-                                  "\n" +
-                                  e.tags.join(', '),
+                                      : e.dateTime}\n${e.tags.join(', ')}",
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -514,7 +632,7 @@ class _InsightsPageState extends State<InsightsPage> {
                           ),
                         ),
                       )
-                      .toList(),
+                      ,
                 ] else ...[
                   Text(
                     "Pas de données récentes de crise pour analyser les derniers repas.",
@@ -1256,7 +1374,7 @@ class _InsightsPageState extends State<InsightsPage> {
                 ),
               ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

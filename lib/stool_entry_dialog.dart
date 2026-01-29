@@ -268,7 +268,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                     size: 20,
                                   ),
                                 ),
-                                activeColor: AppColors.stoolEnd,
+                                activeThumbColor: AppColors.stoolEnd,
                               ),
                               Divider(height: 1, color: Colors.grey.shade200),
                               SwitchListTile(
@@ -301,7 +301,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                     size: 20,
                                   ),
                                 ),
-                                activeColor: AppColors.painEnd,
+                                activeThumbColor: AppColors.painEnd,
                               ),
                             ],
                           ),

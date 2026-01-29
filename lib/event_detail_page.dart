@@ -9,7 +9,7 @@ import 'app_theme.dart';
 class EventDetailPage extends StatefulWidget {
   final EventModel event;
 
-  const EventDetailPage({Key? key, required this.event}) : super(key: key);
+  const EventDetailPage({super.key, required this.event});
 
   @override
   State<EventDetailPage> createState() => _EventDetailPageState();
@@ -290,7 +290,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       );
     } catch (e) {
@@ -411,7 +411,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                   ],
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

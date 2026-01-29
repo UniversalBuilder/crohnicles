@@ -1,0 +1,90 @@
+{
+  "symptom_type": "pain",
+  "feature_names": [
+    "tag_feculent",
+    "tag_proteine",
+    "tag_legume",
+    "tag_produit_laitier",
+    "tag_fruit",
+    "tag_epices",
+    "tag_gras",
+    "tag_sucre",
+    "tag_fermente",
+    "tag_gluten",
+    "tag_alcool",
+    "protein_g",
+    "fat_g",
+    "carb_g",
+    "fiber_g",
+    "sugar_g",
+    "energy_kcal",
+    "protein_pct",
+    "fat_pct",
+    "carb_pct",
+    "nova_group",
+    "is_processed",
+    "hour_of_day",
+    "day_of_week",
+    "is_weekend",
+    "is_breakfast",
+    "is_lunch",
+    "is_dinner",
+    "is_snack",
+    "is_late_night",
+    "minutes_since_last_meal",
+    "hours_since_last_meal",
+    "meals_today_count",
+    "temperature_celsius",
+    "pressure_hpa",
+    "pressure_change_6h",
+    "humidity",
+    "is_high_humidity",
+    "is_pressure_dropping",
+    "weather_sunny",
+    "weather_rainy",
+    "weather_cloudy",
+    "weather_stormy",
+    "time_morning",
+    "time_afternoon",
+    "time_evening",
+    "time_night",
+    "season_spring",
+    "season_summer",
+    "season_fall",
+    "season_winter"
+  ],
+  "tree_structure": {
+    "is_leaf": false,
+    "feature": "hour_of_day",
+    "threshold": 10.0,
+    "left": {
+      "is_leaf": false,
+      "feature": "day_of_week",
+      "threshold": 3.5,
+      "left": {
+        "is_leaf": true,
+        "value": 0,
+        "probability": 0.38823529411764707
+      },
+      "right": {
+        "is_leaf": true,
+        "value": 1,
+        "probability": 0.9506172839506173
+      }
+    },
+    "right": {
+      "is_leaf": true,
+      "value": 0,
+      "probability": 0.0
+    }
+  },
+  "metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "training_date": "2026-01-29T10:55:38.187909",
+  "lookback_days": 90,
+  "time_window_hours": 8
+}

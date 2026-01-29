@@ -10,6 +10,7 @@ import 'app_theme.dart';
 import 'stool_entry_dialog.dart';
 import 'event_model.dart';
 import 'calendar_page.dart';
+import 'vertical_timeline_page.dart';
 import 'event_search_delegate.dart';
 import 'insights_page.dart';
 import 'symptom_dialog.dart';
@@ -18,9 +19,14 @@ import 'risk_assessment_card.dart';
 import 'ml/model_manager.dart';
 import 'services/context_service.dart';
 import 'models/context_model.dart';
-import 'timeline_chart_page.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize date formatting for French locale (fixes LocaleDataException)
+  await initializeDateFormatting('fr_FR', null);
+  
   // Initialisation de la base de données pour le Web et Desktop
   if (kIsWeb) {
     databaseFactory = databaseFactoryFfiWeb;
@@ -1241,13 +1247,12 @@ class _TimelinePageState extends State<TimelinePage> {
                       event.time,
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
-                    if (event.subtitle != null &&
-                        event.subtitle!.isNotEmpty) ...[
+                    if (event.subtitle.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Text('•', style: TextStyle(color: Colors.grey.shade600)),
                       const SizedBox(width: 8),
                       Text(
-                        event.subtitle!,
+                        event.subtitle,
                         style: TextStyle(color: Colors.grey.shade600),
                       ),
                     ],
@@ -1366,7 +1371,7 @@ class _TimelinePageState extends State<TimelinePage> {
                             ],
                           ),
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
               ],
@@ -1537,18 +1542,6 @@ class _TimelinePageState extends State<TimelinePage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.timeline, size: 22),
-            tooltip: 'Timeline Visuelle',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TimelineChartPage(),
-                ),
-              );
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.developer_mode, size: 22),
             tooltip: 'Menu Développeur',
             onPressed: _showDevMenu,
@@ -1557,6 +1550,14 @@ class _TimelinePageState extends State<TimelinePage> {
             icon: const Icon(Icons.search, size: 22),
             onPressed: () =>
                 showSearch(context: context, delegate: EventSearchDelegate()),
+          ),
+          IconButton(
+            icon: const Icon(Icons.timeline_outlined, size: 22),
+            tooltip: 'Timeline',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const VerticalTimelinePage()),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.bar_chart, size: 22),
@@ -1594,14 +1595,18 @@ class _TimelinePageState extends State<TimelinePage> {
                 itemBuilder: (context, index) {
                   if (index == 0) return _buildSectionTitle("Aujourd'hui");
                   final event = _events[index - 1];
-                  if (event.type == EventType.meal)
+                  if (event.type == EventType.meal) {
                     return _buildMealCard(event);
-                  if (event.type == EventType.symptom)
+                  }
+                  if (event.type == EventType.symptom) {
                     return _buildSymptomCard(event);
-                  if (event.type == EventType.stool)
+                  }
+                  if (event.type == EventType.stool) {
                     return _buildStoolCard(event);
-                  if (event.type == EventType.daily_checkup)
+                  }
+                  if (event.type == EventType.daily_checkup) {
                     return _buildCheckupCard(event);
+                  }
                   return const SizedBox();
                 },
               ),
