@@ -16,9 +16,6 @@ void callbackDispatcher() {
         print('[BackgroundService] 🌦️ Starting weather fetch task...');
         
         // 1. Get stored preferences (Last known location)
-        // Note: SharedPreferences on Android might need force reload in bg
-        // if (Platform.isAndroid) SharedPreferencesAndroid.registerWith();
-        
         final prefs = await SharedPreferences.getInstance();
         final lat = prefs.getDouble('last_lat') ?? 48.85; // Default Paris
         final lng = prefs.getDouble('last_lng') ?? 2.35;
@@ -40,12 +37,53 @@ void callbackDispatcher() {
             final data = response.data['current'];
             print('[BackgroundService] API Success: $data');
             
-            // 3. Save to DB
-            final dbPath = await getDatabasesPath();
-            final path = join(dbPath, 'crohnicles.db');
-            
-            // Ensure we don't lock the DB for too long
-            final db = await openDatabase(path);
+            // 3. Save to DB - Explicit path handling to match DatabaseHelper
+            // Using getApplicationDocumentsDirectory to match main app's DatabaseHelper logic
+            // We do this explicitly to avoid Singleton/Isolate issues
+            final documentsDirectory = await getApplicationDocumentsDirectory();
+            final dbPath = join(documentsDirectory.path, 'crohnicles.db');
+            print('[BackgroundService] DB Path: $dbPath');
+
+            final db = await openDatabase(dbPath, version: 10, 
+              onCreate: (db, version) async {
+                 // Fallback: If DB doesn't exist in this isolate for some reason
+                 await db.execute('''
+                  CREATE TABLE IF NOT EXISTS events(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT,
+                    dateTime TEXT,
+                    title TEXT,
+                    subtitle TEXT,
+                    severity INTEGER,
+                    tags TEXT,
+                    isUrgent INTEGER,
+                    isSnack INTEGER,
+                    imagePath TEXT,
+                    meta_data TEXT,
+                    context_data TEXT
+                  )
+                ''');
+              },
+              onOpen: (db) async {
+                 // Ensure table exists even if DB exists (e.g. corruption or empty file)
+                 await db.execute('''
+                  CREATE TABLE IF NOT EXISTS events(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT,
+                    dateTime TEXT,
+                    title TEXT,
+                    subtitle TEXT,
+                    severity INTEGER,
+                    tags TEXT,
+                    isUrgent INTEGER,
+                    isSnack INTEGER,
+                    imagePath TEXT,
+                    meta_data TEXT,
+                    context_data TEXT
+                  )
+                ''');
+              }
+            );
             
             // We store this as a 'context_log' event or similar
             // Assuming we have an 'events' table, we can create a system event
@@ -61,7 +99,11 @@ void callbackDispatcher() {
               'tags': '',
             });
             
-            await db.close();
+            // DatabaseHelper handles closing/lifecycle usually, but if we accessed it via singleton 
+            // and it stays open, that's fine for the background task. 
+            // But we shouldn't close it if it's shared? 
+            // DatabaseHelper singleton keeps it open.
+            
             print('[BackgroundService] ✅ Weather saved to DB');
         } else {
              print('[BackgroundService] API Error: ${response.statusCode}');

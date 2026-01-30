@@ -370,6 +370,12 @@ class _InsightsPageState extends State<InsightsPage> {
                 _buildSuspectsCard(),
                 const SizedBox(height: 24),
 
+                // Show latest meal risk if available (New)
+                if (_suspectMeals.isNotEmpty) ...[
+                   _buildLastRiskAssessmentCard(),
+                   const SizedBox(height: 24),
+                ],
+
                 // ML Predictions Section
                 if (_modelManager != null) ...[
                   _buildMLPredictionsCard(),
@@ -648,6 +654,74 @@ class _InsightsPageState extends State<InsightsPage> {
                 const SizedBox(height: 40),
               ],
             ),
+    );
+  }
+
+  Widget _buildLastRiskAssessmentCard() {
+    return Card(
+      elevation: 0,
+      color: Colors.blue.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: Colors.blue.shade100),
+      ),
+      child: InkWell(
+        onTap: () {
+          // Trigger risk assessment for the last meal
+          if (_suspectMeals.isNotEmpty) {
+             // We need context, but we don't have it stored historically perfectly.
+             // We can pass a dummy context or try to reconstruct.
+             // For now, we will show a dialog saying "Context historique non disponible"
+             // Or better, just show the detail page.
+             Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EventDetailPage(event: _suspectMeals.first),
+                ),
+              );
+          }
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.assessment, color: Colors.blue),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Dernière analyse",
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: Colors.blue.shade900,
+                      ),
+                    ),
+                    Text(
+                      "Cliquez pour voir les détails du dernier repas",
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.blue),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1139,6 +1213,18 @@ class _InsightsPageState extends State<InsightsPage> {
                       ),
                     ),
                   ],
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MethodologyPage(),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

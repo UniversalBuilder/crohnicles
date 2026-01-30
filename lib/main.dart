@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -21,9 +22,27 @@ import 'services/context_service.dart';
 import 'models/context_model.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/background_service.dart';
+=======
+import 'package:crohnicles/settings_page.dart'; // Import Settings Page
+import 'package:crohnicles/services/log_service.dart'; // Import Log Service
+>>>>>>> Stashed changes
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  final log = LogService();
+  log.log('[Main] App starting...');
+
+  // Initialize Background Service (Weather automation)
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    try {
+      await BackgroundService.initialize();
+      await BackgroundService.registerPeriodicTask();
+      log.log('[Main] Background service initialized');
+    } catch (e) {
+      log.log("[Main] Failed to init background service: $e");
+    }
+  }
 
   // Initialize Background Service (Weather automation)
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -876,330 +895,6 @@ class _TimelinePageState extends State<TimelinePage> {
     }
   }
 
-  void _showDevMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Colors.grey.shade900,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade600,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              '🛠️ Menu Développeur',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.delete_forever, color: Colors.red),
-              title: const Text(
-                'Effacer toute la base',
-                style: TextStyle(color: Colors.white),
-              ),
-              subtitle: const Text(
-                'Supprime TOUT (events, foods, cache)',
-                style: TextStyle(color: Colors.grey),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showClearDatabaseDialog();
-              },
-            ),
-            const Divider(color: Colors.grey),
-            ListTile(
-              leading: const Icon(Icons.restore, color: Colors.blue),
-              title: const Text(
-                'Générer données de démo',
-                style: TextStyle(color: Colors.white),
-              ),
-              subtitle: const Text(
-                '30 jours d\'historique fictif',
-                style: TextStyle(color: Colors.grey),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showGenerateDemoDialog();
-              },
-            ),
-            const Divider(color: Colors.grey),
-            ListTile(
-              leading: const Icon(Icons.psychology, color: Colors.purple),
-              title: const Text(
-                'Entraîner les modèles ML',
-                style: TextStyle(color: Colors.white),
-              ),
-              subtitle: const Text(
-                'Lance l\'analyse et corrélations',
-                style: TextStyle(color: Colors.grey),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _trainModels();
-              },
-            ),
-            const Divider(color: Colors.grey),
-            ListTile(
-              leading: const Icon(Icons.cloud_download, color: Colors.orange),
-              title: const Text(
-                'Enrichir avec produits OFF populaires',
-                style: TextStyle(color: Colors.white),
-              ),
-              subtitle: const Text(
-                'Télécharge ~15 produits réels depuis OpenFoodFacts',
-                style: TextStyle(color: Colors.grey),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _enrichWithOFFProducts();
-              },
-            ),
-            const Divider(color: Colors.grey),
-            ListTile(
-              leading: const Icon(Icons.refresh, color: Colors.green),
-              title: const Text(
-                'Rafraîchir la vue',
-                style: TextStyle(color: Colors.white),
-              ),
-              subtitle: const Text(
-                'Recharge tous les événements',
-                style: TextStyle(color: Colors.grey),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _loadEvents();
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('Vue rafraîchie')));
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showClearDatabaseDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('⚠️ Effacer la base'),
-        content: const Text(
-          'Ceci va supprimer:\n'
-          '• Tous les événements\n'
-          '• Tous les aliments\n'
-          '• Le cache OpenFoodFacts\n'
-          '• Les modèles ML\n\n'
-          'Action IRRÉVERSIBLE !',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                final db = await DatabaseHelper().database;
-                await db.delete('events');
-                await db.delete('foods');
-                await db.delete('products_cache');
-                _loadEvents();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('✅ Base de données effacée'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('❌ Erreur: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('EFFACER TOUT'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _enrichWithOFFProducts() async {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 20),
-            Expanded(
-              child: Text(
-                'Téléchargement des produits OpenFoodFacts...\nCela peut prendre 30-60 secondes.',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      await DatabaseHelper().enrichWithPopularOFFProducts();
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Base enrichie avec produits populaires'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Erreur: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  void _showGenerateDemoDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('🎲 Générer Démo'),
-        content: const Text(
-          'Ceci va générer 30 jours d\'historique fictif:\n'
-          '• Repas variés (trigger et sains)\n'
-          '• Symptômes corrélés\n'
-          '• Selles avec Bristol scale\n\n'
-          'Les données existantes seront conservées.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.blue),
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await DatabaseHelper().generateDemoData();
-                _loadEvents();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('✅ Données de démo générées'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('❌ Erreur: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('GÉNÉRER'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _trainModels() async {
-    try {
-      final db = DatabaseHelper();
-      final events = await db.getEvents();
-
-      if (events.length < 10) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                '⚠️ Pas assez de données (minimum 10 événements)\n'
-                'Utilisez "Générer données de démo" d\'abord.',
-              ),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 4),
-            ),
-          );
-        }
-        return;
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🧠 Entraînement en cours...'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-
-      // Les modèles s'entraînent automatiquement dans insights_page.dart
-      // lors du chargement, mais on peut forcer un refresh ici
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '✅ Entraînement terminé\n'
-              '${events.length} événements analysés',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Erreur: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  Future<void> _deleteEvent(int id) async {
-    await DatabaseHelper().deleteEvent(id);
-    _loadEvents();
-  }
-
   void _showMealDetail(EventModel event) {
     // Parse foods from meta_data
     List<dynamic> foods = [];
@@ -1563,9 +1258,12 @@ class _TimelinePageState extends State<TimelinePage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.developer_mode, size: 22),
-            tooltip: 'Menu Développeur',
-            onPressed: _showDevMenu,
+            icon: const Icon(Icons.settings, size: 22),
+            tooltip: 'Paramètres',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsPage()),
+            ).then((_) => _loadEvents()),
           ),
           IconButton(
             icon: const Icon(Icons.search, size: 22),
