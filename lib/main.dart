@@ -1,31 +1,5 @@
-<<<<<<< Updated upstream
-import 'dart:io';
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'database_helper.dart';
-import 'app_theme.dart';
-import 'stool_entry_dialog.dart';
-import 'event_model.dart';
-import 'calendar_page.dart';
-import 'vertical_timeline_page.dart';
-import 'event_search_delegate.dart';
-import 'insights_page.dart';
-import 'symptom_dialog.dart';
-import 'meal_composer_dialog.dart';
-import 'risk_assessment_card.dart';
-import 'ml/model_manager.dart';
-import 'services/context_service.dart';
-import 'models/context_model.dart';
-import 'package:intl/date_symbol_data_local.dart';
-import 'services/background_service.dart';
-=======
 import 'package:crohnicles/settings_page.dart'; // Import Settings Page
 import 'package:crohnicles/services/log_service.dart'; // Import Log Service
->>>>>>> Stashed changes
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,16 +15,6 @@ void main() async {
       log.log('[Main] Background service initialized');
     } catch (e) {
       log.log("[Main] Failed to init background service: $e");
-    }
-  }
-
-  // Initialize Background Service (Weather automation)
-  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-    try {
-      await BackgroundService.initialize();
-      await BackgroundService.registerPeriodicTask();
-    } catch (e) {
-      print("[Main] Failed to init background service: $e");
     }
   }
 
