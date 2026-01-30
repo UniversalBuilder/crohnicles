@@ -20,9 +20,20 @@ import 'ml/model_manager.dart';
 import 'services/context_service.dart';
 import 'models/context_model.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'services/background_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Background Service (Weather automation)
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    try {
+      await BackgroundService.initialize();
+      await BackgroundService.registerPeriodicTask();
+    } catch (e) {
+      print("[Main] Failed to init background service: $e");
+    }
+  }
 
   // Initialize date formatting for French locale (fixes LocaleDataException)
   await initializeDateFormatting('fr_FR', null);
@@ -112,12 +123,15 @@ class _TimelinePageState extends State<TimelinePage> {
             : 'Repas de ${foodNames.length} aliments';
       }
 
+      final DateTime? timestamp = result['timestamp'] as DateTime?;
+
       _addEvent(
         EventType.meal,
         title,
         isSnack: resultIsSnack,
         tags: result['tags'] as List<String>? ?? [],
         metaData: jsonEncode({'foods': foodsList}),
+        customDate: timestamp,
       );
       if (mounted) Navigator.of(context).pop(); // Ferme le menu du bas
     }
@@ -461,6 +475,7 @@ class _TimelinePageState extends State<TimelinePage> {
             result['title'],
             severity: result['severity'],
             tags: result['tags'],
+            customDate: result['timestamp'] as DateTime?,
           );
         }
       }
@@ -476,11 +491,12 @@ class _TimelinePageState extends State<TimelinePage> {
     List<String>? tags,
     String? imagePath,
     String? metaData,
+    DateTime? customDate,
   }) async {
     print(
-      '➕ Adding event: type=$type, title=$title, severity=$severity, isSnack=$isSnack',
+      '➕ Adding event: type=$type, title=$title, severity=$severity, isSnack=$isSnack, date=$customDate',
     );
-    final now = DateTime.now();
+    final now = customDate ?? DateTime.now();
 
     // Fusion des tags par défaut (Grignotage) avec les nouveaux tags
     List<String> userTags = tags ?? [];
@@ -714,15 +730,15 @@ class _TimelinePageState extends State<TimelinePage> {
       final int type = result['type'];
       final bool isUrgent = result['isUrgent'];
       final bool hasBlood = result['hasBlood'];
+      final DateTime date = result['timestamp'] as DateTime? ?? DateTime.now();
 
-      final now = DateTime.now();
       List<String> tags = [];
       if (isUrgent) tags.add("Urgent");
       if (hasBlood) tags.add("Sang");
 
       final newEvent = EventModel(
         type: EventType.stool,
-        dateTime: now.toIso8601String(),
+        dateTime: date.toIso8601String(),
         title: "Type $type",
         subtitle: "Échelle de Bristol",
         isUrgent: isUrgent,

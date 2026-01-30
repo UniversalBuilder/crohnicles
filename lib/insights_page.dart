@@ -229,7 +229,7 @@ class _InsightsPageState extends State<InsightsPage> {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
-                Text('Entraînement des modèles en cours...'),
+                Text('Analyse statistique en cours...'),
               ],
             ),
           ),
@@ -274,7 +274,7 @@ class _InsightsPageState extends State<InsightsPage> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(result.success ? 'Entraînement réussi' : 'Erreur'),
+          title: Text(result.success ? 'Analyse terminée' : 'Erreur'),
           content: Text(result.message),
           actions: [
             TextButton(

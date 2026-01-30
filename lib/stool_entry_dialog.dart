@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'app_theme.dart';
 import 'event_model.dart';
 
@@ -27,6 +28,8 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
     7: "Liquide (aucune partie solide)",
   };
 
+  DateTime _selectedDate = DateTime.now();
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +37,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
     // Pre-fill data if editing existing event
     if (widget.existingEvent != null) {
       final event = widget.existingEvent!;
+      _selectedDate = event.timestamp;
       // Extract type from title "Type X"
       final typeMatch = RegExp(r'Type (\d+)').firstMatch(event.title);
       if (typeMatch != null) {
@@ -87,8 +91,10 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                     horizontal: 24,
                     vertical: 20,
                   ),
-                  child: Row(
+                  child: Column(
                     children: [
+                      Row(
+                        children: [
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -118,6 +124,141 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                         ),
                       ),
                     ],
+                  ),
+                      const SizedBox(height: 16),
+                      // Date & Time Picker
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Date Picker
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: InkWell(
+                              onTap: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: _selectedDate,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime.now(),
+                                  locale: const Locale('fr', 'FR'),
+                                  builder: (context, child) {
+                                    return Theme(
+                                      data: Theme.of(context).copyWith(
+                                        colorScheme: ColorScheme.light(
+                                          primary: AppColors.stoolGradient.colors.first,
+                                        ),
+                                      ),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    _selectedDate = DateTime(
+                                      date.year,
+                                      date.month,
+                                      date.day,
+                                      _selectedDate.hour,
+                                      _selectedDate.minute,
+                                    );
+                                  });
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.calendar_today,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      DateFormat('EEE d MMM', 'fr_FR').format(_selectedDate),
+                                      style: GoogleFonts.inter(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Time Picker
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: InkWell(
+                              onTap: () async {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay.fromDateTime(_selectedDate),
+                                  builder: (context, child) {
+                                    return Theme(
+                                      data: Theme.of(context).copyWith(
+                                        colorScheme: ColorScheme.light(
+                                          primary: AppColors.stoolGradient.colors.first,
+                                        ),
+                                      ),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                                if (time != null) {
+                                  setState(() {
+                                    _selectedDate = DateTime(
+                                      _selectedDate.year,
+                                      _selectedDate.month,
+                                      _selectedDate.day,
+                                      time.hour,
+                                      time.minute,
+                                    );
+                                  });
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.access_time,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      DateFormat('HH:mm').format(_selectedDate),
+                                      style: GoogleFonts.inter(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ]
                   ),
                 ),
 
@@ -365,6 +506,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                 'type': _selectedType,
                                 'isUrgent': _isUrgent,
                                 'hasBlood': _hasBlood,
+                                'timestamp': _selectedDate,
                               });
                             },
                             borderRadius: BorderRadius.circular(20),

@@ -861,12 +861,13 @@ class DatabaseHelper {
     }
 
     // 3. User Profile Simulation (Sensitivities)
-    // Let's simulate a user sensitive to Gluten and Spicy food
+    // Let's simulate a user sensitive to Gluten, Spicy food, and Dairy (Diarrhea trigger)
     final sensitiveToGluten = true;
     final sensitiveToSpicy = true;
+    final sensitiveToDairy = true;
 
-    // 4. Generate 60 Days of Data
-    for (int i = 60; i >= 0; i--) {
+    // 4. Generate 90 Days of Data
+    for (int i = 90; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
 
       // Weather Context (Simplified random)
@@ -990,6 +991,7 @@ class DatabaseHelper {
       // Check triggers from today's meals
       bool triggerGluten = false;
       bool triggerSpicy = false;
+      bool triggerDairy = false;
       bool triggerFibers = false;
 
       final todaysMeals = [bMeal, lMeal, dMeal];
@@ -997,11 +999,52 @@ class DatabaseHelper {
         final tags = (meal['tags'] as List).map((t) => t.toString()).toList();
         if (sensitiveToGluten && tags.contains('Gluten')) triggerGluten = true;
         if (sensitiveToSpicy && tags.contains('Épicé')) triggerSpicy = true;
+        if (sensitiveToDairy && tags.contains('Laitage')) triggerDairy = true;
         // Assume high fiber if lots of veggies/fruits
         if (tags.where((t) => t == 'Fibres').length >= 2) triggerFibers = true;
       }
 
       // Reaction: 2-4 hours after meal (simplified to afternoon/evening/next morning)
+
+      if (triggerDairy && (i % 2 != 0)) {
+        // Dairy triggers Diarrhea (Type 6/7)
+        batch.insert('events', {
+          'type': 'stool',
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            15,
+            0,
+          ).toIso8601String(),
+          'title': 'Type 6',
+          'subtitle': 'Molles',
+          'severity': 0,
+          'tags': 'Urgent,Laitage',
+          'context_data': weatherContext,
+          'isUrgent': 1,
+          'isSnack': 0,
+        });
+
+        // Associated abdominal pain
+        batch.insert('events', {
+          'type': 'symptom',
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            14,
+            45,
+          ).toIso8601String(),
+          'title': 'Douleur Abdominale',
+          'subtitle': 'Crampes',
+          'severity': 5,
+          'tags': 'Douleur,Crampes',
+          'context_data': weatherContext,
+          'isUrgent': 0,
+          'isSnack': 0,
+        });
+      }
 
       if (triggerGluten && (i % 3 != 0)) {
         // 66% chance of reaction

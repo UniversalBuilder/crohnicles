@@ -62,11 +62,11 @@ Au début, quand vous n'avez pas assez de données, l'application utilise des r�
             ),
             const SizedBox(height: 16),
              _buildCard(
-              title: "3. Machine Learning (Desktop)",
-              icon: Icons.computer,
+              title: "3. Apprentissage Continu",
+              icon: Icons.psychology,
               color: Colors.purple,
               content: """
-La version ordinateur permet d'entraîner des modèles plus complexes (Arbres de décision) capables de trouver des combinaisons subtiles (ex: "Gluten + Stress + Fatigue = Crise"). Ces modèles peuvent ensuite être synchronisés.
+Plus vous utilisez l'application, plus les prédictions s'affinent. L'algorithme recalculera périodiquement les corrélations pour identifier des liens subtils, comme des aliments qui ne posent problème que le soir ou en période de stress.
               """,
             ),
             

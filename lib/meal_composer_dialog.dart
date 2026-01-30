@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart'
@@ -31,6 +32,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   final DatabaseHelper _dbHelper = DatabaseHelper();
   late TabController _tabController;
   bool _isSnack = false;
+  DateTime _selectedDate = DateTime.now();
   Timer? _debounce;
 
   // Search state
@@ -49,6 +51,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     if (widget.existingEvent != null) {
       final event = widget.existingEvent!;
       _isSnack = event.isSnack;
+      _selectedDate = event.timestamp;
       isEditMode = true;
 
       // Parse foods from meta_data
@@ -349,6 +352,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
           .toList(), // List<Map<String, dynamic>>
       'tags': allTags,
       'is_snack': _isSnack,
+      'timestamp': _selectedDate,
     };
 
     Navigator.pop(context, result);
@@ -493,6 +497,139 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                           }),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Date & Time Picker
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Date Picker
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: InkWell(
+                            onTap: () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: _selectedDate,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now(),
+                                locale: const Locale('fr', 'FR'),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: ColorScheme.light(
+                                        primary: AppColors.mealGradient.colors.first,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (date != null) {
+                                setState(() {
+                                  _selectedDate = DateTime(
+                                    date.year,
+                                    date.month,
+                                    date.day,
+                                    _selectedDate.hour,
+                                    _selectedDate.minute,
+                                  );
+                                });
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.calendar_today,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    DateFormat('EEE d MMM', 'fr_FR').format(_selectedDate),
+                                    style: GoogleFonts.inter(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Time Picker
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: InkWell(
+                            onTap: () async {
+                              final time = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay.fromDateTime(_selectedDate),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: ColorScheme.light(
+                                        primary: AppColors.mealGradient.colors.first,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (time != null) {
+                                setState(() {
+                                  _selectedDate = DateTime(
+                                    _selectedDate.year,
+                                    _selectedDate.month,
+                                    _selectedDate.day,
+                                    time.hour,
+                                    time.minute,
+                                  );
+                                });
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.access_time,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    DateFormat('HH:mm').format(_selectedDate),
+                                    style: GoogleFonts.inter(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

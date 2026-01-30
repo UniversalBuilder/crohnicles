@@ -43,6 +43,14 @@ class StatisticalEngine {
       );
       final symptoms = symptomsData.map((e) => EventModel.fromMap(e)).toList();
 
+      // Get all stools
+      final stoolsData = await dbInstance.query(
+        'events',
+        where: "type = ? AND dateTime >= ?",
+        whereArgs: ['stool', startDate.toIso8601String()],
+      );
+      final stools = stoolsData.map((e) => EventModel.fromMap(e)).toList();
+
       if (meals.isEmpty) {
         return TrainingResult(
           success: false,
@@ -94,23 +102,28 @@ class StatisticalEngine {
           featureCounts[feature] = (featureCounts[feature] ?? 0) + 1;
         }
 
-        // Check for subsequent symptoms
-        final subsequentSymptoms = symptoms.where((s) {
+        // Check for subsequent symptoms and stools
+        final subsequentEvents = [...symptoms, ...stools].where((s) {
           final sTime = DateTime.parse(s.dateTime);
           final diff = sTime.difference(mealTime).inHours;
           return diff > 0 && diff <= windowHours;
         }).toList();
 
         // Update symptom counts
-        for (var s in subsequentSymptoms) {
-            // Get specific symptom type from metadata or assume generic based on some logic if needed
-            // Here we assume 'pain', 'bloating', etc. are determined by tags or a 'subtype' field if exists
-            // But EventModel.tags usually contains the symptom type for symptom events
-            
+        for (var s in subsequentEvents) {
+            // Determine symptom type
             String? symptomType;
-            if (s.tags.contains('Douleur abdominale') || s.tags.contains('pain')) symptomType = 'pain';
-            else if (s.tags.contains('Ballonnement') || s.tags.contains('bloating')) symptomType = 'bloating';
-            else if (s.tags.contains('Diarrhée') || s.tags.contains('diarrhea')) symptomType = 'diarrhea';
+            
+            if (s.type == EventType.symptom) {
+              if (s.tags.contains('Douleur abdominale') || s.tags.contains('pain')) symptomType = 'pain';
+              else if (s.tags.contains('Ballonnement') || s.tags.contains('bloating')) symptomType = 'bloating';
+              else if (s.tags.contains('Diarrhée') || s.tags.contains('diarrhea')) symptomType = 'diarrhea';
+            } else if (s.type == EventType.stool) {
+               // Consider Bristol Type 6 & 7 or Urgent as Diarrhea risk
+               if (s.title.contains('Type 6') || s.title.contains('Type 7') || s.isUrgent) {
+                  symptomType = 'diarrhea';
+               }
+            }
             
             if (symptomType != null) {
                for (var feature in activeFeatures) {

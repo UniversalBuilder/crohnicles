@@ -27,6 +27,15 @@ class EventModel {
     this.metaData,
   });
 
+  // Getter for DateTime object
+  DateTime get timestamp {
+    try {
+      return DateTime.parse(dateTime);
+    } catch (e) {
+      return DateTime.now();
+    }
+  }
+
   // Getter for display time
   String get time {
      try {
