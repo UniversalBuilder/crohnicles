@@ -115,6 +115,10 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
       'pain': 'Douleurs',
       'diarrhea': 'Diarrhée',
       'bloating': 'Ballonnements',
+      'joints': 'Articulations',
+      'skin': 'Peau',
+      'oral': 'Bouche/ORL',
+      'systemic': 'Général',
     };
     return names[symptomType] ?? symptomType;
   }

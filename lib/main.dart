@@ -1351,44 +1351,55 @@ class _TimelinePageState extends State<TimelinePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Aujourd'hui",
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 20,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                "Météo: Humide • 18°C",
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-              ),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          Flexible(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("😊", style: TextStyle(fontSize: 16)),
-                const SizedBox(width: 6),
                 Text(
-                  "Stable",
-                  style: GoogleFonts.inter(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                  "Aujourd'hui",
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    color: Colors.black87,
                   ),
                 ),
+                const SizedBox(height: 4),
+                const Text(
+                  "Météo: Humide • 18°C",
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("😊", style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      "Stable",
+                      style: GoogleFonts.inter(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
