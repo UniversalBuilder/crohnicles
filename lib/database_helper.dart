@@ -52,7 +52,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       dbPath,
-      version: 10,
+      version: 11,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -187,19 +187,15 @@ class DatabaseHelper {
       )
     ''');
 
-    // Training history
+    // Training history - Simplified for statistical models
     await db.execute('''
       CREATE TABLE training_history(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        model_name TEXT,
         trained_at TEXT,
-        sample_size INTEGER,
-        accuracy REAL,
-        precision_val REAL,
-        recall_val REAL,
-        f1_score REAL,
-        feature_importances TEXT,
-        validation_passed INTEGER
+        meal_count INTEGER,
+        symptom_count INTEGER,
+        correlation_count INTEGER,
+        notes TEXT
       )
     ''');
 
@@ -327,6 +323,21 @@ class DatabaseHelper {
       // Remove old basic foods to avoid duplicates before re-seeding
       await db.delete('foods', where: 'isBasicFood = ?', whereArgs: [1]);
       await _seedGenericFoods(db);
+    }
+    if (oldVersion < 11) {
+      print('[DB] Migrating to v11: Simplifying training_history schema');
+      // Recreate training_history with simplified schema (no ML-specific columns)
+      await db.execute('DROP TABLE IF EXISTS training_history');
+      await db.execute('''
+        CREATE TABLE training_history(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trained_at TEXT,
+          meal_count INTEGER,
+          symptom_count INTEGER,
+          correlation_count INTEGER,
+          notes TEXT
+        )
+      ''');
     }
   }
 
@@ -1181,6 +1192,70 @@ class DatabaseHelper {
     return counts;
   }
 
+  /// Get symptoms filtered by zone name for trigger analysis
+  Future<List<Map<String, dynamic>>> getSymptomsByZone(
+    String zoneName, {
+    int days = 90,
+  }) async {
+    Database db = await database;
+    final now = DateTime.now();
+    final startDate = now.subtract(Duration(days: days));
+
+    return await db.query(
+      'events',
+      where: "type = 'symptom' AND (title LIKE ? OR subtitle LIKE ? OR tags LIKE ?) AND dateTime >= ?",
+      whereArgs: [
+        '%$zoneName%',
+        '%$zoneName%',
+        '%$zoneName%',
+        startDate.toIso8601String(),
+      ],
+      orderBy: 'dateTime DESC',
+    );
+  }
+
+  /// Get all meals in specified time period
+  Future<List<Map<String, dynamic>>> getMealsInRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    Database db = await database;
+
+    return await db.query(
+      'events',
+      where: "type = 'meal' AND dateTime >= ? AND dateTime <= ?",
+      whereArgs: [
+        startDate.toIso8601String(),
+        endDate.toIso8601String(),
+      ],
+      orderBy: 'dateTime ASC',
+    );
+  }
+
+  /// Get context data for a specific event (weather, etc.)
+  Future<Map<String, dynamic>?> getContextForEvent(int eventId) async {
+    Database db = await database;
+    
+    final result = await db.query(
+      'events',
+      columns: ['context_data'],
+      where: 'id = ?',
+      whereArgs: [eventId],
+      limit: 1,
+    );
+    
+    if (result.isEmpty || result.first['context_data'] == null) {
+      return null;
+    }
+    
+    try {
+      final contextJson = result.first['context_data'] as String;
+      return jsonDecode(contextJson) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Example method to insert event (generic helper)
   Future<int> insertEvent(Map<String, dynamic> row) async {
     Database db = await database;
@@ -1736,6 +1811,25 @@ class DatabaseHelper {
     );
 
     return suspects;
+  }
+
+  /// Save training history entry
+  Future<void> saveTrainingHistory({
+    required int mealCount,
+    required int symptomCount,
+    required int correlationCount,
+    String? notes,
+  }) async {
+    final db = await database;
+    
+    await db.insert('training_history', {
+      'trained_at': DateTime.now().toIso8601String(),
+      'meal_count': mealCount,
+      'symptom_count': symptomCount,
+      'correlation_count': correlationCount,
+      'notes': notes,
+    });
+    print('[DB] Saved training history: $correlationCount correlations');
   }
 
   /// Get latest training history entries

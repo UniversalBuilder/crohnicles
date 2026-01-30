@@ -175,67 +175,57 @@ class ModelMetadata {
   }
 }
 
-/// Manages ML model loading and inference
+/// Manages statistical model loading and inference
 class ModelManager {
   final DatabaseHelper _db = DatabaseHelper();
 
-  final Map<String, ModelMetadata> _models = {};
-  Map<String, Map<String, double>> _statisticalModels = {};
+  Map<String, Map<String, Map<String, double>>> _loadedStats = {};
   bool _isInitialized = false;
+  bool _isTrainedModelLoaded = false;
 
-  /// Load all models from assets
+  /// Returns true if using a trained statistical model, false if real-time analysis
+  bool get isUsingTrainedModel => _isTrainedModelLoaded;
+
+  /// Load statistical model from documents directory
   Future<void> initialize() async {
     if (_isInitialized) return;
 
     print('[ModelManager] Initializing...');
 
-    // 1. Load ML Models (Desktop trained)
-    for (final config in SymptomTaxonomy.models) {
-      try {
-        final jsonString = await rootBundle.loadString(
-          'assets/models/${config.modelKey}_predictor.json',
-        );
-        final json = jsonDecode(jsonString);
-        _models[config.modelKey] = ModelMetadata.fromJson(json);
-
-        print(
-          '[ModelManager] ✓ Loaded ${config.modelKey} model (trained: ${_models[config.modelKey]!.trainingDate})',
-        );
-      } catch (e) {
-        // Models are optional
-      }
-    }
-
-    // 2. Load Statistical Models (Mobile trained)
+    // Load Statistical Model (trained on-device)
     try {
       final dir = await getApplicationDocumentsDirectory();
       final file = File('${dir.path}/statistical_model.json');
+      
       if (await file.exists()) {
         final jsonString = await file.readAsString();
         final json = jsonDecode(jsonString);
+        
         if (json['correlations'] != null) {
-          _statisticalModels = Map<String, Map<String, double>>.from(
-            (json['correlations'] as Map).map(
-              (key, value) => MapEntry(
-                key,
-                Map<String, double>.from(value),
-              ),
-            ),
-          );
-          print('[ModelManager] ✓ Loaded Statistical Models');
+          // Load new format (v2.0) with confidence
+          final correlations = json['correlations'] as Map<String, dynamic>;
+          correlations.forEach((symptomKey, featureMap) {
+            _loadedStats[symptomKey] = {};
+            (featureMap as Map<String, dynamic>).forEach((featureName, data) {
+              if (data is Map) {
+                _loadedStats[symptomKey]![featureName] = Map<String, double>.from(data);
+              }
+            });
+          });
+          
+          _isTrainedModelLoaded = true;
+          print('[ModelManager] ✓ Loaded trained statistical model (${_loadedStats.length} symptom types)');
         }
+      } else {
+        _isTrainedModelLoaded = false;
+        print('[ModelManager] No trained model found - will use real-time analysis');
       }
     } catch (e) {
-      print('[ModelManager] Error loading stats: $e');
+      _isTrainedModelLoaded = false;
+      print('[ModelManager] Error loading statistical model: $e');
     }
 
     _isInitialized = true;
-
-    if (_models.isEmpty && _statisticalModels.isEmpty) {
-      print(
-        '[ModelManager] ℹ No trained models found - using default heuristics',
-      );
-    }
   }
 
   /// Predict risk for all symptom types given a meal event
@@ -255,369 +245,166 @@ class ModelManager {
       3, // mealsToday - could be enhanced
     );
 
-    for (final symptomType in _models.keys) {
-      try {
-        final prediction = await _predictSingle(symptomType, features, meal);
-        predictions.add(prediction);
-      } catch (e) {
-        print('[ModelManager] Error predicting $symptomType: $e');
-      }
-    }
+    // Add food name keywords to features
+    _addFoodKeywords(meal, features);
 
-    // If no ML models loaded, try Statistical Models
-    if (predictions.isEmpty && _statisticalModels.isNotEmpty) {
-      return _predictWithStats(meal, context, features);
-    }
-    
-    // Fallback if nothing else
-    if (predictions.isEmpty) {
-      return _fallbackPredictions(meal, context);
+    // Predict for each symptom type
+    for (final config in SymptomTaxonomy.models) {
+      final symptomType = config.modelKey;
+      
+      if (_isTrainedModelLoaded && _loadedStats.containsKey(symptomType)) {
+        // Use trained statistical model
+        predictions.add(_predictWithTrainedModel(symptomType, features));
+      } else {
+        // Use real-time analysis
+        predictions.add(_predictRealTime(symptomType, features));
+      }
     }
 
     return predictions;
   }
 
-  /// Predict risk for a single symptom type
-  Future<RiskPrediction> _predictSingle(
+  /// Add food name keywords to features for better matching
+  void _addFoodKeywords(EventModel meal, Map<String, double> features) {
+    if (meal.metaData != null && meal.metaData!.isNotEmpty) {
+      try {
+        final meta = jsonDecode(meal.metaData!);
+        if (meta['foods'] is List) {
+          for (var food in meta['foods']) {
+            if (food is Map && food['name'] != null) {
+              final name = (food['name'] as String).toLowerCase();
+              if (name.contains('soda') || name.contains('coca')) features['keyword_soda'] = 1.0;
+              if (name.contains('café')) features['keyword_coffee'] = 1.0;
+              if (name.contains('lait')) features['keyword_milk'] = 1.0;
+              if (name.contains('pain')) features['keyword_bread'] = 1.0;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Predict using trained statistical model
+  RiskPrediction _predictWithTrainedModel(
     String symptomType,
     Map<String, double> features,
-    EventModel meal,
-  ) async {
-    final model = _models[symptomType]!;
+  ) {
+    final correlations = _loadedStats[symptomType]!;
+    double totalRisk = 0.0;
+    double totalWeight = 0.0;
+    final factors = <TopFactor>[];
 
-    // Get prediction from decision tree
-    final riskScore = model.tree.predict(features);
-    final confidence = model.metrics['f1'] ?? 0.7; // Use F1 as confidence proxy
+    features.forEach((featureName, featureValue) {
+      if (featureValue > 0.0 && correlations.containsKey(featureName)) {
+        final corrData = correlations[featureName]!;
+        final probability = corrData['probability'] ?? 0.0;
+        final confidence = corrData['confidence'] ?? 0.5;
+        
+        final weight = confidence * featureValue;
+        totalRisk += probability * weight;
+        totalWeight += weight;
 
-    // Get decision path for explanation
-    final decisionPath = model.tree.getDecisionPath(features);
-    final explanation = _generateExplanation(
-      symptomType,
-      riskScore,
-      decisionPath,
-    );
+        if (probability > 0.15) {  // Only show significant factors
+          factors.add(TopFactor(
+            featureName: featureName,
+            contribution: probability * weight,
+            humanReadable: _formatFeatureName(featureName),
+          ));
+        }
+      }
+    });
 
-    // Extract top contributing factors
-    final topFactors = await _extractTopFactors(features, model, riskScore);
+    final avgRisk = totalWeight > 0 ? (totalRisk / totalWeight).clamp(0.0, 1.0) : 0.3;
+    final avgConfidence = totalWeight > 0 ? (totalWeight / features.length).clamp(0.0, 1.0) : 0.7;
 
-    // Find similar past meals
-    final similarMealIds = await _findSimilarMeals(meal);
+    factors.sort((a, b) => b.contribution.compareTo(a.contribution));
 
     return RiskPrediction(
       symptomType: symptomType,
-      riskScore: riskScore,
-      confidence: confidence,
-      topFactors: topFactors,
-      explanation: explanation,
-      similarMealIds: similarMealIds,
+      riskScore: avgRisk,
+      confidence: avgConfidence,
+      topFactors: factors.take(5).toList(),
+      explanation: _generateExplanation(symptomType, avgRisk, isTrainedModel: true),
+      similarMealIds: [],
     );
   }
 
-  /// Extract top contributing factors from feature importance
-  Future<List<TopFactor>> _extractTopFactors(
+  /// Real-time prediction when no trained model exists
+  RiskPrediction _predictRealTime(
+    String symptomType,
     Map<String, double> features,
-    ModelMetadata model,
-    double riskScore,
-  ) async {
-    // For a real implementation, we'd need feature importance from training
-    // For now, we'll use a heuristic based on feature values and known correlations
-
-    final factors = <TopFactor>[];
-
-    // High-risk tags
-    if (features['tag_gras'] == 1.0) {
-      factors.add(
-        TopFactor(
-          featureName: 'tag_gras',
-          contribution: 0.15,
-          humanReadable: 'Aliments riches en graisses',
-        ),
-      );
-    }
-
-    if (features['tag_gluten'] == 1.0) {
-      factors.add(
-        TopFactor(
-          featureName: 'tag_gluten',
-          contribution: 0.12,
-          humanReadable: 'Présence de gluten',
-        ),
-      );
-    }
-
-    if (features['tag_produit_laitier'] == 1.0) {
-      factors.add(
-        TopFactor(
-          featureName: 'tag_produit_laitier',
-          contribution: 0.10,
-          humanReadable: 'Produits laitiers',
-        ),
-      );
-    }
-
-    // Late night meals
-    if (features['is_late_night'] == 1.0) {
-      factors.add(
-        TopFactor(
-          featureName: 'is_late_night',
-          contribution: 0.08,
-          humanReadable: 'Repas tardif (après 22h)',
-        ),
-      );
-    }
-
-    // High fat content
-    final fatGrams = features['fat_g'] ?? 0.0;
-    if (fatGrams > 25) {
-      factors.add(
-        TopFactor(
-          featureName: 'fat_g',
-          contribution: 0.09,
-          humanReadable:
-              'Taux élevé de lipides (${fatGrams.toStringAsFixed(0)}g)',
-        ),
-      );
-    }
-
-    // Weather factors
-    if (features['is_pressure_dropping'] == 1.0) {
-      factors.add(
-        TopFactor(
-          featureName: 'is_pressure_dropping',
-          contribution: 0.06,
-          humanReadable: 'Baisse de pression atmosphérique',
-        ),
-      );
-    }
-
-    // Sort by contribution and take top 5
-    factors.sort((a, b) => b.contribution.compareTo(a.contribution));
-    return factors.take(5).toList();
+  ) {
+    // Conservative estimation based on general patterns
+    double riskScore = 0.25;  // Low baseline
+    
+    // Known high-risk factors (general medical knowledge)
+    if (features['tag_gras'] == 1.0) riskScore += 0.15;
+    if (features['tag_gluten'] == 1.0) riskScore += 0.10;
+    if (features['tag_lactose'] == 1.0) riskScore += 0.10;
+    if (features['is_late_night'] == 1.0) riskScore += 0.08;
+    if (features['keyword_soda'] == 1.0 && symptomType == 'bloating') riskScore += 0.20;
+    
+    riskScore = riskScore.clamp(0.0, 0.7);  // Cap at 70% for non-personalized
+    
+    return RiskPrediction(
+      symptomType: symptomType,
+      riskScore: riskScore,
+      confidence: 0.3,  // Low confidence - not personalized
+      topFactors: [],
+      explanation: _generateExplanation(symptomType, riskScore, isTrainedModel: false),
+      similarMealIds: [],
+    );
   }
 
-  /// Use Statistical Engine for predictions
-  Future<List<RiskPrediction>> _predictWithStats(
-    EventModel meal,
-    ContextModel context,
-    Map<String, double> features,
-  ) async {
-    final predictions = <RiskPrediction>[];
-    
-    // Add specific keywords to features for matching
-    if (meal.metaData != null && meal.metaData!.isNotEmpty) {
-        try {
-          final meta = jsonDecode(meal.metaData!);
-          if (meta['foods'] is List) {
-            for (var food in meta['foods']) {
-              if (food is Map && food['name'] != null) {
-                final name = (food['name'] as String).toLowerCase();
-                if (name.contains('soda') || name.contains('coca')) features['keyword_soda'] = 1.0;
-                if (name.contains('café')) features['keyword_coffee'] = 1.0;
-                if (name.contains('lait')) features['keyword_milk'] = 1.0;
-                if (name.contains('pain')) features['keyword_bread'] = 1.0;
-              }
-            }
-          }
-        } catch (_) {}
-    }
-
-    for (final symptom in _statisticalModels.keys) {
-      final correlations = _statisticalModels[symptom]!;
-      double totalRisk = 0.0;
-      final explainedFactors = <TopFactor>[];
-      
-      // Calculate risk based on present features
-      features.forEach((key, value) {
-        if (value > 0 && correlations.containsKey(key)) {
-          final probability = correlations[key]!;
-          // Only count significant risks
-          if (probability > 0.1) {
-            totalRisk += probability * 0.5; // Scale down individual contributions
-            
-            // Add to explanation
-            explainedFactors.add(TopFactor(
-              featureName: key, 
-              contribution: probability, 
-              humanReadable: '${_humanReadableFeature(key)} (${(probability * 100).toStringAsFixed(0)}%)'
-            ));
-          }
-        }
-      });
-      
-      // Cap risk at 0.95
-      totalRisk = totalRisk.clamp(0.0, 0.95);
-      
-      // Sort factors
-      explainedFactors.sort((a, b) => b.contribution.compareTo(a.contribution));
-
-      // Determine explanation text
-      String explanation = "Risque faible basé sur vos statistiques.";
-      if (totalRisk > 0.6) {
-         explanation = "Risque élevé basé sur vos historiques précédents.";
-      } else if (totalRisk > 0.3) {
-         explanation = "Risque modéré détecté.";
-      }
-
-      predictions.add(RiskPrediction(
-        symptomType: symptom, 
-        riskScore: totalRisk, 
-        confidence: 0.8, // Stats are usually reliable if they exist
-        topFactors: explainedFactors.take(3).toList(), 
-        explanation: explanation, 
-        similarMealIds: []
-      ));
-    }
-    
-    // If stats are empty for some reason, fallback
-    if (predictions.isEmpty) {
-        return _fallbackPredictions(meal, context);
-    }
-    
-    return predictions;
-  }
-  
-  String _humanReadableFeature(String key) {
-    switch (key) {
-      case 'tag_gluten': return 'Gluten';
-      case 'tag_lactose': return 'Lactose';
-      case 'tag_gras': return 'Aliments gras';
-      case 'tag_sucre': return 'Sucre';
-      case 'keyword_soda': return 'Soda/Boisson gazeuse';
-      case 'keyword_coffee': return 'Café';
-      case 'keyword_milk': return 'Lait';
-      case 'is_late_night': return 'Repas tardif';
-      default: return key.replaceAll('tag_', '').replaceAll('_', ' ');
-    }
+  /// Format feature name for display
+  String _formatFeatureName(String feature) {
+    const Map<String, String> names = {
+      'tag_gras': 'Aliments gras',
+      'tag_gluten': 'Gluten',
+      'tag_lactose': 'Lactose',
+      'tag_sucre': 'Sucre',
+      'tag_proteine': 'Protéines',
+      'keyword_soda': 'Boissons gazeuses',
+      'keyword_coffee': 'Café',
+      'keyword_milk': 'Produits laitiers',
+      'is_late_night': 'Repas tardif',
+    };
+    return names[feature] ?? feature.replaceAll('tag_', '').replaceAll('_', ' ');
   }
 
   /// Generate human-readable explanation
   String _generateExplanation(
     String symptomType,
-    double riskScore,
-    List<String> decisionPath,
-  ) {
-    final symptomName =
-        {
-          'pain': 'douleurs abdominales',
-          'diarrhea': 'diarrhée',
-          'bloating': 'ballonnements',
-        }[symptomType] ??
-        symptomType;
+    double riskScore, {
+    required bool isTrainedModel,
+  }) {
+    final symptomName = {
+      'pain': 'douleurs abdominales',
+      'diarrhea': 'diarrhée',
+      'bloating': 'ballonnements',
+      'joints': 'douleurs articulaires',
+      'systemic': 'symptômes systémiques',
+    }[symptomType] ?? symptomType;
 
+    String baseExplanation;
     if (riskScore < 0.3) {
-      return 'Risque faible de $symptomName. Ce repas présente peu de facteurs déclencheurs habituels.';
+      baseExplanation = 'Risque faible de $symptomName.';
     } else if (riskScore < 0.7) {
-      return 'Risque modéré de $symptomName. Surveillez l\'apparition de symptômes dans les 4-8 heures.';
+      baseExplanation = 'Risque modéré de $symptomName.';
     } else {
-      return 'Risque élevé de $symptomName. Ce repas contient plusieurs facteurs déclencheurs identifiés.';
-    }
-  }
-
-  /// Find similar past meals for comparison
-  Future<List<int>> _findSimilarMeals(EventModel meal) async {
-    try {
-      final tagsString = meal.tags.join(',');
-      final similarMeals = await _db.getSimilarMeals(
-        tagsString,
-        meal.metaData ?? '',
-        limit: 5,
-      );
-      return similarMeals.map((m) => m['id'] as int).toList();
-    } catch (e) {
-      print('[ModelManager] Error finding similar meals: $e');
-      return [];
-    }
-  }
-
-  /// Fallback predictions using correlation-based heuristics
-  Future<List<RiskPrediction>> _fallbackPredictions(
-    EventModel meal,
-    ContextModel context,
-  ) async {
-    final predictions = <RiskPrediction>[];
-
-    // Use correlation-based fallback for all defined symptom types
-    for (final config in SymptomTaxonomy.models) {
-      // Simple heuristic based on known trigger tags
-      double riskScore = 0.3; // Base risk
-
-      // Use case-insensitive tag matching
-      final tagsLower = meal.tags.map((t) => t.toLowerCase()).toList();
-
-      if (tagsLower.contains('gras')) riskScore += 0.2;
-      if (tagsLower.contains('gluten')) riskScore += 0.15;
-      if (tagsLower.contains('lactose')) riskScore += 0.15;
-      if (tagsLower.contains('épicé')) riskScore += 0.1;
-      if (tagsLower.contains('alcool')) riskScore += 0.15;
-      if (tagsLower.contains('gaz')) riskScore += 0.1;
-
-      // Check food names in metadata for specific triggers (Soda, etc.)
-      if (meal.metaData != null && meal.metaData!.isNotEmpty) {
-        try {
-          final meta = jsonDecode(meal.metaData!);
-          if (meta['foods'] is List) {
-            for (var food in meta['foods']) {
-              if (food is Map && food['name'] != null) {
-                final name = (food['name'] as String).toLowerCase();
-
-                // Bloating specific triggers
-                if (config.modelKey == 'bloating') {
-                  if (name.contains('soda') ||
-                      name.contains('coca') ||
-                      name.contains('pepsi') ||
-                      name.contains('gazeu') ||
-                      name.contains('limonade')) {
-                    riskScore += 0.4; // High impact on bloating
-                  }
-                  if (name.contains('haricot') || name.contains('chou')) {
-                    riskScore += 0.3;
-                  }
-                }
-
-                // Generic triggers based on name
-                if (name.contains('frit') ||
-                    name.contains('mcdo') ||
-                    name.contains('kebab')) {
-                  riskScore += 0.2;
-                }
-              }
-            }
-          }
-        } catch (e) {
-          // Ignore parsing errors
-        }
-      }
-
-      riskScore = riskScore.clamp(0.0, 1.0);
-
-      predictions.add(
-        RiskPrediction(
-          symptomType: config.modelKey,
-          riskScore: riskScore,
-          confidence: 0.5, // Lower confidence for correlation-based fallback
-          topFactors: [],
-          explanation:
-              'Estimation basée sur des corrélations simples (modèle ML non entraîné)',
-          similarMealIds: [],
-        ),
-      );
+      baseExplanation = 'Risque élevé de $symptomName.';
     }
 
-    return predictions;
-  }
-
-  /// Get model performance metrics
-  Map<String, Map<String, double>> getModelMetrics() {
-    final metrics = <String, Map<String, double>>{};
-    for (final entry in _models.entries) {
-      metrics[entry.key] = entry.value.metrics;
+    if (!isTrainedModel) {
+      baseExplanation += ' (Estimation générale - entraînez le modèle pour personnaliser)';
     }
-    return metrics;
+
+    return baseExplanation;
   }
 
-  /// Check if models are loaded
-  bool get isReady => _isInitialized && _models.isNotEmpty;
+  /// Check if models are ready
+  bool get isReady => _isInitialized;
 
   /// Get loaded symptom types
-  List<String> get loadedModels => _models.keys.toList();
+  List<String> get loadedSymptomTypes => _loadedStats.keys.toList();
 }

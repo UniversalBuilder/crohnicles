@@ -26,47 +26,55 @@ class MethodologyPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle('🤖 Modèles Hybrides'),
+            _buildSectionTitle('📊 Analyse Statistique'),
             _buildSectionText(
-              "Crohnicles utilise une approche hybride pour estimer les risques de vos repas. L'objectif est de vous fournir des informations pertinentes même sans connexion internet.",
+              "Crohnicles analyse vos données personnelles pour identifier des corrélations entre vos repas et vos symptômes. Tout est calculé localement sur votre appareil.",
             ),
             const SizedBox(height: 24),
             
             _buildCard(
-              title: "1. Moteur Statistique (Mobile)",
+              title: "1. Corrélations Statistiques",
               icon: Icons.bar_chart,
               color: Colors.blue,
               content: """
-Sur votre téléphone, l'application analyse directement votre historique :
+L'application analyse votre historique personnel :
 
-• Elle regarde tous les repas contenant un ingrédient spécifique (ex: "Gluten").
-• Elle compte combien de fois un symptôme est apparu dans les 24h qui ont suivi.
-• Si ce taux dépasse 30%, une "corrélation" est détectée.
+• Pour chaque ingrédient ou catégorie (ex: "Gluten", "Lactose").
+• Elle calcule la probabilité P(Symptôme | Aliment) sur une fenêtre de 4-8h.
+• Elle évalue la confiance basée sur le nombre d'observations (min. 10 échantillons pour haute confiance).
 
-Exemple : Si vous avez mangé 10 fois du gluten et eu 4 fois des douleurs, le risque calculé sera de 40%.
+Exemple : Si vous avez mangé 10 fois du gluten et eu 6 fois des douleurs dans les 8h, le risque sera de 60% avec confiance de 100%.
               """,
             ),
              const SizedBox(height: 16),
 
             _buildCard(
-              title: "2. Règles Expertes (Démarrage)",
-              icon: Icons.lightbulb,
+              title: "2. Mode Temps Réel (Démarrage)",
+              icon: Icons.speed,
               color: Colors.orange,
               content: """
-Au début, quand vous n'avez pas assez de données, l'application utilise des règles médicales reconnues :
+Quand vous n'avez pas encore assez de données (< 30 repas), l'application utilise une analyse temps réel conservative :
 
-• Soda / Boissons gazeuses → Risque élevé de ballonnements (+40%).
-• Alcool / Épices → Risque modéré d'inflammation.
-• Repas tardifs (>21h) → Impact sur la digestion nocturne.
+• Analyse des 10 repas les plus similaires dans votre historique.
+• Calcul de risque basé sur la fréquence des symptômes après ces repas.
+• Confiance limitée à 30% maximum (s'améliore avec l'entraînement).
+
+Dès que possible, entraînez le modèle statistique pour des prédictions personnalisées!
               """,
             ),
             const SizedBox(height: 16),
              _buildCard(
-              title: "3. Apprentissage Continu",
+              title: "3. Entraînement du Modèle",
               icon: Icons.psychology,
               color: Colors.purple,
               content: """
-Plus vous utilisez l'application, plus les prédictions s'affinent. L'algorithme recalculera périodiquement les corrélations pour identifier des liens subtils, comme des aliments qui ne posent problème que le soir ou en période de stress.
+Vous pouvez entraîner le modèle statistique manuellement (bouton 🧠 dans le tableau de bord) :
+
+• Nécessite au moins 30 repas et 20 symptômes.
+• Calcule toutes les corrélations significatives (probabilité > 10%, confiance > 30%).
+• Les prédictions passent en mode "Modèle Personnel" avec confiance élevée.
+
+Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
               """,
             ),
             

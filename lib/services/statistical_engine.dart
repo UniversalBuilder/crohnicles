@@ -134,12 +134,15 @@ class StatisticalEngine {
         }
       }
 
-      // 3. Compute Probabilities & Scores
+      // 3. Compute Probabilities & Confidence Scores
       // Score = (P(S|F) * ConfidenceFactor)
-      // where ConfidenceFactor grows with N
+      // where ConfidenceFactor grows with sample size
+      
+      int totalCorrelations = 0;
+      final statsWithConfidence = <String, Map<String, Map<String, double>>>{};
       
       for (var symptom in symptomFeatureCounts.keys) {
-        stats[symptom] = {};
+        statsWithConfidence[symptom] = {};
         final sCounts = symptomFeatureCounts[symptom]!;
         
         sCounts.forEach((feature, count) {
@@ -149,21 +152,28 @@ class StatisticalEngine {
           
           final probability = count / totalOccurrences;
           
-          // Apply a "Bayesian smoothing" or simple threshold to avoid 100% risk on 1/1 occurence
-          // If 1/1 -> 100%. If 10/10 -> 100%. stronger.
-          // Let's use raw probability but filter by N >= 3 above.
+          // Calculate confidence based on sample size (like zone trigger analysis)
+          // Confidence grows with sample size, maxing at 1.0 when N >= 10
+          final confidence = (totalOccurrences / 10.0).clamp(0.0, 1.0);
           
-          stats[symptom]![feature] = double.parse(probability.toStringAsFixed(2));
+          statsWithConfidence[symptom]![feature] = {
+            'probability': double.parse(probability.toStringAsFixed(2)),
+            'confidence': double.parse(confidence.toStringAsFixed(2)),
+            'sample_size': totalOccurrences.toDouble(),
+          };
+          
+          totalCorrelations++;
         });
       }
 
       // 4. Save to JSON
-      await _saveStats(stats);
+      await _saveStats(statsWithConfidence);
 
       return TrainingResult(
         success: true,
         message: "Analyse statistique terminée.\n${meals.length} repas analysés.",
-        modelsCount: stats.length,
+        modelsCount: statsWithConfidence.length,
+        correlationCount: totalCorrelations,
       );
 
     } catch (e, stack) {
@@ -197,14 +207,14 @@ class StatisticalEngine {
     }
   }
   
-  Future<void> _saveStats(Map<String, Map<String, double>> stats) async {
+  Future<void> _saveStats(Map<String, Map<String, Map<String, double>>> stats) async {
     final dir = await getApplicationDocumentsDirectory();
     final file = File('${dir.path}/statistical_model.json');
     
     // Add metadata
     final output = {
       'last_updated': DateTime.now().toIso8601String(),
-      'version': '1.0',
+      'version': '2.0',  // Version 2.0 with confidence scores
       'correlations': stats,
     };
     

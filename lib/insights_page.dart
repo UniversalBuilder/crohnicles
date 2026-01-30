@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
+import 'dart:convert';
+import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'event_model.dart';
@@ -12,6 +14,40 @@ import 'event_detail_page.dart';
 import 'services/training_service.dart';
 import 'ml/model_status_page.dart';
 import 'methodology_page.dart';
+
+class ZoneTriggerAnalysis {
+  final String zoneName;
+  final int symptomCount;
+  final Map<String, TriggerScore> foodTriggers;
+  final Map<String, TriggerScore> tagTriggers;
+  final Map<String, TriggerScore> weatherTriggers;
+  final bool hasEnoughData;
+
+  ZoneTriggerAnalysis({
+    required this.zoneName,
+    required this.symptomCount,
+    required this.foodTriggers,
+    required this.tagTriggers,
+    required this.weatherTriggers,
+    required this.hasEnoughData,
+  });
+}
+
+class TriggerScore {
+  final String name;
+  final int occurrences;
+  final double probability; // P(Symptom|Trigger)
+  final double confidence; // Based on sample size
+
+  TriggerScore({
+    required this.name,
+    required this.occurrences,
+    required this.probability,
+    required this.confidence,
+  });
+
+  double get score => probability * confidence;
+}
 
 class InsightsPage extends StatefulWidget {
   const InsightsPage({super.key});
@@ -162,53 +198,264 @@ class _InsightsPageState extends State<InsightsPage> {
   Map<String, int> _analyzePatterns(List<EventModel> events) {
     Map<String, int> suspectCounts = {};
 
-    final severeAttacks = events
-        .where((e) => e.type == EventType.symptom && e.severity > 5)
-        .toList();
-
-    for (var attack in severeAttacks) {
-      final attackTime = DateTime.parse(attack.dateTime);
-      final startTime = attackTime.subtract(const Duration(hours: 24));
-
-      final mealsBefore = events.where((e) {
-        if (e.type != EventType.meal) return false;
-        try {
-          final eTime = DateTime.parse(e.dateTime);
-          return eTime.isAfter(startTime) && eTime.isBefore(attackTime);
-        } catch (e) {
-          return false;
-        }
-      });
-
-      for (var meal in mealsBefore) {
-        // If we have tags (ingredients), count them
-        // Otherwise use title
-        if (meal.tags.isNotEmpty) {
-          for (var tag in meal.tags) {
-            if (tag.isEmpty ||
-                tag == "Repas" ||
-                tag == "Encas" ||
-                tag == "Grignotage") {
-              continue;
-            }
-            suspectCounts[tag] = (suspectCounts[tag] ?? 0) + 1;
-          }
-        } else {
-          final foodName = meal.title.trim();
-          suspectCounts[foodName] = (suspectCounts[foodName] ?? 0) + 1;
-        }
+    for (var event in events) {
+      for (var tag in event.tags) {
+        suspectCounts[tag] = (suspectCounts[tag] ?? 0) + 1;
       }
     }
 
-    // Sort by count desc
-    var sortedKeys = suspectCounts.keys.toList(growable: false)
-      ..sort((k1, k2) => suspectCounts[k2]!.compareTo(suspectCounts[k1]!));
+    return suspectCounts;
+  }
 
-    final Map<String, int> top = {};
-    for (var k in sortedKeys.take(5)) {
-      top[k] = suspectCounts[k]!;
+  Future<ZoneTriggerAnalysis> _analyzeTriggersForZone(String zoneName) async {
+    final dbHelper = DatabaseHelper();
+    
+    // 1. Get symptoms for this zone
+    final symptomsData = await dbHelper.getSymptomsByZone(zoneName, days: 90);
+    final symptoms = symptomsData.map((e) => EventModel.fromMap(e)).toList();
+    
+    if (symptoms.length < 3) {
+      return ZoneTriggerAnalysis(
+        zoneName: zoneName,
+        symptomCount: symptoms.length,
+        foodTriggers: {},
+        tagTriggers: {},
+        weatherTriggers: {},
+        hasEnoughData: false,
+      );
     }
-    return top;
+    
+    // 2. For each symptom, find meals 24h before
+    final Map<String, int> foodCounts = {};
+    final Map<String, int> foodWithSymptomCounts = {};
+    final Map<String, int> tagCounts = {};
+    final Map<String, int> tagWithSymptomCounts = {};
+    final Map<String, int> weatherWithSymptomCounts = {};
+    
+    // Get all meals for baseline (last 90 days)
+    final now = DateTime.now();
+    final startDate = now.subtract(const Duration(days: 90));
+    final allMealsData = await dbHelper.getMealsInRange(startDate, now);
+    final allMeals = allMealsData.map((e) => EventModel.fromMap(e)).toList();
+    
+    // Count total occurrences of each feature
+    for (var meal in allMeals) {
+      // Count tags (exclude symptom-like tags)
+      final excludedTags = ['Peau', 'Difficile', 'Douleur', 'Crampes', 'Eau', 
+                            'Sang', 'Inflammation', 'Général', 'Urgente', 
+                            'Maigre', 'Végétal', 'Friture', 'Excitant', 
+                            'Hydratation', 'Constipant', 'Rouge', 'Dur', 
+                            'Soja', 'Oeuf', 'Plaisir', 'Sulfites'];
+      for (var tag in meal.tags) {
+        if (tag.isNotEmpty && !excludedTags.contains(tag)) {
+          tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
+        }
+      }
+      
+      // Count food names
+      if (meal.metaData != null && meal.metaData!.isNotEmpty) {
+        try {
+          final meta = jsonDecode(meal.metaData!);
+          if (meta['foods'] is List) {
+            for (var food in meta['foods']) {
+              if (food is Map && food['name'] != null) {
+                final name = food['name'] as String;
+                foodCounts[name] = (foodCounts[name] ?? 0) + 1;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
+    
+    // Analyze each symptom
+    for (var symptom in symptoms) {
+      final symptomTime = symptom.timestamp;
+      final windowStart = symptomTime.subtract(const Duration(hours: 24));
+      
+      // Find meals in the 24h window
+      final mealsData = await dbHelper.getMealsInRange(windowStart, symptomTime);
+      final meals = mealsData.map((e) => EventModel.fromMap(e)).toList();
+      
+      for (var meal in meals) {
+        // Count tags associated with symptoms (exclude symptom-like tags)
+        final excludedTags = ['Peau', 'Difficile', 'Douleur', 'Crampes', 'Eau', 
+                              'Sang', 'Inflammation', 'Général', 'Urgente', 
+                              'Maigre', 'Végétal', 'Friture', 'Excitant', 
+                              'Hydratation', 'Constipant', 'Rouge', 'Dur', 
+                              'Soja', 'Oeuf', 'Plaisir', 'Sulfites'];
+        for (var tag in meal.tags) {
+          if (tag.isNotEmpty && !excludedTags.contains(tag)) {
+            tagWithSymptomCounts[tag] = (tagWithSymptomCounts[tag] ?? 0) + 1;
+          }
+        }
+        
+        // Count food names associated with symptoms
+        if (meal.metaData != null && meal.metaData!.isNotEmpty) {
+          try {
+            final meta = jsonDecode(meal.metaData!);
+            if (meta['foods'] is List) {
+              for (var food in meta['foods']) {
+                if (food is Map && food['name'] != null) {
+                  final name = food['name'] as String;
+                  foodWithSymptomCounts[name] = (foodWithSymptomCounts[name] ?? 0) + 1;
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      }
+      
+      // Extract weather from context_data (if exists)
+      try {
+        final contextData = await dbHelper.getContextForEvent(symptom.id!);
+        if (contextData != null && contextData['weather'] != null) {
+          final weather = contextData['weather'];
+          final condition = weather['condition'] ?? '';
+          final temp = weather['temperature'] ?? 20.0;
+          
+          // Categorize weather
+          String weatherKey = '';
+          if (temp < 10) {
+            weatherKey = condition.toLowerCase().contains('rain') || 
+                        condition.toLowerCase().contains('cloud')
+                ? 'Froid & Humide'
+                : 'Froid & Sec';
+          } else if (temp > 25) {
+            weatherKey = condition.toLowerCase().contains('clear') ||
+                        condition.toLowerCase().contains('sun')
+                ? 'Chaud & Sec'
+                : 'Chaud & Humide';
+          } else {
+            weatherKey = 'Tempéré';
+          }
+          
+          weatherWithSymptomCounts[weatherKey] = 
+              (weatherWithSymptomCounts[weatherKey] ?? 0) + 1;
+        }
+      } catch (_) {}
+    }
+    
+    // 3. Calculate probabilities P(Symptom|Feature)
+    final foodTriggers = <String, TriggerScore>{};
+    final tagTriggers = <String, TriggerScore>{};
+    final weatherTriggers = <String, TriggerScore>{};
+    
+    // Process food triggers
+    foodWithSymptomCounts.forEach((food, symptomCount) {
+      final totalCount = foodCounts[food] ?? symptomCount;
+      if (totalCount >= 3) { // Minimum 3 occurrences
+        final probability = symptomCount / totalCount;
+        final confidence = min(totalCount / 10.0, 1.0); // Max confidence at 10+ samples
+        
+        foodTriggers[food] = TriggerScore(
+          name: food,
+          occurrences: symptomCount,
+          probability: probability,
+          confidence: confidence,
+        );
+      }
+    });
+    
+    // Process tag triggers
+    tagWithSymptomCounts.forEach((tag, symptomCount) {
+      final totalCount = tagCounts[tag] ?? symptomCount;
+      if (totalCount >= 3) {  // Minimum 3 occurrences
+        final probability = symptomCount / totalCount;
+        final confidence = min(totalCount / 10.0, 1.0);
+        
+        tagTriggers[tag] = TriggerScore(
+          name: tag,
+          occurrences: symptomCount,
+          probability: probability,
+          confidence: confidence,
+        );
+      }
+    });
+    
+    // Process weather triggers
+    weatherWithSymptomCounts.forEach((weather, symptomCount) {
+      if (symptomCount >= 2) {
+        // For weather we don't have a "total" count, so use symptom count as baseline
+        final probability = symptomCount / symptoms.length;
+        final confidence = min(symptomCount / 5.0, 1.0);
+        
+        weatherTriggers[weather] = TriggerScore(
+          name: weather,
+          occurrences: symptomCount,
+          probability: probability,
+          confidence: confidence,
+        );
+      }
+    });
+    
+    return ZoneTriggerAnalysis(
+      zoneName: zoneName,
+      symptomCount: symptoms.length,
+      foodTriggers: foodTriggers,
+      tagTriggers: tagTriggers,
+      weatherTriggers: weatherTriggers,
+      hasEnoughData: true,
+    );
+  }
+
+  Future<void> _showZoneTriggers(String zoneName) async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Analyse des déclencheurs...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    
+    // Analyze triggers
+    final analysis = await _analyzeTriggersForZone(zoneName);
+    
+    if (!mounted) return;
+    Navigator.pop(context); // Close loading
+    
+    // Show results
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white,
+                  AppColors.surfaceGlass.withValues(alpha: 0.8),
+                ],
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: analysis.hasEnoughData
+                ? _buildTriggerAnalysisContent(analysis, scrollController)
+                : _buildInsufficientDataContent(analysis, scrollController),
+          );
+        },
+      ),
+    );
   }
 
   /// Trigger ML model training
@@ -311,6 +558,462 @@ class _InsightsPageState extends State<InsightsPage> {
     }
   }
 
+  Widget _buildInsufficientDataContent(
+    ZoneTriggerAnalysis analysis,
+    ScrollController scrollController,
+  ) {
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.all(24),
+      children: [
+        // Handle
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        
+        // Header
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: AppColors.painGradient,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.warning, color: Colors.white, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    analysis.zoneName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    'Données insuffisantes',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: 32),
+        
+        // Message
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.orange[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.orange[200]!),
+          ),
+          child: Column(
+            children: [
+              Icon(Icons.info_outline, color: Colors.orange[700], size: 48),
+              const SizedBox(height: 16),
+              Text(
+                'Pas assez de données pour une analyse fiable',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.orange[900],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Il faut au moins 3 événements de type "${analysis.zoneName}" pour identifier des déclencheurs.\n\nActuellement : ${analysis.symptomCount} événement(s).',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 24),
+        
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryStart,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Fermer', style: TextStyle(fontSize: 16)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTriggerAnalysisContent(
+    ZoneTriggerAnalysis analysis,
+    ScrollController scrollController,
+  ) {
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.all(24),
+      children: [
+        // Handle
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        
+        // Header
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: AppColors.painGradient,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.psychology, color: Colors.white, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    analysis.zoneName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    '${analysis.symptomCount} événements analysés',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.share),
+              tooltip: 'Exporter le rapport',
+              onPressed: () => _exportTriggerReport(analysis),
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: 24),
+        
+        // Food Triggers
+        if (analysis.foodTriggers.isNotEmpty) ...[
+          _buildTriggerSection(
+            title: 'Aliments Suspects',
+            icon: Icons.restaurant,
+            color: AppColors.mealStart,
+            triggers: analysis.foodTriggers,
+          ),
+          const SizedBox(height: 20),
+        ],
+        
+        // Tag Triggers
+        if (analysis.tagTriggers.isNotEmpty) ...[
+          _buildTriggerSection(
+            title: 'Catégories Alimentaires',
+            icon: Icons.label,
+            color: AppColors.primaryStart,
+            triggers: analysis.tagTriggers,
+          ),
+          const SizedBox(height: 20),
+        ],
+        
+        // Weather Triggers
+        if (analysis.weatherTriggers.isNotEmpty) ...[
+          _buildTriggerSection(
+            title: 'Conditions Météo',
+            icon: Icons.wb_cloudy,
+            color: AppColors.checkup,
+            triggers: analysis.weatherTriggers,
+          ),
+          const SizedBox(height: 20),
+        ],
+        
+        // Empty state
+        if (analysis.foodTriggers.isEmpty &&
+            analysis.tagTriggers.isEmpty &&
+            analysis.weatherTriggers.isEmpty) ...[
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.check_circle, color: Colors.blue[700], size: 48),
+                const SizedBox(height: 12),
+                Text(
+                  'Aucun déclencheur significatif identifié',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue[900],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Les événements de type "${analysis.zoneName}" ne semblent pas corrélés à des aliments ou conditions spécifiques.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[700],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+        
+        // Close button
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryStart,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Fermer', style: TextStyle(fontSize: 16)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTriggerSection({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required Map<String, TriggerScore> triggers,
+  }) {
+    if (triggers.isEmpty) {
+      return SizedBox.shrink();
+    }
+
+    // Sort by score (probability * confidence)
+    final sortedTriggers = triggers.values.toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+    
+    // Filter by score threshold AND limit to 10
+    final filteredTriggers = sortedTriggers
+      .where((t) => t.score >= 0.15)
+      .take(10)
+      .toList();
+    
+    if (filteredTriggers.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          'Données encore limitées pour cette catégorie',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...filteredTriggers.map((trigger) => _buildTriggerItem(trigger, color)),
+        if (sortedTriggers.length > 10)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Affichage des 10 déclencheurs les plus probables',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTriggerItem(TriggerScore trigger, Color color) {
+    final riskLevel = trigger.probability >= 0.7
+        ? 'Élevé'
+        : trigger.probability >= 0.4
+            ? 'Moyen'
+            : 'Faible';
+    final riskColor = trigger.probability >= 0.7
+        ? Colors.red
+        : trigger.probability >= 0.4
+            ? Colors.orange
+            : Colors.yellow[700]!;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  trigger.name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${trigger.occurrences} occurrence(s) • ${(trigger.probability * 100).toStringAsFixed(0)}% de risque',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: riskColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              riskLevel,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: riskColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportTriggerReport(ZoneTriggerAnalysis analysis) async {
+    final buffer = StringBuffer();
+    buffer.writeln('=== RAPPORT D\'ANALYSE DES DÉCLENCHEURS ===');
+    buffer.writeln('');
+    buffer.writeln('Zone: ${analysis.zoneName}');
+    buffer.writeln('Nombre d\'événements: ${analysis.symptomCount}');
+    buffer.writeln('Date: ${DateFormat('dd/MM/yyyy à HH:mm').format(DateTime.now())}');
+    buffer.writeln('');
+    
+    if (analysis.foodTriggers.isNotEmpty) {
+      buffer.writeln('--- ALIMENTS SUSPECTS ---');
+      final sorted = analysis.foodTriggers.values.toList()
+        ..sort((a, b) => b.score.compareTo(a.score));
+      for (var trigger in sorted) {
+        buffer.writeln('• ${trigger.name}');
+        buffer.writeln('  Occurrences: ${trigger.occurrences}');
+        buffer.writeln('  Probabilité: ${(trigger.probability * 100).toStringAsFixed(1)}%');
+        buffer.writeln('  Confiance: ${(trigger.confidence * 100).toStringAsFixed(1)}%');
+        buffer.writeln('');
+      }
+    }
+    
+    if (analysis.tagTriggers.isNotEmpty) {
+      buffer.writeln('--- CATÉGORIES ALIMENTAIRES ---');
+      final sorted = analysis.tagTriggers.values.toList()
+        ..sort((a, b) => b.score.compareTo(a.score));
+      for (var trigger in sorted) {
+        buffer.writeln('• ${trigger.name}');
+        buffer.writeln('  Occurrences: ${trigger.occurrences}');
+        buffer.writeln('  Probabilité: ${(trigger.probability * 100).toStringAsFixed(1)}%');
+        buffer.writeln('');
+      }
+    }
+    
+    if (analysis.weatherTriggers.isNotEmpty) {
+      buffer.writeln('--- CONDITIONS MÉTÉO ---');
+      final sorted = analysis.weatherTriggers.values.toList()
+        ..sort((a, b) => b.score.compareTo(a.score));
+      for (var trigger in sorted) {
+        buffer.writeln('• ${trigger.name}');
+        buffer.writeln('  Occurrences: ${trigger.occurrences}');
+        buffer.writeln('  Fréquence: ${(trigger.probability * 100).toStringAsFixed(1)}%');
+        buffer.writeln('');
+      }
+    }
+    
+    buffer.writeln('---');
+    buffer.writeln('Généré par Crohnicles');
+    
+    // Copy to clipboard
+    await Clipboard.setData(ClipboardData(text: buffer.toString()));
+    
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Rapport copié dans le presse-papier'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -335,7 +1038,7 @@ class _InsightsPageState extends State<InsightsPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.analytics),
-            tooltip: 'Statut des Modèles ML',
+            tooltip: 'Analyses Statistiques',
             onPressed: () {
               Navigator.push(
                 context,
@@ -346,10 +1049,10 @@ class _InsightsPageState extends State<InsightsPage> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.model_training),
+            icon: const Icon(Icons.psychology_outlined),
             tooltip: Platform.isAndroid || Platform.isIOS
                 ? 'Entraînement (Desktop uniquement)'
-                : 'Entraîner les modèles ML',
+                : 'Analyser les corrélations',
             onPressed: _triggerTraining,
           ),
           IconButton(
@@ -817,7 +1520,10 @@ class _InsightsPageState extends State<InsightsPage> {
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: _topSuspects.entries.map((e) {
+            children: (_topSuspects.entries.toList()
+              ..sort((a, b) => b.value.compareTo(a.value))) // Tri par fréquence
+              .take(15) // Limite à 15 tags les plus fréquents
+              .map((e) {
               return Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -1037,6 +1743,19 @@ class _InsightsPageState extends State<InsightsPage> {
               centerSpaceRadius: 40,
               sectionsSpace: 2,
               startDegreeOffset: 180,
+              pieTouchData: PieTouchData(
+                touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                  if (event is FlTapUpEvent &&
+                      pieTouchResponse != null &&
+                      pieTouchResponse.touchedSection != null) {
+                    final touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                    if (touchedIndex >= 0 && touchedIndex < _zoneData.length) {
+                      final zoneName = _zoneData.keys.toList()[touchedIndex];
+                      _showZoneTriggers(zoneName);
+                    }
+                  }
+                },
+              ),
             ),
           ),
         ),
@@ -1197,7 +1916,7 @@ class _InsightsPageState extends State<InsightsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Prédictions ML",
+                      "Évaluation des Risques",
                       style: GoogleFonts.poppins(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -1205,10 +1924,12 @@ class _InsightsPageState extends State<InsightsPage> {
                       ),
                     ),
                     Text(
-                      _hasModels ? "Modèles entraînés" : "Mode fallback",
+                      _hasModels 
+                        ? "📊 Modèle statistique personnel" 
+                        : "⚡ Analyse en temps réel",
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: _hasModels ? Colors.green : Colors.orange,
+                        color: _hasModels ? Colors.blue : Colors.orange,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1344,16 +2065,22 @@ class _InsightsPageState extends State<InsightsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "Déclencheurs Identifiés",
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
+                      Row(
+                        children: [
+                          Text("📊", style: TextStyle(fontSize: 18)),
+                          SizedBox(width: 8),
+                          Text(
+                            "Corrélations Statistiques (30j)",
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
                       ),
                       Text(
-                        "% de repas avec ce tag suivis de symptômes (2-24h)",
+                        "Basé sur vos données récentes uniquement",
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           color: AppColors.textSecondary,

@@ -119,24 +119,20 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
     return names[symptomType] ?? symptomType;
   }
 
-  /// Build subtitle that distinguishes ML predictions from correlation fallback
+  /// Build subtitle that distinguishes trained model from real-time analysis
   Widget _buildSubtitle() {
-    // Check average confidence to determine if using ML models or fallback
-    final avgConfidence = widget.predictions.isEmpty
-        ? 0.0
-        : widget.predictions.map((p) => p.confidence).reduce((a, b) => a + b) /
-              widget.predictions.length;
-
-    final isUsingML = avgConfidence > 0.65;
+    // Use ModelManager to check if trained model is being used
+    final modelManager = ModelManager();
+    final isUsingTrainedModel = modelManager.isUsingTrainedModel;
 
     return Text(
-      isUsingML
-          ? 'Prédictions par IA entraînée sur vos données'
-          : 'Corrélations simples (modèles ML non entraînés)',
+      isUsingTrainedModel
+          ? 'Basé sur votre modèle statistique personnel'
+          : 'Analyse en temps réel (entraînez le modèle pour personnaliser)',
       style: GoogleFonts.inter(
         fontSize: 13,
         color: Colors.grey.shade600,
-        fontStyle: isUsingML ? FontStyle.normal : FontStyle.italic,
+        fontStyle: isUsingTrainedModel ? FontStyle.normal : FontStyle.italic,
       ),
     );
   }
@@ -211,45 +207,58 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                   ],
                 ),
                 const SizedBox(height: 16),
-                // Symptom tabs
+                // Symptom tabs (horizontal scrollable)
                 Container(
+                  height: 50,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.grey.shade200),
                   ),
-                  child: TabBar(
-                    controller: _tabController,
-                    labelColor: AppColors.mealGradient.colors.first,
-                    unselectedLabelColor: Colors.grey.shade600,
-                    indicator: BoxDecoration(
-                      gradient: AppColors.mealGradient.scale(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    labelStyle: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11,
-                    ),
-                    tabs: widget.predictions.map((pred) {
-                      return Tab(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              pred.riskEmoji,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(width: 3),
-                            Flexible(
-                              child: Text(
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    itemCount: widget.predictions.length,
+                    itemBuilder: (context, index) {
+                      final pred = widget.predictions[index];
+                      final isSelected = _tabController.index == index;
+                      
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _tabController.animateTo(index);
+                          });
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: isSelected 
+                                ? AppColors.mealGradient.scale(0.15)
+                                : null,
+                            color: isSelected ? null : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(pred.riskEmoji, style: const TextStyle(fontSize: 16)),
+                              const SizedBox(width: 6),
+                              Text(
                                 _getSymptomName(pred.symptomType),
-                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                  fontSize: 12,
+                                  color: isSelected 
+                                      ? AppColors.mealGradient.colors.first 
+                                      : Colors.grey.shade700,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
-                    }).toList(),
+                    },
                   ),
                 ),
               ],

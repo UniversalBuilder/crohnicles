@@ -44,14 +44,26 @@ class TrainingService {
     try {
       print('[TrainingService] Starting statistical analysis...');
 
+      // Check data availability first
+      final dataStatus = await checkDataAvailability();
+
       // Use Statistical Engine (Cross-platform)
       final result = await StatisticalEngine().train();
       
       if (result.success) {
-         try {
-           final modelManager = ModelManager();
-           await modelManager.initialize();
-         } catch (_) {}
+        // Save training history
+        final correlationCount = result.correlationCount ?? 0;
+        await _db.saveTrainingHistory(
+          mealCount: dataStatus.mealCount,
+          symptomCount: dataStatus.symptomCount,
+          correlationCount: correlationCount,
+          notes: 'Analyse statistique: $correlationCount corrélations identifiées',
+        );
+        
+        try {
+          final modelManager = ModelManager();
+          await modelManager.initialize();
+        } catch (_) {}
       }
       return result;
 
@@ -107,12 +119,12 @@ class TrainingResult {
   final bool success;
   final String message;
   final int? modelsCount;
-  final double? f1Score;
+  final int? correlationCount;
 
   TrainingResult({
     required this.success,
     required this.message,
     this.modelsCount,
-    this.f1Score,
+    this.correlationCount,
   });
 }

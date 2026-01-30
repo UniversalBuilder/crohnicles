@@ -1,5 +1,30 @@
-import 'package:crohnicles/settings_page.dart'; // Import Settings Page
-import 'package:crohnicles/services/log_service.dart'; // Import Log Service
+import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+
+import 'package:crohnicles/app_theme.dart';
+import 'package:crohnicles/calendar_page.dart';
+import 'package:crohnicles/database_helper.dart';
+import 'package:crohnicles/event_model.dart';
+import 'package:crohnicles/event_search_delegate.dart';
+import 'package:crohnicles/insights_page.dart';
+import 'package:crohnicles/meal_composer_dialog.dart';
+import 'package:crohnicles/risk_assessment_card.dart';
+import 'package:crohnicles/services/background_service.dart';
+import 'package:crohnicles/services/context_service.dart';
+import 'package:crohnicles/services/log_service.dart';
+import 'package:crohnicles/settings_page.dart';
+import 'package:crohnicles/stool_entry_dialog.dart';
+import 'package:crohnicles/symptom_dialog.dart';
+import 'package:crohnicles/vertical_timeline_page.dart';
+import 'package:crohnicles/ml/model_manager.dart';
+import 'package:crohnicles/models/context_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +96,12 @@ class _TimelinePageState extends State<TimelinePage> {
     setState(() {
       _events = eventsData.map((e) => EventModel.fromMap(e)).toList();
     });
+  }
+
+  Future<void> _deleteEvent(int id) async {
+    final dbHelper = DatabaseHelper();
+    await dbHelper.deleteEvent(id);
+    _loadEvents();
   }
 
   void _showMealDialog() async {

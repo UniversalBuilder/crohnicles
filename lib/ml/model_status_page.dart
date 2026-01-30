@@ -63,7 +63,7 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
           ),
         ),
         title: Text(
-          'Statut des Modèles ML',
+          'Analyses Statistiques',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
@@ -277,17 +277,10 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
               final correlationCount = modelStatus['correlation_count'] ?? 0;
               final isReady = modelStatus['is_ready'] ?? false;
 
-              // Find training history for this model
-              final history = _trainingHistory
-                  .where((h) => (h['model_name'] as String) == config.modelKey)
-                  .toList();
-
-              final trained = history.isNotEmpty;
-              final f1Score = trained
-                  ? history.first['f1_score'] as double
-                  : 0.0;
+              // Check global training history (v11: no per-model tracking)
+              final trained = _trainingHistory.isNotEmpty;
               final trainedAt = trained
-                  ? DateTime.parse(history.first['trained_at'] as String)
+                  ? DateTime.parse(_trainingHistory.first['trained_at'] as String)
                   : null;
 
               return _buildModelExpansionTile(
@@ -296,7 +289,6 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
                 correlationCount,
                 isReady,
                 trained,
-                f1Score,
                 trainedAt,
               );
             }),
@@ -312,7 +304,6 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
     int correlationCount,
     bool isReady,
     bool trained,
-    double f1Score,
     DateTime? trainedAt,
   ) {
     return Card(
@@ -325,7 +316,7 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
         ),
         subtitle: Text(
           trained
-              ? 'Entraîné • F1: ${(f1Score * 100).toStringAsFixed(0)}%'
+              ? 'Entraîné • $correlationCount corrélations'
               : (isReady ? 'Prêt pour entraînement' : 'Données insuffisantes'),
           style: TextStyle(
             color: trained
@@ -516,22 +507,22 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
             else
               ..._trainingHistory.map((entry) {
                 final date = DateTime.parse(entry['trained_at'] as String);
-                final modelName = entry['model_name'] as String;
-                final f1 = entry['f1_score'] as double;
-                final accuracy = entry['accuracy'] as double;
+                final mealCount = entry['meal_count'] as int;
+                final symptomCount = entry['symptom_count'] as int;
+                final correlationCount = entry['correlation_count'] as int;
 
                 return ListTile(
                   dense: true,
                   leading: Icon(
-                    Icons.check_circle,
-                    color: f1 > 0.7 ? Colors.green : Colors.orange,
+                    Icons.analytics,
+                    color: correlationCount > 10 ? Colors.green : Colors.orange,
                   ),
                   title: Text(
-                    modelName.replaceAll('_predictor', ''),
+                    'Entraînement statistique',
                     style: const TextStyle(fontSize: 14),
                   ),
                   subtitle: Text(
-                    'F1: ${(f1 * 100).toStringAsFixed(1)}% • Précision: ${(accuracy * 100).toStringAsFixed(1)}%',
+                    '$correlationCount corrélations • $mealCount repas • $symptomCount symptômes',
                     style: const TextStyle(fontSize: 12),
                   ),
                   trailing: Text(
