@@ -1485,13 +1485,14 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 
   Widget _buildSectionTitle(String title) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(left: 20, bottom: 12, top: 20),
       child: Text(
         title,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary,
+          color: colorScheme.onSurfaceVariant,
           letterSpacing: 0.5,
         ),
       ),
@@ -1572,19 +1573,19 @@ class _TimelinePageState extends State<TimelinePage> {
                   children: [
                     Text(
                       event.time,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       event.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
-                        color: AppColors.textPrimary,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     if (event.tags.isNotEmpty) ...[
@@ -1677,10 +1678,10 @@ class _TimelinePageState extends State<TimelinePage> {
                   children: [
                     Text(
                       event.time,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1694,8 +1695,8 @@ class _TimelinePageState extends State<TimelinePage> {
                     ),
                     Text(
                       event.subtitle,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
                         fontSize: 12,
                       ),
                     ),
@@ -1792,10 +1793,10 @@ class _TimelinePageState extends State<TimelinePage> {
                   children: [
                     Text(
                       event.time,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1870,10 +1871,10 @@ class _TimelinePageState extends State<TimelinePage> {
                   children: [
                     Text(
                       event.time,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 4),
