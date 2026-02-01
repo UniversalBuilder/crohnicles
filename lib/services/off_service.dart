@@ -71,13 +71,13 @@ class OFFService {
 
       return food;
     } on SocketException catch (e) {
-      print('OFFService: Network error - $e');
+      // Network error - return null silently
       return null;
     } on TimeoutException catch (e) {
-      print('OFFService: Timeout error - $e');
+      // Timeout - return null silently
       return null;
     } catch (e) {
-      print('OFFService: Error fetching product - $e');
+      // Error fetching product - return null silently
       return null;
     }
   }
@@ -103,14 +103,10 @@ class OFFService {
           'page_size=20&'
           'json=1';
 
-      print('[OFF] 🌐 Requête URL: $url');
-
       // Search using OpenFoodFacts API
       final response = await http
           .get(Uri.parse(url), headers: {'User-Agent': _userAgent})
           .timeout(const Duration(seconds: 60));
-
-      print('[OFF] 📥 Status: ${response.statusCode}');
 
       if (response.statusCode != 200) {
         return [];
@@ -118,28 +114,11 @@ class OFFService {
 
       final Map<String, dynamic> data = jsonDecode(response.body);
 
-      print(
-        '[OFF] 📦 Count: ${data['count']}, Page: ${data['page']}, Page_size: ${data['page_size']}',
-      );
-
       if (data['products'] == null) {
         return [];
       }
 
       final List<dynamic> products = data['products'];
-      print('[OFF] ✅ Returned ${products.length} products');
-
-      // Print first 3 product names for debugging
-      if (products.isNotEmpty) {
-        print('[OFF] 📝 First results:');
-        for (var i = 0; i < products.length && i < 3; i++) {
-          final name =
-              products[i]['product_name'] ??
-              products[i]['product_name_fr'] ??
-              'Unknown';
-          print('   ${i + 1}. $name');
-        }
-      }
 
       return products
           .map(
@@ -147,13 +126,13 @@ class OFFService {
           )
           .toList();
     } on SocketException catch (e) {
-      print('OFFService: Network error - $e');
+      // Network error - return empty list
       return [];
     } on TimeoutException catch (e) {
-      print('OFFService: Timeout error - $e');
+      // Timeout - return empty list
       return [];
     } catch (e) {
-      print('OFFService: Error searching products - $e');
+      // Error searching - return empty list
       return [];
     }
   }
@@ -337,7 +316,7 @@ class OFFService {
         'timestamp': timestamp,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (e) {
-      print('OFFService: Error saving to cache - $e');
+      // Silently fail cache save
     }
   }
 
@@ -361,7 +340,7 @@ class OFFService {
       final Map<String, dynamic> map = jsonDecode(foodData);
       return FoodModel.fromMap(map);
     } catch (e) {
-      print('OFFService: Error loading from cache - $e');
+      // Cache load failed - return null
       return null;
     }
   }

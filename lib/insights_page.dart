@@ -17,6 +17,7 @@ import 'services/pdf_export_service.dart';
 import 'ml/model_status_page.dart';
 import 'methodology_page.dart';
 import 'widgets/weather_correlation_explanation.dart';
+import 'utils/platform_utils.dart';
 
 class ZoneTriggerAnalysis {
   final String zoneName;
@@ -1041,7 +1042,7 @@ class _InsightsPageState extends State<InsightsPage> {
               },
               child: const Text('Partager'),
             ),
-            if (Platform.isAndroid || Platform.isIOS)
+            if (PlatformUtils.isMobile)
               TextButton(
                 onPressed: () async {
                   Navigator.pop(context);
@@ -1560,7 +1561,7 @@ class _InsightsPageState extends State<InsightsPage> {
           ),
           IconButton(
             icon: const Icon(Icons.psychology_outlined),
-            tooltip: Platform.isAndroid || Platform.isIOS
+            tooltip: PlatformUtils.isMobile
                 ? 'Entraînement (Desktop uniquement)'
                 : 'Analyser les corrélations',
             onPressed: _triggerTraining,

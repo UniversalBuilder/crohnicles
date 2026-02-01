@@ -1,5 +1,48 @@
 # Journal d'Architecture
 
+## 2026-01-31 - Consolidation Technique (Batches 1-5)
+### Objectif
+Réduction systématique de la dette technique identifiée dans l'audit (47 problèmes). Approche incrémentale par batches pour éviter les régressions.
+
+### Changements
+1. **Batch 1: Cohérence des Polices** (`lib/methodology_page.dart`)
+   - Suppression de GoogleFonts.manrope (3 occurrences)
+   - Migration vers Theme.of(context).textTheme.titleLarge pour AppBar
+   - Utilisation de GoogleFonts.poppins pour titres de section
+   - Ajout overflow protection (maxLines: 2) sur titres de cartes
+
+2. **Batch 2: Protection Overflow** (`lib/main.dart`)
+   - "Bilan du Soir": maxLines: 1, overflow: TextOverflow.ellipsis
+   - Noms d'aliments: maxLines: 2 avec ellipsis
+   - Marques: maxLines: 1 avec ellipsis
+
+3. **Batch 3: Nettoyage Logs Debug** (`lib/services/off_service.dart`)
+   - Suppression de 14 instructions print() de debug
+   - Gestion d'erreurs silencieuse avec commentaires explicatifs
+
+4. **Batch 4: Standardisation AppBar**
+   - `lib/vertical_timeline_page.dart`: Suppression gradient manuel, utilisation theme
+   - `lib/calendar_page.dart`: Suppression gradient + styles hardcodés
+   - Harmonisation avec Theme.of(context).textTheme.titleLarge
+
+5. **Batch 5: Utilitaire Platform** (`lib/utils/platform_utils.dart` - NOUVEAU)
+   - Création classe PlatformUtils avec getters isMobile, isDesktop, isAndroid, isIOS, isWindows
+   - Remplacement de 8 occurrences de `!kIsWeb && (Platform.isAndroid || Platform.isIOS)`
+   - Fichiers modifiés: main.dart, meal_composer_dialog.dart, insights_page.dart
+
+### Impact
+- ✅ **Cohérence visuelle**: Fonts harmonisées (Poppins headings, Inter body)
+- ✅ **UX Mobile**: Plus de débordement de texte sur petits écrans
+- ✅ **Logs propres**: Production sans pollution debug
+- ✅ **Maintenabilité**: Détection de plateforme centralisée, AppBars standardisés
+
+### Dette Technique Restante
+- ⚠️ **Critique**: Migration système de thème double (app_theme.dart vs themes/app_theme.dart)
+- ⚠️ **Haute**: Standardisation dialogues (maxWidth: 600), gradients inline → AppGradients
+- Voir `CONSOLIDATION_PROGRESS.md` pour plan complet (Batches 6-12)
+
+---
+
 ## 2026-01-30 - Refonte UI & Maintenance
 ### Changements
 1.  **Gestion des Logs & Paramètres** :

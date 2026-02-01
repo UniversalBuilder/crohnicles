@@ -60,22 +60,9 @@ class _CalendarPageState extends State<CalendarPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primaryStart.withValues(alpha: 0.9),
-                AppColors.primaryEnd.withValues(alpha: 0.8),
-              ],
-            ),
-          ),
-        ),
         title: Text(
           "Calendrier",
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.5,
-          ),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
       ),
       body: Column(

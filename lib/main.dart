@@ -12,6 +12,7 @@ import 'package:crohnicles/app_theme.dart';
 import 'package:crohnicles/themes/app_theme.dart' as themes;
 import 'package:crohnicles/providers/theme_provider.dart';
 import 'package:crohnicles/utils/responsive_wrapper.dart';
+import 'package:crohnicles/utils/platform_utils.dart';
 import 'package:crohnicles/calendar_page.dart';
 import 'package:crohnicles/database_helper.dart';
 import 'package:crohnicles/event_model.dart';
@@ -40,7 +41,7 @@ void main() async {
   log.log('[Main] App starting...');
 
   // Initialize Background Service (Weather automation)
-  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+  if (PlatformUtils.isMobile) {
     try {
       await BackgroundService.initialize();
       await BackgroundService.registerPeriodicTask();
@@ -273,6 +274,8 @@ class _TimelinePageState extends State<TimelinePage> {
                                         ).colorScheme.onPrimaryContainer,
                                         letterSpacing: -0.5,
                                       ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -1106,6 +1109,8 @@ class _TimelinePageState extends State<TimelinePage> {
                                           ?.copyWith(
                                             fontWeight: FontWeight.w600,
                                           ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                     if (brand != null &&
                                         brand.toString().isNotEmpty)
@@ -1117,6 +1122,8 @@ class _TimelinePageState extends State<TimelinePage> {
                                             ?.copyWith(
                                               color: Colors.grey.shade600,
                                             ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                   ],
                                 ),

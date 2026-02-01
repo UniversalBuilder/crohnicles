@@ -80,22 +80,9 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primaryStart.withValues(alpha: 0.9),
-                AppColors.primaryEnd.withValues(alpha: 0.8),
-              ],
-            ),
-          ),
-        ),
         title: Text(
           'Timeline Verticale',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.5,
-          ),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
         actions: [
           IconButton(

@@ -14,6 +14,7 @@ import 'themes/app_gradients.dart';
 import 'event_model.dart';
 import 'services/off_service.dart';
 import 'services/food_recognizer.dart';
+import 'utils/platform_utils.dart';
 
 class MealComposerDialog extends StatefulWidget {
   final EventModel? existingEvent;
@@ -75,7 +76,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     // Initialize TabController with initial index based on edit mode
     // In edit mode, start on Cart tab to show the cart
     // In create mode, start on Scanner tab (Mobile) or Search tab (Desktop)
-    final bool isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    final bool isMobile = PlatformUtils.isMobile;
     final int tabCount = isMobile ? 4 : 3;
     final int cartIndex = isMobile ? 3 : 2;
 
@@ -663,7 +664,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                     fontWeight: FontWeight.w600,
                   ),
                   tabs: [
-                    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+                    if (PlatformUtils.isMobile)
                       const Tab(
                         icon: Icon(Icons.qr_code_scanner, size: 20),
                         text: "Scanner",
@@ -693,7 +694,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+                    if (PlatformUtils.isMobile)
                       _buildScannerTab(),
                     _buildSearchTab(),
                     _buildCreateTab(),
@@ -1021,7 +1022,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     bool barcodeDetectionAvailable = false;
 
     // Step 1: Try barcode detection (mobile only)
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (PlatformUtils.isMobile) {
       barcodeDetectionAvailable = true;
       try {
         detectedBarcode = await _detectBarcode(imagePath);
@@ -1057,7 +1058,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     // Step 3: No barcode or not found -> try food recognition
     // Note: TFLite food recognition disabled on Windows (missing DLL)
     // Works on Android/iOS platforms
-    if (mounted && (Platform.isAndroid || Platform.isIOS)) {
+    if (mounted && PlatformUtils.isMobile) {
       try {
         print('[ImageAnalysis] Loading TFLite model...');
         final recognizer = FoodRecognizer();

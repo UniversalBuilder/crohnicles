@@ -11,7 +11,7 @@ class MethodologyPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           'Comment ça marche ?',
-          style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
         elevation: 0,
       ),
@@ -91,7 +91,7 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: GoogleFonts.manrope(
+      style: GoogleFonts.poppins(
         fontSize: 18,
         fontWeight: FontWeight.bold,
         color: const Color(0xFF1E293B),
@@ -150,11 +150,13 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
               Expanded(
                 child: Text(
                   title,
-                  style: GoogleFonts.manrope(
+                  style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF1E293B),
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
