@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'app_theme.dart';
+import 'themes/app_gradients.dart';
 import 'event_model.dart';
 import 'symptom_taxonomy.dart';
 
@@ -142,6 +143,10 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    
     return Dialog(
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
@@ -152,18 +157,18 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: 0.95),
+                colorScheme.surface.withValues(alpha: 0.95),
                 AppColors.surfaceGlass.withValues(alpha: 0.90),
               ],
             ),
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.3),
+              color: colorScheme.surface.withValues(alpha: 0.3),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: colorScheme.onSurface.withValues(alpha: 0.1),
                 blurRadius: 40,
                 offset: const Offset(0, 20),
               ),
@@ -176,8 +181,8 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
               children: [
                 // Gradient header
                 Container(
-                  decoration: const BoxDecoration(
-                    gradient: AppColors.painGradient,
+                  decoration: BoxDecoration(
+                    gradient: AppGradients.pain(brightness),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -190,31 +195,29 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.25),
+                              color: colorScheme.surface.withValues(alpha: 0.25),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.4),
+                                color: colorScheme.surface.withValues(alpha: 0.4),
                                 width: 1.5,
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.bolt,
                               size: 28,
-                              color: Colors.white,
+                              color: colorScheme.onPrimary,
                             ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Text(
                               "Nouveaux Symptômes",
-                              style: GoogleFonts.poppins(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: colorScheme.onPrimary,
                                 letterSpacing: -0.5,
                                 shadows: [
                                   Shadow(
-                                    color: Colors.black.withValues(alpha: 0.3),
+                                    color: colorScheme.onSurface.withValues(alpha: 0.3),
                                     offset: const Offset(0, 2),
                                     blurRadius: 4,
                                   ),
@@ -232,7 +235,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                           // Date Picker
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
+                              color: colorScheme.surface.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: InkWell(
@@ -247,7 +250,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                                     return Theme(
                                       data: Theme.of(context).copyWith(
                                         colorScheme: ColorScheme.light(
-                                          primary: AppColors.painGradient.colors.first,
+                                          primary: colorScheme.error,
                                         ),
                                       ),
                                       child: child!,
@@ -274,18 +277,17 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.calendar_today,
-                                      color: Colors.white,
+                                      color: colorScheme.onPrimary,
                                       size: 16,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
                                       DateFormat('EEE d MMM', 'fr_FR').format(_selectedDate),
-                                      style: GoogleFonts.inter(
-                                        color: Colors.white,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: colorScheme.onPrimary,
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 14,
                                       ),
                                     ),
                                   ],
@@ -297,7 +299,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                           // Time Picker
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
+                              color: colorScheme.surface.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: InkWell(
@@ -309,7 +311,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                                     return Theme(
                                       data: Theme.of(context).copyWith(
                                         colorScheme: ColorScheme.light(
-                                          primary: AppColors.painGradient.colors.first,
+                                          primary: colorScheme.error,
                                         ),
                                       ),
                                       child: child!,
@@ -336,18 +338,17 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.access_time,
-                                      color: Colors.white,
+                                      color: colorScheme.onPrimary,
                                       size: 16,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
                                       DateFormat('HH:mm').format(_selectedDate),
-                                      style: GoogleFonts.inter(
-                                        color: Colors.white,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: colorScheme.onPrimary,
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 14,
                                       ),
                                     ),
                                   ],
@@ -364,31 +365,30 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                 // Tab bar with gradient indicator
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: colorScheme.surface.withValues(alpha: 0.5),
                     border: Border(
                       bottom: BorderSide(
-                        color: Colors.black.withValues(alpha: 0.06),
+                        color: colorScheme.onSurface.withValues(alpha: 0.06),
                         width: 1,
                       ),
                     ),
                   ),
                   child: TabBar(
                     controller: _tabController,
-                    labelColor: AppColors.painStart,
-                    unselectedLabelColor: Colors.grey.shade600,
+                    labelColor: colorScheme.error,
+                    unselectedLabelColor: colorScheme.onSurfaceVariant,
                     indicatorSize: TabBarIndicatorSize.tab,
                     indicator: BoxDecoration(
-                      gradient: AppColors.painGradient.scale(0.15),
+                      gradient: AppGradients.pain(brightness).scale(0.15),
                       border: Border(
                         bottom: BorderSide(
-                          color: AppColors.painStart,
+                          color: colorScheme.error,
                           width: 3,
                         ),
                       ),
                     ),
-                    labelStyle: GoogleFonts.inter(
+                    labelStyle: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
-                      fontSize: 14,
                     ),
                     tabs: const [
                       Tab(
@@ -430,9 +430,8 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                             children: [
                               Text(
                                 "Intensité par zone",
-                                style: GoogleFonts.inter(
+                                style: theme.textTheme.bodyLarge?.copyWith(
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 15,
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -462,7 +461,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                   decoration: BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: Colors.black.withValues(alpha: 0.06),
+                        color: colorScheme.onSurface.withValues(alpha: 0.06),
                         width: 1,
                       ),
                     ),
@@ -473,7 +472,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                       TextButton(
                         onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
-                          foregroundColor: AppColors.painStart,
+                          foregroundColor: colorScheme.error,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 12,
@@ -481,20 +480,19 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                         ),
                         child: Text(
                           "Annuler",
-                          style: GoogleFonts.inter(
+                          style: theme.textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
-                            fontSize: 15,
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Container(
                         decoration: BoxDecoration(
-                          gradient: AppColors.painGradient,
+                          gradient: AppGradients.pain(brightness),
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.painStart.withValues(alpha: 0.3),
+                              color: colorScheme.error.withValues(alpha: 0.3),
                               blurRadius: 20,
                               offset: const Offset(0, 8),
                             ),
@@ -569,10 +567,9 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                               ),
                               child: Text(
                                 "Valider",
-                                style: GoogleFonts.inter(
-                                  color: Colors.white,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: colorScheme.onPrimary,
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 15,
                                   letterSpacing: 0.2,
                                 ),
                               ),
@@ -592,13 +589,19 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
   }
 
   Widget _buildAbdomenTab() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Text(
             "Sélectionnez les zones douloureuses :",
-            style: GoogleFonts.inter(color: Colors.grey.shade600, fontSize: 14),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         Expanded(
@@ -626,19 +629,19 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                 },
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: isSelected ? AppColors.painGradient : null,
-                    color: isSelected ? null : Colors.grey.shade100,
+                    gradient: isSelected ? AppGradients.pain(brightness) : null,
+                    color: isSelected ? null : colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isSelected
                           ? Colors.transparent
-                          : Colors.grey.shade300,
+                          : colorScheme.outline,
                       width: 1.5,
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppColors.painStart.withValues(alpha: 0.3),
+                              color: colorScheme.error.withValues(alpha: 0.3),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -649,10 +652,9 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                   child: Text(
                     zone,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
+                    style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: isSelected ? Colors.white : Colors.black87,
+                      color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -665,6 +667,10 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
   }
 
   Widget _buildGeneralTab() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    
     // Level 1: Categories
     if (currentLevel1 == null) {
       return ListView(
@@ -675,13 +681,13 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.painStart.withValues(alpha: 0.1),
-                  AppColors.painEnd.withValues(alpha: 0.05),
+                  colorScheme.error.withValues(alpha: 0.1),
+                  colorScheme.error.withValues(alpha: 0.05),
                 ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: AppColors.painStart.withValues(alpha: 0.2),
+                color: colorScheme.error.withValues(alpha: 0.2),
                 width: 1.5,
               ),
             ),
@@ -689,22 +695,21 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: AppColors.painGradient.scale(0.4),
+                  gradient: AppGradients.pain(brightness).scale(0.4),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: _getIconForCategory(key),
               ),
               title: Text(
                 key,
-                style: GoogleFonts.inter(
+                style: theme.textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w600,
-                  fontSize: 15,
                 ),
               ),
               trailing: ShaderMask(
                 shaderCallback: (bounds) =>
-                    AppColors.painGradient.createShader(bounds),
-                child: const Icon(Icons.chevron_right, color: Colors.white),
+                    AppGradients.pain(brightness).createShader(bounds),
+                child: Icon(Icons.chevron_right, color: colorScheme.surface),
               ),
               onTap: () => setState(() => currentLevel1 = key),
             ),
@@ -721,41 +726,38 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
         children: [
           Container(
             decoration: BoxDecoration(
-              gradient: AppColors.painGradient.scale(0.2),
+              gradient: AppGradients.pain(brightness).scale(0.2),
             ),
             child: ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.8),
+                  color: colorScheme.surface.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: ShaderMask(
                   shaderCallback: (bounds) =>
-                      AppColors.painGradient.createShader(bounds),
-                  child: const Icon(Icons.arrow_back, color: Colors.white),
+                      AppGradients.pain(brightness).createShader(bounds),
+                  child: Icon(Icons.arrow_back, color: colorScheme.surface),
                 ),
               ),
               title: Text(
                 currentLevel1!,
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: colorScheme.onPrimary,
                 ),
               ),
               subtitle: Text(
                 "Sélectionnez les symptômes",
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: Colors.white,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onPrimary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
               onTap: _resetHierarchy,
             ),
           ),
-          Divider(height: 1, color: Colors.black.withValues(alpha: 0.06)),
+          Divider(height: 1, color: colorScheme.onSurface.withValues(alpha: 0.06)),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -763,15 +765,14 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                    border: Border.all(color: colorScheme.outline, width: 1.5),
                   ),
                   child: ListTile(
                     title: Text(
                       key,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
+                      style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -793,41 +794,39 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
       children: [
         Container(
           decoration: BoxDecoration(
-            gradient: AppColors.painGradient.scale(0.2),
+            gradient: AppGradients.pain(brightness).scale(0.2),
           ),
           child: ListTile(
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.8),
+                color: colorScheme.surface.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: ShaderMask(
                 shaderCallback: (bounds) =>
-                    AppColors.painGradient.createShader(bounds),
-                child: const Icon(Icons.arrow_back, color: Colors.white),
+                    AppGradients.pain(brightness).createShader(bounds),
+                child: Icon(Icons.arrow_back, color: colorScheme.surface),
               ),
             ),
             title: Text(
               "$currentLevel1 > $currentLevel2",
-              style: GoogleFonts.poppins(
-                fontSize: 14,
+              style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: colorScheme.onPrimary,
               ),
             ),
             subtitle: Text(
               "Sélectionnez les symptômes",
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                color: Colors.white.withValues(alpha: 0.9),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onPrimary.withValues(alpha: 0.9),
                 fontWeight: FontWeight.w500,
               ),
             ),
             onTap: () => setState(() => currentLevel2 = null),
           ),
         ),
-        Divider(height: 1, color: Colors.black.withValues(alpha: 0.06)),
+        Divider(height: 1, color: colorScheme.onSurface.withValues(alpha: 0.06)),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(16),
@@ -838,29 +837,28 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
                   gradient: isSelected
-                      ? AppColors.painGradient.scale(0.3)
+                      ? AppGradients.pain(brightness).scale(0.3)
                       : null,
-                  color: isSelected ? null : Colors.white,
+                  color: isSelected ? null : colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isSelected
-                        ? AppColors.painStart.withValues(alpha: 0.5)
-                        : Colors.grey.shade200,
+                        ? colorScheme.error.withValues(alpha: 0.5)
+                        : colorScheme.outline,
                     width: 1.5,
                   ),
                 ),
                 child: CheckboxListTile(
                   title: Text(
                     item,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
-                      color: isSelected ? AppColors.painEnd : Colors.black87,
+                      color: isSelected ? colorScheme.error : colorScheme.onSurface,
                     ),
                   ),
                   value: isSelected,
-                  activeColor: AppColors.painEnd,
-                  checkColor: Colors.white,
+                  activeColor: colorScheme.error,
+                  checkColor: colorScheme.onPrimary,
                   onChanged: (val) {
                     setState(() {
                       if (val == true) {
@@ -880,7 +878,10 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
   }
 
   Widget _buildZoneSeverityRow(String zone) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final severity = _zoneSeverities[zone] ?? 5.0;
+    
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -889,8 +890,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
             flex: 3,
             child: Text(
               zone,
-              style: GoogleFonts.inter(
-                fontSize: 13,
+              style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -899,10 +899,10 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
             flex: 5,
             child: SliderTheme(
               data: SliderThemeData(
-                activeTrackColor: AppColors.painStart,
-                inactiveTrackColor: Colors.grey.shade300,
-                thumbColor: AppColors.painEnd,
-                overlayColor: AppColors.painStart.withValues(alpha: 0.2),
+                activeTrackColor: colorScheme.error,
+                inactiveTrackColor: colorScheme.outline,
+                thumbColor: colorScheme.error,
+                overlayColor: colorScheme.error.withValues(alpha: 0.2),
                 trackHeight: 4,
               ),
               child: Slider(
@@ -919,10 +919,9 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
             width: 40,
             child: Text(
               "${severity.toInt()}/10",
-              style: GoogleFonts.inter(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: AppColors.painEnd,
+                color: colorScheme.error,
               ),
               textAlign: TextAlign.end,
             ),

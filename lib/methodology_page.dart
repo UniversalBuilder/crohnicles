@@ -28,11 +28,13 @@ class MethodologyPage extends StatelessWidget {
           children: [
             _buildSectionTitle('📊 Analyse Statistique'),
             _buildSectionText(
+              context,
               "Crohnicles analyse vos données personnelles pour identifier des corrélations entre vos repas et vos symptômes. Tout est calculé localement sur votre appareil.",
             ),
             const SizedBox(height: 24),
             
             _buildCard(
+              context: context,
               title: "1. Corrélations Statistiques",
               icon: Icons.bar_chart,
               color: Colors.blue,
@@ -49,6 +51,7 @@ Exemple : Si vous avez mangé 10 fois du gluten et eu 6 fois des douleurs dans l
              const SizedBox(height: 16),
 
             _buildCard(
+              context: context,
               title: "2. Mode Temps Réel (Démarrage)",
               icon: Icons.speed,
               color: Colors.orange,
@@ -64,6 +67,7 @@ Dès que possible, entraînez le modèle statistique pour des prédictions perso
             ),
             const SizedBox(height: 16),
              _buildCard(
+              context: context,
               title: "3. Entraînement du Modèle",
               icon: Icons.psychology,
               color: Colors.purple,
@@ -81,6 +85,7 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
              const SizedBox(height: 24),
             _buildSectionTitle('🔍 Transparence'),
             _buildSectionText(
+              context,
               "Vos données ne quittent jamais votre appareil (sauf si vous activez la sauvegarde cloud). L'analyse est effectuée localement pour garantir votre confidentialité totale.",
             ),
           ],
@@ -100,14 +105,13 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
     );
   }
 
-  Widget _buildSectionText(String text) {
+  Widget _buildSectionText(BuildContext context, String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
       child: Text(
         text,
-        style: GoogleFonts.inter(
-          fontSize: 15,
-          color: const Color(0xFF475569),
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           height: 1.5,
         ),
       ),
@@ -115,6 +119,7 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
   }
 
   Widget _buildCard({
+    required BuildContext context,
     required String title,
     required IconData icon,
     required Color color,
@@ -163,9 +168,8 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
           const SizedBox(height: 12),
           Text(
             content,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: const Color(0xFF64748B),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.6,
             ),
           ),

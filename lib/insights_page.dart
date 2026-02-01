@@ -4,10 +4,11 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'event_model.dart';
 import 'database_helper.dart';
 import 'app_theme.dart';
+import 'themes/app_gradients.dart';
+import 'themes/chart_colors.dart';
 import 'package:intl/intl.dart';
 import 'ml/model_manager.dart';
 import 'event_detail_page.dart';
@@ -64,6 +65,10 @@ class _InsightsPageState extends State<InsightsPage> {
   List<Map<String, dynamic>> _stoolData = [];
   Map<String, int> _zoneData = {}; // New State
   List<EventModel> _suspectMeals = [];
+
+  // Weather Data
+  List<Map<String, dynamic>> _weatherData = [];
+  Map<String, Map<String, int>> _weatherSymptomCorrelations = {};
 
   // Analysis
   Map<String, int> _topSuspects = {};
@@ -180,6 +185,9 @@ class _InsightsPageState extends State<InsightsPage> {
       print('[INSIGHTS] Model loading failed (using fallback): $e');
     }
 
+    // 6. Weather Correlations Analysis
+    final weatherData = await _loadWeatherCorrelations(allEventsModels);
+
     if (mounted) {
       setState(() {
         _painData = pain;
@@ -190,6 +198,8 @@ class _InsightsPageState extends State<InsightsPage> {
         _correlations = correlations;
         _modelManager = modelManager;
         _hasModels = hasModels;
+        _weatherData = weatherData['timeline'] as List<Map<String, dynamic>>;
+        _weatherSymptomCorrelations = weatherData['correlations'] as Map<String, Map<String, int>>;
         _isLoading = false;
       });
     }
@@ -205,6 +215,133 @@ class _InsightsPageState extends State<InsightsPage> {
     }
 
     return suspectCounts;
+  }
+
+  Future<Map<String, dynamic>> _loadWeatherCorrelations(List<EventModel> events) async {
+    final dbHelper = DatabaseHelper();
+    final now = DateTime.now();
+    final startDate = now.subtract(const Duration(days: 30));
+    
+    // Get all events with weather data directly from DB
+    final allEventsData = await dbHelper.getEvents();
+    
+    // Timeline data: temperature vs symptoms per day
+    final List<Map<String, dynamic>> timeline = [];
+    final Map<String, Map<String, int>> correlations = {
+      'Froid (<12°C)': {'total': 0, 'withSymptom': 0},
+      'Chaud (>28°C)': {'total': 0, 'withSymptom': 0},
+      'Humidité élevée (>75%)': {'total': 0, 'withSymptom': 0},
+      'Basse pression (<1000 hPa)': {'total': 0, 'withSymptom': 0},
+      'Pluie': {'total': 0, 'withSymptom': 0},
+    };
+    
+    // Group events by day
+    final Map<String, Map<String, dynamic>> dayGroups = {};
+    
+    for (var eventData in allEventsData) {
+      try {
+        final dateTime = eventData['dateTime'] as String;
+        final eventDate = DateTime.parse(dateTime);
+        if (eventDate.isBefore(startDate)) continue;
+        
+        final dayKey = DateTime(eventDate.year, eventDate.month, eventDate.day).toIso8601String();
+        
+        if (!dayGroups.containsKey(dayKey)) {
+          dayGroups[dayKey] = {
+            'date': dayKey,
+            'symptoms': 0,
+            'temperature': null,
+            'humidity': null,
+            'pressure': null,
+            'weather': null,
+          };
+        }
+        
+        // Count symptoms
+        final type = eventData['type'] as String;
+        final severity = eventData['severity'] as int;
+        if (type == 'symptom' && severity >= 5) {
+          dayGroups[dayKey]!['symptoms'] = (dayGroups[dayKey]!['symptoms'] as int) + 1;
+        }
+        
+        // Extract weather data from context_data
+        final contextDataJson = eventData['context_data'] as String?;
+        if (contextDataJson != null && contextDataJson.isNotEmpty && dayGroups[dayKey]!['temperature'] == null) {
+          try {
+            final contextData = jsonDecode(contextDataJson) as Map<String, dynamic>;
+            
+            final tempRaw = contextData['temperature'];
+            final temp = tempRaw is num 
+                ? tempRaw.toDouble() 
+                : (double.tryParse(tempRaw?.toString() ?? '') ?? null);
+            dayGroups[dayKey]!['temperature'] = temp;
+            
+            final humidityRaw = contextData['humidity'];
+            final humidity = humidityRaw is num 
+                ? humidityRaw.toDouble() 
+                : (double.tryParse(humidityRaw?.toString() ?? '') ?? null);
+            dayGroups[dayKey]!['humidity'] = humidity;
+            
+            final pressureRaw = contextData['pressure'];
+            final pressure = pressureRaw is num 
+                ? pressureRaw.toDouble() 
+                : (double.tryParse(pressureRaw?.toString() ?? '') ?? null);
+            dayGroups[dayKey]!['pressure'] = pressure;
+            
+            dayGroups[dayKey]!['weather'] = contextData['weather'] ?? '';
+            
+            // Count correlations
+            final hasSymptom = (dayGroups[dayKey]!['symptoms'] as int) > 0;
+            
+            if (temp != null) {
+              if (temp < 12.0) {
+                correlations['Froid (<12°C)']!['total'] = correlations['Froid (<12°C)']!['total']! + 1;
+                if (hasSymptom) correlations['Froid (<12°C)']!['withSymptom'] = correlations['Froid (<12°C)']!['withSymptom']! + 1;
+              }
+              if (temp > 28.0) {
+                correlations['Chaud (>28°C)']!['total'] = correlations['Chaud (>28°C)']!['total']! + 1;
+                if (hasSymptom) correlations['Chaud (>28°C)']!['withSymptom'] = correlations['Chaud (>28°C)']!['withSymptom']! + 1;
+              }
+            }
+            
+            if (humidity != null && humidity > 75.0) {
+              correlations['Humidité élevée (>75%)']!['total'] = correlations['Humidité élevée (>75%)']!['total']! + 1;
+              if (hasSymptom) correlations['Humidité élevée (>75%)']!['withSymptom'] = correlations['Humidité élevée (>75%)']!['withSymptom']! + 1;
+            }
+            
+            if (pressure != null && pressure < 1000.0) {
+              correlations['Basse pression (<1000 hPa)']!['total'] = correlations['Basse pression (<1000 hPa)']!['total']! + 1;
+              if (hasSymptom) correlations['Basse pression (<1000 hPa)']!['withSymptom'] = correlations['Basse pression (<1000 hPa)']!['withSymptom']! + 1;
+            }
+            
+            final weatherCondition = contextData['weather']?.toString().toLowerCase() ?? '';
+            if (weatherCondition.contains('rain')) {
+              correlations['Pluie']!['total'] = correlations['Pluie']!['total']! + 1;
+              if (hasSymptom) correlations['Pluie']!['withSymptom'] = correlations['Pluie']!['withSymptom']! + 1;
+            }
+          } catch (e) {
+            // Skip invalid JSON
+          }
+        }
+      } catch (e) {
+        // Skip invalid dates
+      }
+    }
+    
+    // Convert to timeline list
+    timeline.addAll(dayGroups.values);
+    timeline.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
+    
+    print('🔍 Weather correlations loaded:');
+    correlations.forEach((condition, data) {
+      print('  $condition: ${data['withSymptom']}/${data['total']} = ${data['total']! > 0 ? (data['withSymptom']! / data['total']! * 100).toStringAsFixed(1) : 0}%');
+    });
+    print('Timeline days: ${timeline.length}');
+    
+    return {
+      'timeline': timeline,
+      'correlations': correlations,
+    };
   }
 
   Future<ZoneTriggerAnalysis> _analyzeTriggersForZone(String zoneName) async {
@@ -309,29 +446,60 @@ class _InsightsPageState extends State<InsightsPage> {
       // Extract weather from context_data (if exists)
       try {
         final contextData = await dbHelper.getContextForEvent(symptom.id!);
-        if (contextData != null && contextData['weather'] != null) {
-          final weather = contextData['weather'];
-          final condition = weather['condition'] ?? '';
-          final temp = weather['temperature'] ?? 20.0;
+        if (contextData != null) {
+          // Parse temperature, humidity, pressure (stored as strings)
+          final tempRaw = contextData['temperature'];
+          final humidityRaw = contextData['humidity'];
+          final pressureRaw = contextData['pressure'];
+          final weatherCondition = contextData['weather'] ?? '';
           
-          // Categorize weather
-          String weatherKey = '';
-          if (temp < 10) {
-            weatherKey = condition.toLowerCase().contains('rain') || 
-                        condition.toLowerCase().contains('cloud')
-                ? 'Froid & Humide'
-                : 'Froid & Sec';
-          } else if (temp > 25) {
-            weatherKey = condition.toLowerCase().contains('clear') ||
-                        condition.toLowerCase().contains('sun')
-                ? 'Chaud & Sec'
-                : 'Chaud & Humide';
-          } else {
-            weatherKey = 'Tempéré';
+          // Convert to double with fallback
+          final temp = tempRaw is num 
+              ? tempRaw.toDouble() 
+              : (double.tryParse(tempRaw?.toString() ?? '') ?? 20.0);
+          final humidity = humidityRaw is num 
+              ? humidityRaw.toDouble() 
+              : (double.tryParse(humidityRaw?.toString() ?? '') ?? 60.0);
+          final pressure = pressureRaw is num 
+              ? pressureRaw.toDouble() 
+              : (double.tryParse(pressureRaw?.toString() ?? '') ?? 1013.0);
+          
+          // Categorize weather conditions
+          final List<String> weatherCategories = [];
+          
+          // Temperature categories
+          if (temp < 12.0) {
+            weatherCategories.add('Froid (<12°C)');
+          } else if (temp > 28.0) {
+            weatherCategories.add('Chaud (>28°C)');
           }
           
-          weatherWithSymptomCounts[weatherKey] = 
-              (weatherWithSymptomCounts[weatherKey] ?? 0) + 1;
+          // Humidity categories
+          if (humidity > 75.0) {
+            weatherCategories.add('Humidité élevée (>75%)');
+          } else if (humidity < 40.0) {
+            weatherCategories.add('Air sec (<40%)');
+          }
+          
+          // Pressure categories
+          if (pressure < 1000.0) {
+            weatherCategories.add('Basse pression (<1000 hPa)');
+          } else if (pressure > 1020.0) {
+            weatherCategories.add('Haute pression (>1020 hPa)');
+          }
+          
+          // Weather condition categories
+          if (weatherCondition.toLowerCase().contains('rain')) {
+            weatherCategories.add('Pluie');
+          } else if (weatherCondition.toLowerCase().contains('cloud')) {
+            weatherCategories.add('Nuageux');
+          }
+          
+          // Count each weather category
+          for (final category in weatherCategories) {
+            weatherWithSymptomCounts[category] = 
+                (weatherWithSymptomCounts[category] ?? 0) + 1;
+          }
         }
       } catch (_) {}
     }
@@ -443,7 +611,7 @@ class _InsightsPageState extends State<InsightsPage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white,
+                  Theme.of(context).colorScheme.surface,
                   AppColors.surfaceGlass.withValues(alpha: 0.8),
                 ],
               ),
@@ -572,7 +740,7 @@ class _InsightsPageState extends State<InsightsPage> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: Theme.of(context).colorScheme.outline,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -588,7 +756,7 @@ class _InsightsPageState extends State<InsightsPage> {
                 gradient: AppColors.painGradient,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.warning, color: Colors.white, size: 28),
+              child: Icon(Icons.warning, color: Theme.of(context).colorScheme.onPrimary, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -597,17 +765,15 @@ class _InsightsPageState extends State<InsightsPage> {
                 children: [
                   Text(
                     analysis.zoneName,
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   Text(
                     'Données insuffisantes',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -622,20 +788,18 @@ class _InsightsPageState extends State<InsightsPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.orange[50],
+            color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.orange[200]!),
+            border: Border.all(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3)),
           ),
           child: Column(
             children: [
-              Icon(Icons.info_outline, color: Colors.orange[700], size: 48),
+              Icon(Icons.info_outline, color: Theme.of(context).colorScheme.secondary, size: 48),
               const SizedBox(height: 16),
               Text(
                 'Pas assez de données pour une analyse fiable',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.orange[900],
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.secondary,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -644,7 +808,7 @@ class _InsightsPageState extends State<InsightsPage> {
                 'Il faut au moins 3 événements de type "${analysis.zoneName}" pour identifier des déclencheurs.\n\nActuellement : ${analysis.symptomCount} événement(s).',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[700],
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   height: 1.5,
                 ),
                 textAlign: TextAlign.center,
@@ -687,7 +851,7 @@ class _InsightsPageState extends State<InsightsPage> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: Theme.of(context).colorScheme.outline,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -703,7 +867,7 @@ class _InsightsPageState extends State<InsightsPage> {
                 gradient: AppColors.painGradient,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.psychology, color: Colors.white, size: 28),
+              child: Icon(Icons.psychology, color: Theme.of(context).colorScheme.onPrimary, size: 28),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -712,17 +876,15 @@ class _InsightsPageState extends State<InsightsPage> {
                 children: [
                   Text(
                     analysis.zoneName,
-                    style: GoogleFonts.poppins(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   Text(
                     '${analysis.symptomCount} événements analysés',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -778,19 +940,17 @@ class _InsightsPageState extends State<InsightsPage> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.blue[50],
+              color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               children: [
-                Icon(Icons.check_circle, color: Colors.blue[700], size: 48),
+                Icon(Icons.check_circle, color: Theme.of(context).colorScheme.tertiary, size: 48),
                 const SizedBox(height: 12),
                 Text(
                   'Aucun déclencheur significatif identifié',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue[900],
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.tertiary,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -799,7 +959,7 @@ class _InsightsPageState extends State<InsightsPage> {
                   'Les événements de type "${analysis.zoneName}" ne semblent pas corrélés à des aliments ou conditions spécifiques.',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey[700],
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -853,7 +1013,7 @@ class _InsightsPageState extends State<InsightsPage> {
         padding: const EdgeInsets.all(16),
         child: Text(
           'Données encore limitées pour cette catégorie',
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(color: Theme.of(context).colorScheme.outline),
         ),
       );
     }
@@ -867,10 +1027,8 @@ class _InsightsPageState extends State<InsightsPage> {
             const SizedBox(width: 8),
             Text(
               title,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ],
@@ -882,7 +1040,7 @@ class _InsightsPageState extends State<InsightsPage> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               'Affichage des 10 déclencheurs les plus probables',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
             ),
           ),
       ],
@@ -896,10 +1054,10 @@ class _InsightsPageState extends State<InsightsPage> {
             ? 'Moyen'
             : 'Faible';
     final riskColor = trigger.probability >= 0.7
-        ? Colors.red
+        ? Theme.of(context).colorScheme.error
         : trigger.probability >= 0.4
-            ? Colors.orange
-            : Colors.yellow[700]!;
+            ? Theme.of(context).colorScheme.secondary
+            : const Color(0xFFFBC02D); // Yellow 700
     
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -927,7 +1085,7 @@ class _InsightsPageState extends State<InsightsPage> {
                   '${trigger.occurrences} occurrence(s) • ${(trigger.probability * 100).toStringAsFixed(0)}% de risque',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -1030,7 +1188,7 @@ class _InsightsPageState extends State<InsightsPage> {
         ),
         title: Text(
           "Tableau de Bord",
-          style: GoogleFonts.poppins(
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
           ),
@@ -1097,10 +1255,8 @@ class _InsightsPageState extends State<InsightsPage> {
                   children: [
                     Text(
                       "Courbe de Douleur (30j)",
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1154,10 +1310,8 @@ class _InsightsPageState extends State<InsightsPage> {
                     children: [
                       Text(
                         "Localisation des Douleurs",
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1178,7 +1332,7 @@ class _InsightsPageState extends State<InsightsPage> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Colors.white.withValues(alpha: 0.95),
+                          Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
                           AppColors.surfaceGlass.withValues(alpha: 0.5),
                         ],
                       ),
@@ -1202,10 +1356,8 @@ class _InsightsPageState extends State<InsightsPage> {
                   children: [
                     Text(
                       "Fréquence du Transit (30j)",
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1226,7 +1378,7 @@ class _InsightsPageState extends State<InsightsPage> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.white.withValues(alpha: 0.95),
+                        Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
                         AppColors.surfaceGlass.withValues(alpha: 0.5),
                       ],
                     ),
@@ -1251,6 +1403,97 @@ class _InsightsPageState extends State<InsightsPage> {
 
                 const SizedBox(height: 24),
 
+                // --- WEATHER CORRELATIONS ---
+                if (_weatherData.isNotEmpty && _weatherSymptomCorrelations.isNotEmpty) ...[
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Corrélations Météo & Symptômes",
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        height: 3,
+                        width: 60,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF42A5F5), Color(0xFF1E88E5)],
+                          ),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Weather Timeline Chart
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.95),
+                          AppColors.surfaceGlass.withValues(alpha: 0.5),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF42A5F5).withValues(alpha: 0.15),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF42A5F5).withValues(alpha: 0.08),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                      child: SizedBox(height: 250, child: _buildWeatherTimelineChart()),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Weather Correlations Bar Chart
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                          AppColors.surfaceGlass.withValues(alpha: 0.5),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF42A5F5).withValues(alpha: 0.15),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF42A5F5).withValues(alpha: 0.08),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SizedBox(height: 220, child: _buildWeatherCorrelationsBarChart()),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                ],
+
                 // --- RECENT SUSPECT MEALS ---
                 if (_suspectMeals.isNotEmpty) ...[
                   Column(
@@ -1258,9 +1501,7 @@ class _InsightsPageState extends State<InsightsPage> {
                     children: [
                       Text(
                         "Derniers repas avant crise",
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: AppColors.painEnd,
                         ),
                       ),
@@ -1276,8 +1517,7 @@ class _InsightsPageState extends State<InsightsPage> {
                       const SizedBox(height: 8),
                       Text(
                         "Aliments pris avant la dernière douleur > 5/10",
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
                         ),
                       ),
@@ -1294,7 +1534,7 @@ class _InsightsPageState extends State<InsightsPage> {
                               end: Alignment.centerRight,
                               colors: [
                                 AppColors.mealStart.withValues(alpha: 0.08),
-                                Colors.white.withValues(alpha: 0.95),
+                                Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(16),
@@ -1318,17 +1558,16 @@ class _InsightsPageState extends State<InsightsPage> {
                                 gradient: AppColors.mealGradient.scale(0.4),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.warning_amber_rounded,
-                                color: Colors.white,
+                                color: Theme.of(context).colorScheme.onPrimary,
                                 size: 20,
                               ),
                             ),
                             title: Text(
                               e.title,
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             subtitle: Text(
@@ -1337,8 +1576,7 @@ class _InsightsPageState extends State<InsightsPage> {
                                           'dd/MM HH:mm',
                                         ).format(DateTime.parse(e.dateTime))
                                       : e.dateTime}\n${e.tags.join(', ')}",
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: AppColors.textSecondary,
                               ),
                             ),
@@ -1350,7 +1588,9 @@ class _InsightsPageState extends State<InsightsPage> {
                 ] else ...[
                   Text(
                     "Pas de données récentes de crise pour analyser les derniers repas.",
-                    style: GoogleFonts.inter(color: AppColors.textSecondary),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
 
@@ -1363,10 +1603,10 @@ class _InsightsPageState extends State<InsightsPage> {
   Widget _buildLastRiskAssessmentCard() {
     return Card(
       elevation: 0,
-      color: Colors.blue.shade50,
+      color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: Colors.blue.shade100),
+        side: BorderSide(color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.2)),
       ),
       child: InkWell(
         onTap: () {
@@ -1392,10 +1632,10 @@ class _InsightsPageState extends State<InsightsPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.assessment, color: Colors.blue),
+                child: Icon(Icons.assessment, color: Theme.of(context).colorScheme.tertiary),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1404,23 +1644,20 @@ class _InsightsPageState extends State<InsightsPage> {
                   children: [
                     Text(
                       "Dernière analyse",
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                        color: Colors.blue.shade900,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.tertiary,
                       ),
                     ),
                     Text(
                       "Cliquez pour voir les détails du dernier repas",
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: Colors.blue.shade700,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.tertiary,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.blue),
+              Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).colorScheme.tertiary),
             ],
           ),
         ),
@@ -1436,17 +1673,19 @@ class _InsightsPageState extends State<InsightsPage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.white.withValues(alpha: 0.95),
+              Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
               AppColors.surfaceGlass.withValues(alpha: 0.5),
             ],
           ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade300, width: 1.5),
+          border: Border.all(color: Theme.of(context).colorScheme.outline, width: 1.5),
         ),
         padding: const EdgeInsets.all(16),
         child: Text(
           "Pas encore assez de données pour détecter des déclencheurs.",
-          style: GoogleFonts.inter(color: AppColors.textSecondary),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -1457,7 +1696,7 @@ class _InsightsPageState extends State<InsightsPage> {
           end: Alignment.bottomRight,
           colors: [
             AppColors.primaryStart.withValues(alpha: 0.08),
-            Colors.white.withValues(alpha: 0.95),
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -1485,9 +1724,9 @@ class _InsightsPageState extends State<InsightsPage> {
                   gradient: AppColors.primaryGradient.scale(0.5),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.analytics_outlined,
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onPrimary,
                   size: 22,
                 ),
               ),
@@ -1498,17 +1737,14 @@ class _InsightsPageState extends State<InsightsPage> {
                   children: [
                     Text(
                       "Déclencheurs Potentiels",
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                        color: AppColors.textPrimary,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     Text(
                       "Tags les plus fréquents dans vos repas",
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: AppColors.textSecondary,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -1544,10 +1780,9 @@ class _InsightsPageState extends State<InsightsPage> {
                 ),
                 child: Text(
                   "${e.key} (${e.value})",
-                  style: GoogleFonts.inter(
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.primaryEnd,
                     fontWeight: FontWeight.w600,
-                    fontSize: 13,
                   ),
                 ),
               );
@@ -1587,213 +1822,231 @@ class _InsightsPageState extends State<InsightsPage> {
     // Sort spots by x
     spots.sort((a, b) => a.x.compareTo(b.x));
 
-    return LineChart(
-      LineChartData(
-        lineTouchData: LineTouchData(
-          enabled: true,
-          touchCallback: (event, response) {
-            if (event is FlTapUpEvent && response?.lineBarSpots != null) {
-              final spot = response!.lineBarSpots!.first;
-              final dayIndex = spot.x.toInt();
-              final date = today.add(Duration(days: dayIndex - 30));
-              _showEventsForDay(date);
-            }
-          },
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
-                final dayIndex = spot.x.toInt();
-                final date = today.add(Duration(days: dayIndex - 30));
-                return LineTooltipItem(
-                  '${DateFormat('dd/MM').format(date)}\n${spot.y.toInt()}/10',
-                  GoogleFonts.inter(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                );
-              }).toList();
-            },
-          ),
-        ),
-        gridData: const FlGridData(show: true, drawVerticalLine: false),
-        titlesData: FlTitlesData(
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                // Show date every 5 days
-                final dayIndex = value.toInt();
-                final date = today.add(Duration(days: dayIndex - 30));
-                if (dayIndex % 5 == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      DateFormat('dd/MM').format(date),
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final chartWidth = constraints.maxWidth;
+        final chartColors = AppChartColors.forBrightness(context);
+        final textScaleFactor = MediaQuery.of(context).textScaleFactor;
+
+        return LineChart(
+          LineChartData(
+            lineTouchData: LineTouchData(
+              enabled: true,
+              touchCallback: (event, response) {
+                if (event is FlTapUpEvent && response?.lineBarSpots != null) {
+                  final spot = response!.lineBarSpots!.first;
+                  final dayIndex = spot.x.toInt();
+                  final date = today.add(Duration(days: dayIndex - 30));
+                  _showEventsForDay(date);
                 }
-                return const SizedBox();
               },
-              interval: 1,
+              touchTooltipData: LineTouchTooltipData(
+                getTooltipColor: (touchedSpot) => chartColors.tooltipBackground,
+                getTooltipItems: (touchedSpots) {
+                  return touchedSpots.map((spot) {
+                    final dayIndex = spot.x.toInt();
+                    final date = today.add(Duration(days: dayIndex - 30));
+                    return LineTooltipItem(
+                      '${DateFormat('dd/MM').format(date)}\n${spot.y.toInt()}/10',
+                      Theme.of(context).textTheme.bodySmall!.copyWith(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: (12 * textScaleFactor).clamp(10.0, 14.0),
+                      ),
+                    );
+                  }).toList();
+                },
+              ),
             ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              getTitlesWidget: (value, meta) => Text(
-                value.toInt().toString(),
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textSecondary,
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: chartWidth < 375 ? 2.0 : 1.0,
+              getDrawingHorizontalLine: (value) {
+                return FlLine(
+                  color: chartColors.gridLine,
+                  strokeWidth: 1,
+                );
+              },
+            ),
+            titlesData: FlTitlesData(
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  getTitlesWidget: (value, meta) {
+                    // Show date every 5 days
+                    final dayIndex = value.toInt();
+                    final date = today.add(Duration(days: dayIndex - 30));
+                    if (dayIndex % 5 == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          DateFormat('dd/MM').format(date),
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            fontSize: (10 * textScaleFactor).clamp(8.0, 12.0),
+                            color: chartColors.axisLabel,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox();
+                  },
+                  interval: 1,
                 ),
               ),
-            ),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: 30,
-        minY: 0,
-        maxY: 10,
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: AppColors.pain,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: FlDotData(
-              show: true,
-              checkToShowDot: (spot, barData) {
-                return spot.x == 30; // Only show last point
-              },
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              // Gradient Coral to transparent
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.pain.withValues(alpha: 0.2),
-                  AppColors.pain.withValues(alpha: 0.0),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: chartWidth < 350 ? 25 : 30,
+                  getTitlesWidget: (value, meta) => Text(
+                    value.toInt().toString(),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontSize: (10 * textScaleFactor).clamp(8.0, 12.0),
+                      color: chartColors.axisLabel,
+                    ),
+                  ),
+                ),
+              ),
+              topTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+              rightTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
               ),
             ),
+            borderData: FlBorderData(
+              show: true,
+              border: Border.all(color: chartColors.axisLine, width: 1),
+            ),
+            minX: 0,
+            maxX: 30,
+            minY: 0,
+            maxY: 10,
+            lineBarsData: [
+              LineChartBarData(
+                spots: spots,
+                isCurved: true,
+                color: chartColors.series[0],
+                barWidth: 3,
+                isStrokeCapRound: true,
+                dotData: FlDotData(
+                  show: chartWidth > 400,
+                  checkToShowDot: (spot, barData) {
+                    return spot.x == 30; // Only show last point
+                  },
+                ),
+                belowBarData: BarAreaData(
+                  show: true,
+                  gradient: LinearGradient(
+                    colors: [
+                      chartColors.series[0].withValues(alpha: 0.2),
+                      chartColors.series[0].withValues(alpha: 0.0),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildZoneChart() {
-    // Palette sobre et professionnelle pour la visualisation médicale
-    final List<Color> colors = [
-      AppColors.stool, // Indigo
-      AppColors.primary.withValues(alpha: 0.8), // Forest Green
-      AppColors.checkup, // Blue Grey
-      const Color(0xFF8D6E63), // Brown muted
-      const Color(0xFF26A69A), // Teal muted
-      const Color(0xFFAB47BC), // Purple muted
-      const Color(0xFFFFA726), // Orange muted
-    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final chartWidth = constraints.maxWidth;
+        final chartColors = AppChartColors.forBrightness(context);
+        final textScaleFactor = MediaQuery.of(context).textScaleFactor;
 
-    int i = 0;
-    List<PieChartSectionData> sections = [];
+        int i = 0;
+        List<PieChartSectionData> sections = [];
 
-    _zoneData.forEach((key, value) {
-      final isLarge = value > 5;
-      final color = colors[i % colors.length];
+        _zoneData.forEach((key, value) {
+          final isLarge = value > 5;
+          final color = chartColors.series[i % chartColors.series.length];
 
-      sections.add(
-        PieChartSectionData(
-          color: color,
-          value: value.toDouble(),
-          title: isLarge ? "$key\n$value" : value.toString(),
-          radius: isLarge ? 55 : 45, // Slightly reduced size
-          titleStyle: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-          badgeWidget: isLarge ? null : null,
-        ),
-      );
-      i++;
-    });
+          sections.add(
+            PieChartSectionData(
+              color: color,
+              value: value.toDouble(),
+              title: isLarge ? "$key\n$value" : value.toString(),
+              radius: chartWidth < 375 ? (isLarge ? 45 : 35) : (isLarge ? 55 : 45),
+              titleStyle: TextStyle(
+                fontSize: (11 * textScaleFactor).clamp(8.0, 12.0),
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
+              badgeWidget: isLarge ? null : null,
+            ),
+          );
+          i++;
+        });
 
-    return Row(
-      children: [
-        Expanded(
-          child: PieChart(
-            PieChartData(
-              sections: sections,
-              centerSpaceRadius: 40,
-              sectionsSpace: 2,
-              startDegreeOffset: 180,
-              pieTouchData: PieTouchData(
-                touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                  if (event is FlTapUpEvent &&
-                      pieTouchResponse != null &&
-                      pieTouchResponse.touchedSection != null) {
-                    final touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
-                    if (touchedIndex >= 0 && touchedIndex < _zoneData.length) {
-                      final zoneName = _zoneData.keys.toList()[touchedIndex];
-                      _showZoneTriggers(zoneName);
-                    }
-                  }
-                },
+        return Row(
+          children: [
+            Expanded(
+              child: PieChart(
+                PieChartData(
+                  sections: sections,
+                  centerSpaceRadius: chartWidth < 375 ? 30 : 40,
+                  sectionsSpace: 2,
+                  startDegreeOffset: 180,
+                  pieTouchData: PieTouchData(
+                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                      if (event is FlTapUpEvent &&
+                          pieTouchResponse != null &&
+                          pieTouchResponse.touchedSection != null) {
+                        final touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                        if (touchedIndex >= 0 && touchedIndex < _zoneData.length) {
+                          final zoneName = _zoneData.keys.toList()[touchedIndex];
+                          _showZoneTriggers(zoneName);
+                        }
+                      }
+                    },
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        // Legend
-        const SizedBox(width: 24),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: _zoneData.keys.toList().asMap().entries.map((e) {
-            final index = e.key;
-            final name = e.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: colors[index % colors.length],
-                      shape: BoxShape.circle,
-                    ),
+            // Legend
+            const SizedBox(width: 24),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _zoneData.keys.toList().asMap().entries.map((e) {
+                final index = e.key;
+                final name = e.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: chartColors.series[index % chartColors.series.length],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: (12 * textScaleFactor).clamp(10.0, 14.0),
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ],
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1833,39 +2086,338 @@ class _InsightsPageState extends State<InsightsPage> {
       }
     }
 
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: 8, // Max stools to show per day before capping viz
-        titlesData: FlTitlesData(
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ), // Too crowded for 30 bars, maybe show none or range
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 20,
-              getTitlesWidget: (value, meta) => Text(
-                value.toInt().toString(),
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textSecondary,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final chartWidth = constraints.maxWidth;
+        final chartColors = AppChartColors.forBrightness(context);
+        final textScaleFactor = MediaQuery.of(context).textScaleFactor;
+
+        return BarChart(
+          BarChartData(
+            alignment: BarChartAlignment.spaceAround,
+            maxY: 8, // Max stools to show per day before capping viz
+            titlesData: FlTitlesData(
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ), // Too crowded for 30 bars, maybe show none or range
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 20,
+                  getTitlesWidget: (value, meta) => Text(
+                    value.toInt().toString(),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontSize: (10 * textScaleFactor).clamp(8.0, 12.0),
+                      color: chartColors.axisLabel,
+                    ),
+                  ),
+                ),
+              ),
+              topTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+              rightTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+            ),
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: chartWidth > 400,
+              horizontalInterval: 1.0,
+              getDrawingHorizontalLine: (value) {
+                return FlLine(
+                  color: chartColors.gridLine,
+                  strokeWidth: 1,
+                );
+              },
+            ),
+            borderData: FlBorderData(
+              show: true,
+              border: Border.all(color: chartColors.axisLine, width: 1),
+            ),
+            barGroups: barGroups.map((group) {
+              return BarChartGroupData(
+                x: group.x,
+                barRods: group.barRods.map((rod) {
+                  return BarChartRodData(
+                    toY: rod.toY,
+                    color: chartColors.primary,
+                    width: chartWidth < 350 ? 10 : 16,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(4),
+                    ),
+                  );
+                }).toList(),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWeatherTimelineChart() {
+    if (_weatherData.isEmpty) {
+      return const Center(child: Text('Aucune donnée météo disponible'));
+    }
+
+    final chartColors = AppChartColors.forBrightness(context);
+    
+    // Prepare data points
+    final List<FlSpot> tempSpots = [];
+    final List<FlSpot> symptomSpots = [];
+    
+    for (int i = 0; i < _weatherData.length; i++) {
+      final data = _weatherData[i];
+      final temp = data['temperature'] as double?;
+      final symptoms = data['symptoms'] as int;
+      
+      if (temp != null) {
+        tempSpots.add(FlSpot(i.toDouble(), temp));
+        symptomSpots.add(FlSpot(i.toDouble(), symptoms.toDouble() * 5)); // Scale symptoms for visibility
+      }
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return LineChart(
+          LineChartData(
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              getDrawingHorizontalLine: (value) {
+                return FlLine(
+                  color: chartColors.gridLine,
+                  strokeWidth: 1,
+                );
+              },
+            ),
+            titlesData: FlTitlesData(
+              bottomTitles: AxisTitles(
+                axisNameWidget: const Text('Derniers 30 jours', style: TextStyle(fontSize: 11)),
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 30,
+                  interval: 5,
+                  getTitlesWidget: (value, meta) {
+                    if (value.toInt() >= 0 && value.toInt() < _weatherData.length) {
+                      final date = DateTime.parse(_weatherData[value.toInt()]['date'] as String);
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          '${date.day}/${date.month}',
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      );
+                    }
+                    return const Text('');
+                  },
+                ),
+              ),
+              leftTitles: AxisTitles(
+                axisNameWidget: const Text('Température (°C)', style: TextStyle(fontSize: 11)),
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 40,
+                  getTitlesWidget: (value, meta) {
+                    return Text(
+                      '${value.toInt()}°',
+                      style: const TextStyle(fontSize: 10),
+                    );
+                  },
+                ),
+              ),
+              rightTitles: AxisTitles(
+                axisNameWidget: const Text('Symptômes', style: TextStyle(fontSize: 11)),
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 30,
+                  getTitlesWidget: (value, meta) {
+                    final symptomCount = (value / 5).toInt();
+                    if (symptomCount == 0) return const Text('');
+                    return Text(
+                      symptomCount.toString(),
+                      style: const TextStyle(fontSize: 10),
+                    );
+                  },
+                ),
+              ),
+              topTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+            ),
+            borderData: FlBorderData(
+              show: true,
+              border: Border.all(color: chartColors.axisLine, width: 1),
+            ),
+            lineBarsData: [
+              // Temperature line
+              LineChartBarData(
+                spots: tempSpots,
+                isCurved: true,
+                color: const Color(0xFF42A5F5),
+                barWidth: 3,
+                isStrokeCapRound: true,
+                dotData: const FlDotData(show: false),
+                belowBarData: BarAreaData(
+                  show: true,
+                  color: const Color(0xFF42A5F5).withValues(alpha: 0.1),
+                ),
+              ),
+              // Symptoms line
+              LineChartBarData(
+                spots: symptomSpots,
+                isCurved: false,
+                color: AppColors.painStart,
+                barWidth: 2,
+                isStrokeCapRound: true,
+                dotData: FlDotData(
+                  show: true,
+                  getDotPainter: (spot, percent, barData, index) {
+                    return FlDotCirclePainter(
+                      radius: 3,
+                      color: AppColors.painStart,
+                      strokeWidth: 0,
+                    );
+                  },
+                ),
+              ),
+            ],
+            minY: 0,
+            maxY: tempSpots.isEmpty ? 30 : tempSpots.map((s) => s.y).reduce((a, b) => a > b ? a : b) + 5,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWeatherCorrelationsBarChart() {
+    if (_weatherSymptomCorrelations.isEmpty) {
+      return const Center(child: Text('Aucune corrélation disponible'));
+    }
+
+    final chartColors = AppChartColors.forBrightness(context);
+    final List<BarChartGroupData> barGroups = [];
+    
+    int index = 0;
+    _weatherSymptomCorrelations.forEach((condition, data) {
+      final total = data['total'] ?? 0;
+      final withSymptom = data['withSymptom'] ?? 0;
+      final percentage = total > 0 ? (withSymptom / total * 100) : 0.0;
+      
+      if (total > 0) {
+        barGroups.add(
+          BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: percentage,
+                color: _getWeatherColor(condition),
+                width: 40,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+              ),
+            ],
+          ),
+        );
+        index++;
+      }
+    });
+
+    final labels = _weatherSymptomCorrelations.entries
+        .where((e) => (e.value['total'] ?? 0) > 0)
+        .map((e) => e.key)
+        .toList();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          children: [
+            const Text(
+              'Probabilité de symptômes selon les conditions météo',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: 100,
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 60,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                            final label = labels[value.toInt()];
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Transform.rotate(
+                                angle: -0.5,
+                                child: Text(
+                                  label,
+                                  style: const TextStyle(fontSize: 9),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      axisNameWidget: const Text('Probabilité (%)', style: TextStyle(fontSize: 11)),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        interval: 25,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '${value.toInt()}%',
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        },
+                      ),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: chartColors.gridLine,
+                        strokeWidth: 1,
+                      );
+                    },
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border.all(color: chartColors.axisLine, width: 1),
+                  ),
+                  barGroups: barGroups,
                 ),
               ),
             ),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-        ),
-        gridData: const FlGridData(show: false),
-        borderData: FlBorderData(show: false),
-        barGroups: barGroups,
-      ),
+          ],
+        );
+      },
     );
+  }
+
+  Color _getWeatherColor(String condition) {
+    if (condition.contains('Froid')) return const Color(0xFF1E88E5);
+    if (condition.contains('Chaud')) return const Color(0xFFFF6F00);
+    if (condition.contains('Humidité')) return const Color(0xFF00ACC1);
+    if (condition.contains('pression')) return const Color(0xFF5E35B1);
+    if (condition.contains('Pluie')) return const Color(0xFF1976D2);
+    return const Color(0xFF42A5F5);
   }
 
   Widget _buildMLPredictionsCard() {
@@ -1875,7 +2427,7 @@ class _InsightsPageState extends State<InsightsPage> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withValues(alpha: 0.95),
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
             AppColors.surfaceGlass.withValues(alpha: 0.5),
           ],
         ),
@@ -1905,9 +2457,9 @@ class _InsightsPageState extends State<InsightsPage> {
                     gradient: AppColors.primaryGradient,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.psychology,
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     size: 24,
                   ),
                 ),
@@ -1917,19 +2469,16 @@ class _InsightsPageState extends State<InsightsPage> {
                   children: [
                     Text(
                       "Évaluation des Risques",
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     Text(
                       _hasModels 
                         ? "📊 Modèle statistique personnel" 
                         : "⚡ Analyse en temps réel",
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: _hasModels ? Colors.blue : Colors.orange,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _hasModels ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.secondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1937,7 +2486,7 @@ class _InsightsPageState extends State<InsightsPage> {
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+                  icon: Icon(Icons.help_outline, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   onPressed: () {
                     Navigator.push(
                       context,
@@ -1966,8 +2515,7 @@ class _InsightsPageState extends State<InsightsPage> {
                     _hasModels
                         ? "Les modèles sont entraînés sur vos données personnelles pour prédire les réactions à vos repas."
                         : "Les prédictions utilisent des corrélations statistiques. Entraînez les modèles après 30+ repas pour des prédictions personnalisées.",
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textSecondary,
                       height: 1.4,
                     ),
@@ -1984,8 +2532,7 @@ class _InsightsPageState extends State<InsightsPage> {
                       Expanded(
                         child: Text(
                           "Les prédictions s'affichent automatiquement après chaque repas.",
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondary.withValues(
                               alpha: 0.7,
                             ),
@@ -2022,18 +2569,18 @@ class _InsightsPageState extends State<InsightsPage> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withValues(alpha: 0.95),
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
             AppColors.surfaceGlass.withValues(alpha: 0.5),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.orange.withValues(alpha: 0.15),
+          color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.15),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.orange.withValues(alpha: 0.08),
+            color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -2049,14 +2596,12 @@ class _InsightsPageState extends State<InsightsPage> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.orange, Colors.deepOrange],
-                    ),
+                    gradient: AppGradients.meal(Theme.of(context).brightness),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.warning_amber,
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     size: 24,
                   ),
                 ),
@@ -2069,21 +2614,20 @@ class _InsightsPageState extends State<InsightsPage> {
                         children: [
                           Text("📊", style: TextStyle(fontSize: 18)),
                           SizedBox(width: 8),
-                          Text(
-                            "Corrélations Statistiques (30j)",
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                          Flexible(
+                            child: Text(
+                              "Corrélations Statistiques (30j)",
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
                           ),
                         ],
                       ),
                       Text(
                         "Basé sur vos données récentes uniquement",
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -2106,10 +2650,10 @@ class _InsightsPageState extends State<InsightsPage> {
                   ? 'Forte'
                   : (correlation > 0.3 ? 'Modérée' : 'Faible');
               final color = correlation > 0.5
-                  ? Colors.red
+                  ? Theme.of(context).colorScheme.error
                   : (correlation > 0.3
-                        ? Colors.orange
-                        : Colors.yellow.shade700);
+                        ? Theme.of(context).colorScheme.secondary
+                        : const Color(0xFFFBC02D)); // Yellow 700
 
               return GestureDetector(
                 onTap: () => _showMealsWithTag(tag),
@@ -2136,10 +2680,9 @@ class _InsightsPageState extends State<InsightsPage> {
                         ),
                         child: Text(
                           tag,
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
+                          style: Theme.of(context).textTheme.bodySmall!.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.onPrimary,
                           ),
                         ),
                       ),
@@ -2152,17 +2695,15 @@ class _InsightsPageState extends State<InsightsPage> {
                             children: [
                               Text(
                                 "Corrélation $significance",
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   fontWeight: FontWeight.w500,
-                                  color: AppColors.textPrimary,
+                                  color: Theme.of(context).colorScheme.onSurface,
                                 ),
                               ),
                               const Spacer(),
                               Text(
                                 "${(correlationData['symptoms'] as int)}/${(correlationData['count'] as int)}",
-                                style: GoogleFonts.inter(
-                                  fontSize: 11,
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                   fontWeight: FontWeight.w500,
                                   color: AppColors.textSecondary,
                                 ),
@@ -2182,8 +2723,7 @@ class _InsightsPageState extends State<InsightsPage> {
                     const SizedBox(width: 8),
                     Text(
                       "${(correlation * 100).toStringAsFixed(0)}%",
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                         fontWeight: FontWeight.w700,
                         color: color,
                       ),
@@ -2229,7 +2769,7 @@ class _InsightsPageState extends State<InsightsPage> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
@@ -2240,7 +2780,7 @@ class _InsightsPageState extends State<InsightsPage> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: Theme.of(context).colorScheme.outline,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -2248,10 +2788,7 @@ class _InsightsPageState extends State<InsightsPage> {
               padding: const EdgeInsets.all(20),
               child: Text(
                 'Événements du ${DateFormat('dd/MM/yyyy', 'fr_FR').format(date)}',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
             Flexible(
@@ -2299,11 +2836,11 @@ class _InsightsPageState extends State<InsightsPage> {
                     ),
                     title: Text(
                       event.title,
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
                     subtitle: Text(
                       DateFormat('HH:mm').format(eventTime),
-                      style: GoogleFonts.inter(fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     trailing: event.type == EventType.symptom && event.severity > 0
                         ? Container(
@@ -2314,8 +2851,7 @@ class _InsightsPageState extends State<InsightsPage> {
                             ),
                             child: Text(
                               '${event.severity}/10',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
+                              style: Theme.of(context).textTheme.bodySmall!.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: color,
                               ),
@@ -2357,8 +2893,8 @@ class _InsightsPageState extends State<InsightsPage> {
         minChildSize: 0.4,
         maxChildSize: 0.9,
         builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
@@ -2368,7 +2904,7 @@ class _InsightsPageState extends State<InsightsPage> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: Theme.of(context).colorScheme.outline,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -2384,20 +2920,16 @@ class _InsightsPageState extends State<InsightsPage> {
                       ),
                       child: Text(
                         tag,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
+                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onPrimary,
                         ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Text(
                       '${mealsWithTag.length} repas',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ],
                 ),
@@ -2430,11 +2962,11 @@ class _InsightsPageState extends State<InsightsPage> {
                       ),
                       title: Text(
                         meal.title,
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
                       subtitle: Text(
                         DateFormat('dd/MM/yyyy HH:mm', 'fr_FR').format(mealTime),
-                        style: GoogleFonts.inter(fontSize: 12),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     );
                   },

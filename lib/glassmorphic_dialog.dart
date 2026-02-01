@@ -1,8 +1,13 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'app_theme.dart';
 
 /// Reusable glassmorphic dialog wrapper with gradient header
 /// Provides consistent 2026 Sci-Fi Cyber aesthetic across all dialogs
+/// 
+/// Dark mode optimization:
+/// - Blur disabled in dark mode for performance (sigmaX/Y = 0)
+/// - Colors adapted from colorScheme for theme consistency
 class GlassmorphicDialog extends StatelessWidget {
   final Gradient headerGradient;
   final IconData headerIcon;
@@ -25,6 +30,13 @@ class GlassmorphicDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Blur disabled in dark mode for performance
+    final blurSigma = isDark ? 0.0 : 10.0;
+    
     return Dialog(
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
@@ -32,34 +44,44 @@ class GlassmorphicDialog extends StatelessWidget {
           maxWidth: maxWidth,
           maxHeight: maxHeight,
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.95),
-                AppColors.surfaceGlass.withValues(alpha: 0.90),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.3),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
-              ),
-            ],
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: blurSigma,
+            sigmaY: blurSigma,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colorScheme.surface.withValues(alpha: 0.95),
+                  (isDark 
+                    ? colorScheme.surfaceContainerHigh 
+                    : colorScheme.surfaceContainer).withValues(alpha: 0.90),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Gradient header
+                  _buildHeader(context),
+                  
+                  // Content
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: content,
+                    ),
+                  ),
+                  
+                  // Actions
+                  if (actions != null && actions!.isNotEmpty)
+                    _buildActions(context),
+                ],
+              )rossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Gradient header
                 _buildHeader(context),
@@ -126,12 +148,14 @@ class GlassmorphicDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildActions(BuildContext context) {
+  Wifinal colorScheme = Theme.of(context).colorScheme;
+    
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5
             color: Colors.black.withValues(alpha: 0.06),
             width: 1,
           ),

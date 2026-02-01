@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import 'event_model.dart';
@@ -139,7 +138,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
       appBar: AppBar(
         title: Text(
           'Timeline Visuelle',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
         actions: [
           PopupMenuButton<int>(
@@ -163,13 +162,16 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.timeline, size: 64, color: Colors.grey[300]),
+                  Icon(
+                    Icons.timeline,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Aucun événement sur cette période',
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      color: Colors.grey[600],
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -202,8 +204,12 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+          ),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -237,11 +243,18 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.grey[50]!, Colors.white],
+          colors: [
+            Theme.of(context).colorScheme.surfaceContainerLowest,
+            Theme.of(context).colorScheme.surface,
+          ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
-        border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+          ),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -253,7 +266,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
             _buildStatChip(
               correlations,
               'alertes',
-              Colors.red.shade600,
+              Theme.of(context).colorScheme.error,
               icon: Icons.warning_amber_rounded,
             ),
         ],
@@ -282,8 +295,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
           else
             Text(
               '$count',
-              style: GoogleFonts.inter(
-                fontSize: 14,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: color,
               ),
@@ -291,8 +303,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: GoogleFonts.inter(
-              fontSize: 11,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w600,
               color: color,
             ),
@@ -309,7 +320,9 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
@@ -328,22 +341,26 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
             decoration: BoxDecoration(
-              color: hasCorrelation ? Colors.red.shade50 : Colors.grey[100],
+              color: hasCorrelation
+                  ? Theme.of(context).colorScheme.errorContainer
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(8),
               border: hasCorrelation
-                  ? Border.all(color: Colors.red.shade300, width: 1.5)
+                  ? Border.all(
+                      color: Theme.of(context).colorScheme.error,
+                      width: 1.5,
+                    )
                   : null,
             ),
             child: Column(
               children: [
                 Text(
                   _formatBucketLabel(group.bucketTime),
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: hasCorrelation
-                        ? Colors.red.shade700
-                        : Colors.grey[700],
+                        ? Theme.of(context).colorScheme.error
+                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -353,7 +370,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
                     child: Icon(
                       Icons.warning_amber_rounded,
                       size: 12,
-                      color: Colors.red.shade700,
+                      color: Theme.of(context).colorScheme.error,
                     ),
                   ),
               ],
@@ -403,9 +420,12 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
     if (events.isEmpty) {
       return Container(
         decoration: BoxDecoration(
-          color: Colors.grey[50],
+          color: Theme.of(context).colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey[200]!, width: 1),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+            width: 1,
+          ),
         ),
       );
     }
@@ -452,7 +472,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
                   ),
                   child: Text(
                     '${events.length}',
-                    style: GoogleFonts.inter(
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
                       color: gradient.colors.first,
@@ -470,9 +490,12 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
     if (symptoms.isEmpty) {
       return Container(
         decoration: BoxDecoration(
-          color: Colors.grey[50],
+          color: Theme.of(context).colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey[200]!, width: 1),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+            width: 1,
+          ),
         ),
       );
     }
@@ -519,7 +542,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
               const SizedBox(height: 4),
               Text(
                 avgSeverity.toStringAsFixed(1),
-                style: GoogleFonts.inter(
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: AppColors.painStart,
@@ -528,7 +551,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
               ),
               Text(
                 '/10',
-                style: GoogleFonts.inter(
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   fontSize: 8,
                   fontWeight: FontWeight.w600,
                   color: AppColors.painStart.withValues(alpha: 0.7),
@@ -548,7 +571,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
                     ),
                     child: Text(
                       '×${symptoms.length}',
-                      style: GoogleFonts.inter(
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         fontSize: 8,
                         fontWeight: FontWeight.w700,
                         color: AppColors.painStart,
@@ -609,9 +632,9 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -621,7 +644,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -629,10 +652,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
               padding: const EdgeInsets.all(20),
               child: Text(
                 '${events.length} événement${events.length > 1 ? 's' : ''}',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
             Flexible(
@@ -682,11 +702,11 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
                     ),
                     title: Text(
                       event.title,
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
                     subtitle: Text(
                       DateFormat('HH:mm').format(eventTime),
-                      style: GoogleFonts.inter(fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     trailing:
                         event.type == EventType.symptom && event.severity > 0
@@ -701,8 +721,7 @@ class _TimelineChartPageState extends State<TimelineChartPage> {
                             ),
                             child: Text(
                               '${event.severity}/10',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: color,
                               ),

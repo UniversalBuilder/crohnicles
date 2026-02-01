@@ -2,13 +2,16 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+import 'package:provider/provider.dart';
 
 import 'package:crohnicles/app_theme.dart';
+import 'package:crohnicles/themes/app_theme.dart' as themes;
+import 'package:crohnicles/providers/theme_provider.dart';
+import 'package:crohnicles/utils/responsive_wrapper.dart';
 import 'package:crohnicles/calendar_page.dart';
 import 'package:crohnicles/database_helper.dart';
 import 'package:crohnicles/event_model.dart';
@@ -28,7 +31,7 @@ import 'package:crohnicles/models/context_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   final log = LogService();
   log.log('[Main] App starting...');
 
@@ -55,7 +58,12 @@ void main() async {
     databaseFactory = databaseFactoryFfi;
   }
 
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider()..loadThemeMode(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 // --- MODÈLES ---
@@ -64,11 +72,15 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Crohnicles',
-      theme: AppTheme.lightTheme,
-      home: const TimelinePage(),
-      debugShowCheckedModeBanner: false,
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) => MaterialApp(
+        title: 'Crohnicles',
+        theme: themes.AppTheme.light(),
+        darkTheme: themes.AppTheme.dark(),
+        themeMode: themeProvider.themeMode,
+        home: const ResponsiveWrapper(child: TimelinePage()),
+        debugShowCheckedModeBanner: false,
+      ),
     );
   }
 }
@@ -227,12 +239,12 @@ class _TimelinePageState extends State<TimelinePage> {
                               Expanded(
                                 child: Text(
                                   "Bilan du Soir",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                    letterSpacing: -0.5,
-                                  ),
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                        letterSpacing: -0.5,
+                                      ),
                                 ),
                               ),
                             ],
@@ -248,10 +260,8 @@ class _TimelinePageState extends State<TimelinePage> {
                               children: [
                                 Text(
                                   "Stress Global :",
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                  ),
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(fontWeight: FontWeight.w600),
                                 ),
                                 const SizedBox(height: 8),
                                 SliderTheme(
@@ -277,10 +287,8 @@ class _TimelinePageState extends State<TimelinePage> {
 
                                 Text(
                                   "Fatigue :",
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                  ),
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(fontWeight: FontWeight.w600),
                                 ),
                                 const SizedBox(height: 8),
                                 SliderTheme(
@@ -306,10 +314,8 @@ class _TimelinePageState extends State<TimelinePage> {
 
                                 Text(
                                   "Traitement pris ?",
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                  ),
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(fontWeight: FontWeight.w600),
                                 ),
                                 const SizedBox(height: 12),
                                 Row(
@@ -357,13 +363,15 @@ class _TimelinePageState extends State<TimelinePage> {
                                         ),
                                         child: Text(
                                           opt,
-                                          style: GoogleFonts.inter(
-                                            color: isSelected
-                                                ? Colors.white
-                                                : Colors.black87,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14,
-                                          ),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : Colors.black87,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                         ),
                                       ),
                                     );
@@ -399,10 +407,8 @@ class _TimelinePageState extends State<TimelinePage> {
                                 ),
                                 child: Text(
                                   "Annuler",
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
-                                  ),
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(fontWeight: FontWeight.w600),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -449,12 +455,14 @@ class _TimelinePageState extends State<TimelinePage> {
                                       ),
                                       child: Text(
                                         "Enregistrer",
-                                        style: GoogleFonts.inter(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 15,
-                                          letterSpacing: 0.2,
-                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelLarge
+                                            ?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 0.2,
+                                            ),
                                       ),
                                     ),
                                   ),
@@ -614,8 +622,7 @@ class _TimelinePageState extends State<TimelinePage> {
                 const SizedBox(height: 24),
                 Text(
                   "Ajouter au journal",
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -676,11 +683,12 @@ class _TimelinePageState extends State<TimelinePage> {
                             const SizedBox(width: 12),
                             Text(
                               "Bilan du Soir",
-                              style: GoogleFonts.inter(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                              ),
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
                             ),
                           ],
                         ),
@@ -727,7 +735,10 @@ class _TimelinePageState extends State<TimelinePage> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
@@ -931,8 +942,7 @@ class _TimelinePageState extends State<TimelinePage> {
               Expanded(
                 child: Text(
                   event.title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -981,7 +991,7 @@ class _TimelinePageState extends State<TimelinePage> {
                     children: [
                       Text(
                         'Aliments (${foods.length})',
-                        style: GoogleFonts.inter(
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.grey.shade700,
@@ -1062,19 +1072,23 @@ class _TimelinePageState extends State<TimelinePage> {
                                   children: [
                                     Text(
                                       name,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                     ),
                                     if (brand != null &&
                                         brand.toString().isNotEmpty)
                                       Text(
                                         brand,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600,
-                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Colors.grey.shade600,
+                                            ),
                                       ),
                                   ],
                                 ),
@@ -1358,16 +1372,18 @@ class _TimelinePageState extends State<TimelinePage> {
               children: [
                 Text(
                   "Aujourd'hui",
-                  style: GoogleFonts.poppins(
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    fontSize: 20,
                     color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   "Météo: Humide • 18°C",
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -1390,7 +1406,7 @@ class _TimelinePageState extends State<TimelinePage> {
                   Flexible(
                     child: Text(
                       "Stable",
-                      style: GoogleFonts.inter(
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -1412,8 +1428,7 @@ class _TimelinePageState extends State<TimelinePage> {
       padding: const EdgeInsets.only(left: 20, bottom: 12, top: 20),
       child: Text(
         title,
-        style: GoogleFonts.inter(
-          fontSize: 11,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w600,
           color: AppColors.textSecondary,
           letterSpacing: 0.5,

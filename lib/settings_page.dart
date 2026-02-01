@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'app_theme.dart';
+import 'providers/theme_provider.dart';
 import 'logs_page.dart';
 import 'ml/model_status_page.dart';
 import 'methodology_page.dart';
+import 'about_page.dart';
 import 'database_helper.dart';
 import 'services/training_service.dart';
 
@@ -16,12 +18,61 @@ class SettingsPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           'Paramètres & Outils',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
       ),
       body: ListView(
         children: [
-          _buildSectionHeader('Maintenance'),
+          // Theme Mode Selector
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            title: Text(
+              'Mode d\'affichage',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Consumer<ThemeProvider>(
+                builder: (context, themeProvider, _) {
+                  return SegmentedButton<ThemeMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        icon: Icon(Icons.light_mode),
+                        label: Text('Clair'),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        icon: Icon(Icons.brightness_auto),
+                        label: Text('Auto'),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        icon: Icon(Icons.dark_mode),
+                        label: Text('Sombre'),
+                      ),
+                    ],
+                    selected: {themeProvider.themeMode},
+                    onSelectionChanged: (Set<ThemeMode> newSelection) {
+                      themeProvider.setThemeMode(newSelection.first);
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+          const Divider(height: 32),
+          
+          _buildSectionHeader(context, 'Informations'),
+          _buildSettingsTile(
+            context,
+            icon: Icons.info_outline,
+            title: 'À propos de Crohnicles',
+            subtitle: 'Auteur, licence, dons et confidentialité',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage())),
+          ),
+          
+          _buildSectionHeader(context, 'Maintenance'),
           _buildSettingsTile(
             context,
             icon: Icons.terminal,
@@ -44,13 +95,13 @@ class SettingsPage extends StatelessWidget {
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MethodologyPage())),
           ),
           
-          _buildSectionHeader('Développeur'),
+          _buildSectionHeader(context, 'Développeur'),
           _buildSettingsTile(
             context,
             icon: Icons.delete_forever,
             title: 'Réinitialiser la base',
             subtitle: 'Attention : Action irréversible',
-            color: Colors.red,
+            color: Theme.of(context).colorScheme.error,
             onTap: () => _showClearDatabaseDialog(context),
           ),
           _buildSettingsTile(
@@ -72,15 +123,14 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
       child: Text(
         title.toUpperCase(),
-        style: GoogleFonts.inter(
-          fontSize: 12,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.bold,
-          color: Colors.grey[600],
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           letterSpacing: 1.0,
         ),
       ),
@@ -93,20 +143,21 @@ class SettingsPage extends StatelessWidget {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
-    Color color = AppColors.textPrimary,
+    Color? color,
   }) {
+    final effectiveColor = color ?? Theme.of(context).colorScheme.onSurface;
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: effectiveColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: color),
+        child: Icon(icon, color: effectiveColor),
       ),
-      title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: color)),
-      subtitle: Text(subtitle, style: GoogleFonts.inter(fontSize: 12)),
-      trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+      title: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: effectiveColor)),
+      subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+      trailing: Icon(Icons.chevron_right, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
       onTap: onTap,
     );
   }

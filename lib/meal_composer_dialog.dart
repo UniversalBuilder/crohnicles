@@ -12,6 +12,7 @@ import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart
 import 'database_helper.dart';
 import 'food_model.dart';
 import 'app_theme.dart';
+import 'themes/app_gradients.dart';
 import 'event_model.dart';
 import 'services/off_service.dart';
 import 'services/food_recognizer.dart';
@@ -382,6 +383,10 @@ class _MealComposerDialogState extends State<MealComposerDialog>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -390,20 +395,20 @@ class _MealComposerDialogState extends State<MealComposerDialog>
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Colors.white.withValues(alpha: 0.95),
-              Colors.white.withValues(alpha: 0.85),
+              colorScheme.surface.withValues(alpha: 0.95),
+              colorScheme.surface.withValues(alpha: 0.85),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(32),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.3),
+            color: colorScheme.surface.withValues(alpha: 0.3),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.mealGradient.colors.first.withValues(alpha: 0.3),
+              color: AppGradients.meal(brightness).colors.first.withValues(alpha: 0.3),
               blurRadius: 24,
               offset: const Offset(0, 8),
             ),
@@ -416,7 +421,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               // Gradient Header with SegmentedButton
               Container(
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(gradient: AppColors.mealGradient),
+                decoration: BoxDecoration(gradient: AppGradients.meal(brightness)),
                 child: Column(
                   children: [
                     Row(
@@ -424,12 +429,12 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: colorScheme.surface.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.restaurant_menu,
-                            color: Colors.white,
+                            color: colorScheme.onPrimary,
                             size: 28,
                           ),
                         ),
@@ -437,16 +442,14 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                         Expanded(
                           child: Text(
                             'Composer un Repas',
-                            style: GoogleFonts.poppins(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: colorScheme.onPrimary,
                               letterSpacing: -0.5,
                             ),
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white),
+                          icon: Icon(Icons.close, color: colorScheme.onPrimary),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
@@ -456,7 +459,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: colorScheme.surface.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: SegmentedButton<bool>(
@@ -483,7 +486,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                             states,
                           ) {
                             if (states.contains(WidgetState.selected)) {
-                              return Colors.white;
+                              return colorScheme.surface;
                             }
                             return Colors.transparent;
                           }),
@@ -491,9 +494,9 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                             states,
                           ) {
                             if (states.contains(WidgetState.selected)) {
-                              return AppColors.mealGradient.colors.first;
+                              return colorScheme.secondary;
                             }
-                            return Colors.white;
+                            return colorScheme.onPrimary;
                           }),
                         ),
                       ),
@@ -506,7 +509,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                         // Date Picker
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: colorScheme.surface.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: InkWell(
@@ -521,7 +524,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                                   return Theme(
                                     data: Theme.of(context).copyWith(
                                       colorScheme: ColorScheme.light(
-                                        primary: AppColors.mealGradient.colors.first,
+                                        primary: colorScheme.secondary,
                                       ),
                                     ),
                                     child: child!,
@@ -548,18 +551,17 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.calendar_today,
-                                    color: Colors.white,
+                                    color: colorScheme.onPrimary,
                                     size: 16,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
                                     DateFormat('EEE d MMM', 'fr_FR').format(_selectedDate),
-                                    style: GoogleFonts.inter(
-                                      color: Colors.white,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onPrimary,
                                       fontWeight: FontWeight.w600,
-                                      fontSize: 14,
                                     ),
                                   ),
                                 ],
@@ -571,7 +573,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                         // Time Picker
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: colorScheme.surface.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: InkWell(
@@ -583,7 +585,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                                   return Theme(
                                     data: Theme.of(context).copyWith(
                                       colorScheme: ColorScheme.light(
-                                        primary: AppColors.mealGradient.colors.first,
+                                        primary: colorScheme.secondary,
                                       ),
                                     ),
                                     child: child!,
@@ -610,18 +612,17 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.access_time,
-                                    color: Colors.white,
+                                    color: colorScheme.onPrimary,
                                     size: 16,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
                                     DateFormat('HH:mm').format(_selectedDate),
-                                    style: GoogleFonts.inter(
-                                      color: Colors.white,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onPrimary,
                                       fontWeight: FontWeight.w600,
-                                      fontSize: 14,
                                     ),
                                   ),
                                 ],
@@ -638,31 +639,30 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               // TabBar
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: colorScheme.surface.withValues(alpha: 0.5),
                   border: Border(
                     bottom: BorderSide(
-                      color: Colors.black.withValues(alpha: 0.06),
+                      color: colorScheme.onSurface.withValues(alpha: 0.06),
                       width: 1,
                     ),
                   ),
                 ),
                 child: TabBar(
                   controller: _tabController,
-                  labelColor: AppColors.mealGradient.colors.first,
-                  unselectedLabelColor: Colors.grey.shade600,
+                  labelColor: colorScheme.secondary,
+                  unselectedLabelColor: colorScheme.onSurfaceVariant,
                   indicatorSize: TabBarIndicatorSize.tab,
                   indicator: BoxDecoration(
-                    gradient: AppColors.mealGradient.scale(0.15),
+                    gradient: AppGradients.meal(brightness).scale(0.15),
                     border: Border(
                       bottom: BorderSide(
-                        color: AppColors.mealGradient.colors.first,
+                        color: colorScheme.secondary,
                         width: 3,
                       ),
                     ),
                   ),
-                  labelStyle: GoogleFonts.inter(
+                  labelStyle: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontSize: 13,
                   ),
                   tabs: [
                     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
@@ -708,10 +708,10 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colorScheme.surface,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: colorScheme.onSurface.withValues(alpha: 0.05),
                       blurRadius: 8,
                       offset: const Offset(0, -2),
                     ),
@@ -730,22 +730,18 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                       ),
                       child: Text(
                         'Annuler',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
-                        ),
+                        style: theme.textTheme.bodyLarge,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Flexible(
                       child: Container(
                         decoration: BoxDecoration(
-                          gradient: AppColors.mealGradient,
+                          gradient: AppGradients.meal(brightness),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.mealGradient.colors.first
-                                  .withValues(alpha: 0.4),
+                              color: colorScheme.secondary.withValues(alpha: 0.4),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -767,19 +763,18 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.check,
-                                color: Colors.white,
+                                color: colorScheme.onPrimary,
                                 size: 18,
                               ),
                               const SizedBox(width: 6),
                               Flexible(
                                 child: Text(
                                   _isSnack ? 'Valider Snack' : 'Valider Repas',
-                                  style: GoogleFonts.inter(
+                                  style: theme.textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                    color: Colors.white,
+                                    color: colorScheme.onPrimary,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -801,6 +796,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
 
   // Tab 1: Barcode Scanner
   Widget _buildScannerTab() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     return Stack(
       children: [
         Column(
@@ -833,24 +830,22 @@ class _MealComposerDialogState extends State<MealComposerDialog>
             ),
             Container(
               padding: const EdgeInsets.all(16),
-              color: Colors.white.withValues(alpha: 0.95),
+              color: colorScheme.surface.withValues(alpha: 0.95),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Scannez le code-barres d\'un produit',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'ou utilisez 📷 pour sélectionner une image',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                       fontStyle: FontStyle.italic,
                     ),
                     textAlign: TextAlign.center,
@@ -879,7 +874,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
             },
             icon: const Icon(Icons.photo_library),
             label: const Text('Galerie'),
-            backgroundColor: AppColors.mealGradient.colors.first,
+            backgroundColor: colorScheme.secondary,
           ),
         ),
         // Camera capture button (left) - Only on mobile platforms
@@ -903,7 +898,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               },
               icon: const Icon(Icons.camera_alt),
               label: const Text('Photo'),
-              backgroundColor: AppColors.mealGradient.colors.last,
+              backgroundColor: colorScheme.tertiary,
             ),
           ),
       ],
@@ -912,22 +907,22 @@ class _MealComposerDialogState extends State<MealComposerDialog>
 
   void _showManualBarcodeDialog(String imagePath) {
     final TextEditingController barcodeController = TextEditingController();
+    final dialogTheme = Theme.of(context);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
           'Entrer le code-barres',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          style: dialogTheme.textTheme.titleMedium,
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Saisissez le code-barres visible sur la photo',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: Colors.grey.shade600,
+              style: dialogTheme.textTheme.bodyMedium?.copyWith(
+                color: dialogTheme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 16),
@@ -942,7 +937,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 helperText: 'Code Coca-Cola: 5449000000996',
-                helperStyle: GoogleFonts.inter(fontSize: 11),
+                helperStyle: dialogTheme.textTheme.bodySmall,
               ),
             ),
           ],
@@ -1003,6 +998,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   Future<void> _intelligentImageAnalysis(String imagePath) async {
     if (!mounted) return;
 
+    final dialogTheme = Theme.of(context);
+    
     // Show loading dialog
     showDialog(
       context: context,
@@ -1015,7 +1012,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
             const SizedBox(height: 16),
             Text(
               'Analyse de l\'image...',
-              style: GoogleFonts.poppins(fontSize: 16),
+              style: dialogTheme.textTheme.titleSmall,
             ),
           ],
         ),
@@ -1147,6 +1144,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   /// Show dialog with food recognition predictions (with multi-select)
   void _showFoodPredictionsDialog(List<dynamic> predictions, String imagePath) {
     final selectedIndices = <int>{};
+    final dialogTheme = Theme.of(context);
+    final dialogColorScheme = dialogTheme.colorScheme;
 
     showDialog(
       context: context,
@@ -1154,13 +1153,12 @@ class _MealComposerDialogState extends State<MealComposerDialog>
         builder: (context, setStateDialog) => AlertDialog(
           title: Row(
             children: [
-              const Icon(Icons.auto_awesome, color: Colors.purple, size: 20),
+              Icon(Icons.auto_awesome, color: dialogColorScheme.tertiary, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Aliments détectés (${predictions.length})',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
+                  style: dialogTheme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1175,9 +1173,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               children: [
                 Text(
                   'Sélectionnez les aliments à ajouter :',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: Colors.grey[600],
+                  style: dialogTheme.textTheme.bodyMedium?.copyWith(
+                    color: dialogColorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1213,27 +1210,24 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                         contentPadding: EdgeInsets.zero,
                         secondary: CircleAvatar(
                           radius: 18,
-                          backgroundColor: AppColors.mealGradient.colors.first
-                              .withValues(alpha: 0.2),
+                          backgroundColor: dialogColorScheme.secondary.withValues(alpha: 0.2),
                           child: Text(
                             '$confidence%',
-                            style: GoogleFonts.inter(
-                              fontSize: 10,
+                            style: dialogTheme.textTheme.bodySmall?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: AppColors.mealGradient.colors.first,
+                              color: dialogColorScheme.secondary,
                             ),
                           ),
                         ),
                         title: Text(
                           foodName,
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
+                          style: dialogTheme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         subtitle: Text(
                           'Confiance: $confidence%',
-                          style: GoogleFonts.inter(fontSize: 11),
+                          style: dialogTheme.textTheme.bodySmall,
                         ),
                       );
                     },
@@ -1243,16 +1237,15 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(
+                  leading: Icon(
                     Icons.close,
-                    color: Colors.orange,
+                    color: dialogColorScheme.tertiary,
                     size: 20,
                   ),
                   title: Text(
                     'Aucun de ces aliments',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.orange,
+                    style: dialogTheme.textTheme.bodyMedium?.copyWith(
+                      color: dialogColorScheme.tertiary,
                     ),
                   ),
                   onTap: () {
@@ -1266,7 +1259,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Annuler', style: GoogleFonts.inter(fontSize: 13)),
+              child: Text('Annuler', style: dialogTheme.textTheme.bodyMedium),
             ),
             ElevatedButton(
               onPressed: selectedIndices.isEmpty
@@ -1295,11 +1288,13 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.mealGradient.colors.first,
+                backgroundColor: dialogColorScheme.secondary,
               ),
               child: Text(
                 'Ajouter (${selectedIndices.length})',
-                style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
+                style: dialogTheme.textTheme.bodyMedium?.copyWith(
+                  color: dialogColorScheme.onSecondary,
+                ),
               ),
             ),
           ],
@@ -1409,6 +1404,10 @@ class _MealComposerDialogState extends State<MealComposerDialog>
 
   // Tab 2: Search (existing functionality)
   Widget _buildSearchTab() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 300),
       child: Column(
@@ -1417,10 +1416,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
           // Search Bar
           Text(
             'Rechercher un aliment',
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w500,
-              fontSize: 14,
-              color: Colors.grey.shade700,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
@@ -1432,10 +1429,9 @@ class _MealComposerDialogState extends State<MealComposerDialog>
           if (_currentQuery.isNotEmpty && _localResults.isNotEmpty) ...[
             Text(
               'Résultats locaux (${_localResults.length})',
-              style: GoogleFonts.inter(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: Colors.grey.shade700,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 12),
@@ -1454,8 +1450,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                   icon: const Icon(Icons.cloud_download),
                   label: const Text('Rechercher sur OpenFoodFacts'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.mealGradient.colors.first,
-                    foregroundColor: Colors.white,
+                    backgroundColor: colorScheme.secondary,
+                    foregroundColor: colorScheme.onSecondary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -1478,10 +1474,9 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               else if (_offResults.isNotEmpty) ...[
                 Text(
                   'OpenFoodFacts (${_offResults.length})',
-                  style: GoogleFonts.inter(
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1492,9 +1487,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                     padding: const EdgeInsets.all(24.0),
                     child: Text(
                       'Aucun résultat trouvé sur OpenFoodFacts',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -1509,13 +1503,12 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                 padding: const EdgeInsets.all(48.0),
                 child: Column(
                   children: [
-                    Icon(Icons.search, size: 48, color: Colors.grey.shade400),
+                    Icon(Icons.search, size: 48, color: colorScheme.outline),
                     const SizedBox(height: 16),
                     Text(
                       'Tapez pour rechercher un aliment',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -1528,6 +1521,9 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   }
 
   Widget _buildFoodCard(FoodModel food) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1545,24 +1541,25 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               )
             : Icon(
                 _getCategoryIcon(food.category).icon,
-                color: AppColors.mealGradient.colors.first,
+                color: colorScheme.secondary,
               ),
         title: Text(
           food.name,
-          style: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 14),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
         ),
         subtitle: food.brand != null
             ? Text(
                 food.brand!,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
               )
             : null,
         trailing: IconButton(
           icon: const Icon(Icons.add_circle),
-          color: AppColors.mealGradient.colors.first,
+          color: colorScheme.secondary,
           onPressed: () => _addToCart(food),
         ),
       ),
@@ -1571,6 +1568,10 @@ class _MealComposerDialogState extends State<MealComposerDialog>
 
   // Tab 3: Manual Creation
   Widget _buildCreateTab() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    
     final TextEditingController nameController = TextEditingController();
     String selectedCategory = 'Repas';
     final List<String> selectedTags = [];
@@ -1602,10 +1603,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
             children: [
               Text(
                 'Créer un nouvel aliment',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: 24),
 
@@ -1626,9 +1624,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               // Category selector
               Text(
                 'Catégorie',
-                style: GoogleFonts.inter(
+                style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  fontSize: 14,
                 ),
               ),
               const SizedBox(height: 8),
@@ -1651,9 +1648,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                         selectedCategory = cat;
                       });
                     },
-                    backgroundColor: Colors.white,
-                    selectedColor: AppColors.mealGradient.colors.first
-                        .withValues(alpha: 0.2),
+                    backgroundColor: colorScheme.surface,
+                    selectedColor: colorScheme.secondary.withValues(alpha: 0.2),
                   );
                 }).toList(),
               ),
@@ -1662,9 +1658,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               // Tags
               Text(
                 'Tags (optionnel)',
-                style: GoogleFonts.inter(
+                style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  fontSize: 14,
                 ),
               ),
               const SizedBox(height: 8),
@@ -1724,8 +1719,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                   label: const Text('Créer et ajouter au panier'),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: AppColors.mealGradient.colors.first,
-                    foregroundColor: Colors.white,
+                    backgroundColor: colorScheme.secondary,
+                    foregroundColor: colorScheme.onSecondary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -1740,14 +1735,18 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   }
 
   Widget _buildAutocomplete() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    
     return TextField(
       controller: _searchController,
       decoration: InputDecoration(
         hintText: 'Ex: Pâtes, Poulet, Pomme...',
         prefixIcon: ShaderMask(
           shaderCallback: (bounds) =>
-              AppColors.mealGradient.createShader(bounds),
-          child: const Icon(Icons.search, color: Colors.white),
+              AppGradients.meal(brightness).createShader(bounds),
+          child: Icon(Icons.search, color: colorScheme.surface),
         ),
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
@@ -1759,19 +1758,19 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               )
             : null,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: colorScheme.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: BorderSide(color: colorScheme.outline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: BorderSide(color: colorScheme.outline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: AppColors.mealGradient.colors.first,
+            color: colorScheme.secondary,
             width: 2,
           ),
         ),
@@ -1810,6 +1809,9 @@ class _CartTabContentState extends State<_CartTabContent>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
 
     if (widget.cart.isEmpty) {
       return Center(
@@ -1819,23 +1821,20 @@ class _CartTabContentState extends State<_CartTabContent>
             Icon(
               Icons.shopping_cart_outlined,
               size: 80,
-              color: Colors.grey.shade300,
+              color: colorScheme.outline,
             ),
             const SizedBox(height: 16),
             Text(
               'Panier vide',
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade400,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: colorScheme.outline,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Ajoutez des aliments depuis les autres onglets',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: Colors.grey.shade400,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.outline,
               ),
             ),
           ],
@@ -1868,7 +1867,7 @@ class _CartTabContentState extends State<_CartTabContent>
                     borderRadius: BorderRadius.circular(12),
                     gradient: hasImage
                         ? null
-                        : AppColors.mealGradient.scale(0.3),
+                        : AppGradients.meal(brightness).scale(0.3),
                   ),
                   child: hasImage
                       ? ClipRRect(
@@ -1879,21 +1878,21 @@ class _CartTabContentState extends State<_CartTabContent>
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
                                 decoration: BoxDecoration(
-                                  gradient: AppColors.mealGradient.scale(0.3),
+                                  gradient: AppGradients.meal(brightness).scale(0.3),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.fastfood,
-                                  color: Colors.white,
+                                  color: colorScheme.onPrimary,
                                   size: 30,
                                 ),
                               );
                             },
                           ),
                         )
-                      : const Icon(
+                      : Icon(
                           Icons.fastfood,
-                          color: Colors.white,
+                          color: colorScheme.onPrimary,
                           size: 30,
                         ),
                 ),
@@ -1905,8 +1904,7 @@ class _CartTabContentState extends State<_CartTabContent>
                     children: [
                       Text(
                         food.name,
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
+                        style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1914,17 +1912,15 @@ class _CartTabContentState extends State<_CartTabContent>
                       if (food.brand != null && food.brand!.isNotEmpty)
                         Text(
                           food.brand!,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                       const SizedBox(height: 4),
                       Text(
                         food.category,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.mealGradient.colors.first,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.secondary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -1933,7 +1929,7 @@ class _CartTabContentState extends State<_CartTabContent>
                 ),
                 // Remove button
                 IconButton(
-                  icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
+                  icon: Icon(Icons.delete_outline, color: colorScheme.error),
                   onPressed: () => widget.onRemove(food),
                 ),
               ],

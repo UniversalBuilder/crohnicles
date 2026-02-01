@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// Legacy color definitions (deprecated - use Theme.of(context).colorScheme)
+/// These will be removed in v2.0.0 after full migration verification.
+/// DO NOT USE in new code.
 class AppColors {
   // Cyber Gradient Colors (2026 Sci-Fi Theme)
   static const Color primaryStart = Color(0xFF6366F1); // Indigo
@@ -30,8 +33,11 @@ class AppColors {
   static const Color surface = Colors.white;
   static const Color surfaceGlass = Color(0xFFFAFBFF); // Subtle blue tint
   
-  // Text
+  // Text colors (DEPRECATED - Use Theme.of(context).colorScheme instead)
+  @Deprecated('Use Theme.of(context).colorScheme.onSurface instead. Will be removed after typography refactor.')
   static const Color textPrimary = Color(0xFF1F2937);
+  
+  @Deprecated('Use Theme.of(context).colorScheme.onSurfaceVariant instead. Will be removed after typography refactor.')
   static const Color textSecondary = Color(0xFF6B7280);
   
   // Gradients

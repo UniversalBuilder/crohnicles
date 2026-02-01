@@ -67,6 +67,8 @@ class EventSearchDelegate extends SearchDelegate {
   }
 
   Widget _buildEventCard(EventModel event, BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final dateTime = DateTime.parse(event.dateTime);
     final formattedDate = DateFormat(
       'd MMM yyyy • HH:mm',
@@ -94,16 +96,14 @@ class EventSearchDelegate extends SearchDelegate {
                       children: [
                         Text(
                           event.title,
-                          style: GoogleFonts.poppins(
+                          style: theme.textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
-                            fontSize: 16,
                           ),
                         ),
                         Text(
                           formattedDate,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -132,8 +132,7 @@ class EventSearchDelegate extends SearchDelegate {
                       ),
                       child: Text(
                         tag,
-                        style: TextStyle(
-                          fontSize: 11,
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: _getColorForType(event.type),
                           fontWeight: FontWeight.w500,
                         ),
@@ -159,42 +158,53 @@ class EventSearchDelegate extends SearchDelegate {
       final foods = data['foods'] as List?;
       if (foods == null || foods.isEmpty) return const SizedBox.shrink();
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Aliments:',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 4),
-          ...foods.take(3).map((food) {
-            return Padding(
-              padding: const EdgeInsets.only(left: 8, top: 2),
-              child: Row(
-                children: [
-                  Icon(Icons.restaurant, size: 12, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    food['name'] ?? 'Inconnu',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+      return Builder(
+        builder: (context) {
+          final theme = Theme.of(context);
+          final colorScheme = theme.colorScheme;
+          
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Aliments:',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              ...foods.take(3).map((food) {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8, top: 2),
+                  child: Row(
+                    children: [
+                      Icon(Icons.restaurant, size: 12, color: colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Text(
+                        food['name'] ?? 'Inconnu',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          }),
-          if (foods.length > 3)
-            Padding(
-              padding: const EdgeInsets.only(left: 24, top: 2),
-              child: Text(
-                '+ ${foods.length - 3} autre(s)',
-                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-              ),
-            ),
-        ],
+                );
+              }),
+              if (foods.length > 3)
+                Padding(
+                  padding: const EdgeInsets.only(left: 24, top: 2),
+                  child: Text(
+                    '+ ${foods.length - 3} autre(s)',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       );
     } catch (e) {
       return const SizedBox.shrink();

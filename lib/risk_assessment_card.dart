@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'ml/model_manager.dart';
 import 'app_theme.dart';
 import 'database_helper.dart';
@@ -133,9 +132,8 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
       isUsingTrainedModel
           ? 'Basé sur votre modèle statistique personnel'
           : 'Analyse en temps réel (entraînez le modèle pour personnaliser)',
-      style: GoogleFonts.inter(
-        fontSize: 13,
-        color: Colors.grey.shade600,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
         fontStyle: isUsingTrainedModel ? FontStyle.normal : FontStyle.italic,
       ),
     );
@@ -195,10 +193,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                         children: [
                           Text(
                             'Évaluation des Risques',
-                            style: GoogleFonts.poppins(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: Theme.of(context).textTheme.headlineSmall,
                           ),
                           _buildSubtitle(),
                         ],
@@ -250,12 +245,11 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                               const SizedBox(width: 6),
                               Text(
                                 _getSymptomName(pred.symptomType),
-                                style: GoogleFonts.inter(
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                                  fontSize: 12,
                                   color: isSelected 
                                       ? AppColors.mealGradient.colors.first 
-                                      : Colors.grey.shade700,
+                                      : Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -362,14 +356,12 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.grey.shade600, size: 20),
+                Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     prediction.explanation,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: Colors.grey.shade800,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       height: 1.5,
                     ),
                   ),
@@ -383,10 +375,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
           if (prediction.topFactors.isNotEmpty) ...[
             Text(
               'Facteurs de risque identifiés',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
             ...prediction.topFactors.map((factor) => _buildFactorItem(factor)),
@@ -397,10 +386,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
           if (!_loadingSimilarMeals && _similarMeals.isNotEmpty) ...[
             Text(
               'Repas similaires',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -456,26 +442,22 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                       : prediction.riskLevel == "medium"
                       ? "modéré"
                       : "élevé"}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: color,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${(prediction.riskScore * 100).toStringAsFixed(0)}% de probabilité',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Confiance: ${(prediction.confidence * 100).toStringAsFixed(0)}%',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -509,8 +491,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
           Expanded(
             child: Text(
               factor.humanReadable,
-              style: GoogleFonts.inter(
-                fontSize: 14,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -523,8 +504,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
             ),
             child: Text(
               '+${(factor.contribution * 100).toStringAsFixed(0)}%',
-              style: GoogleFonts.inter(
-                fontSize: 12,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: AppColors.mealGradient.colors.first,
               ),
@@ -561,9 +541,9 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                   DateTime.parse(meal.dateTime).day == DateTime.now().day
                       ? "Aujourd'hui"
                       : 'Il y a ${DateTime.now().difference(DateTime.parse(meal.dateTime)).inDays}j',
-                  style: GoogleFonts.inter(
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 11,
-                    color: Colors.grey.shade600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -573,7 +553,9 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
           const SizedBox(height: 6),
           Text(
             meal.tags.take(2).join(', '),
-            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -588,7 +570,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
       builder: (context) => AlertDialog(
         title: Text(
           'Comment fonctionne l\'évaluation ?',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -597,7 +579,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
             children: [
               Text(
                 'Crohnicles utilise l\'intelligence artificielle pour analyser vos repas et prédire les risques de symptômes.',
-                style: GoogleFonts.inter(height: 1.5),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
               ),
               const SizedBox(height: 16),
               _buildExplanationPoint(
@@ -662,10 +644,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
         children: [
           Text(
             'Aliments dans ce repas',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 12),
           ...foods.map((food) {
@@ -701,10 +680,14 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isRisky ? Colors.red.shade50 : Colors.grey.shade50,
+                color: isRisky 
+                    ? Theme.of(context).colorScheme.error.withValues(alpha: 0.1)
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isRisky ? Colors.red.shade200 : Colors.grey.shade200,
+                  color: isRisky 
+                      ? Theme.of(context).colorScheme.error.withValues(alpha: 0.3)
+                      : Theme.of(context).colorScheme.outline,
                 ),
               ),
               child: Row(
@@ -712,8 +695,8 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                   Icon(
                     isRisky ? Icons.warning_amber : Icons.check_circle_outline,
                     color: isRisky
-                        ? Colors.red.shade700
-                        : Colors.green.shade700,
+                        ? Theme.of(context).colorScheme.error
+                        : Theme.of(context).colorScheme.tertiary,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
@@ -723,17 +706,15 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                       children: [
                         Text(
                           name,
-                          style: GoogleFonts.inter(
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
-                            fontSize: 14,
                           ),
                         ),
                         if (tags.isNotEmpty)
                           Text(
                             tags.join(', '),
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                           ),
                         if (isRisky && foodRiskyTags.isNotEmpty)
@@ -741,9 +722,8 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
                               '⚠️ Potentiellement risqué: ${foodRiskyTags.join(', ')}',
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                color: Colors.red.shade700,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.error,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -781,17 +761,15 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.inter(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: Colors.grey.shade700,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     height: 1.4,
                   ),
                 ),

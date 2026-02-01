@@ -6,6 +6,7 @@ import 'dart:math' show max;
 import 'event_model.dart';
 import 'database_helper.dart';
 import 'app_theme.dart';
+import 'package:crohnicles/themes/app_gradients.dart';
 
 /// Vertical timeline view with central axis, meals on right, symptoms/stools on left
 /// Shows correlation lines between related events (>30% correlation)
@@ -93,7 +94,7 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
         ),
         title: Text(
           'Timeline Verticale',
-          style: GoogleFonts.poppins(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
           ),
@@ -111,10 +112,12 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _events.isEmpty
-          ? const Center(
+          ? Center(
               child: Text(
                 'Aucun événement dans les 7 derniers jours',
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             )
           : _buildVerticalTimeline(),
@@ -127,77 +130,87 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
 
     final firstEventTime = DateTime.parse(_events.first.dateTime);
     final lastEventTime = DateTime.parse(_events.last.dateTime);
-    final totalMinutes = lastEventTime.difference(firstEventTime).inMinutes;
+    final totalHours = lastEventTime.difference(firstEventTime).inHours;
 
-    // Minimum spacing to avoid overlap (increased for clarity)
-    const minSpacing = 180.0; // pixels
-    final pixelsPerMinute = max(
-      0.8,
-      minSpacing / (totalMinutes / _events.length),
-    );
+    // Adaptive spacing: 120px per hour (2h = 240px)
+    const pixelsPerHour = 120.0;
+    final totalHeight = (totalHours * pixelsPerHour) + 200;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final centerX = constraints.maxWidth / 2;
+        final isMobile = constraints.maxWidth < 600;
+        final colorScheme = Theme.of(context).colorScheme;
 
         return Container(
-          // Simple clean background
-          color: Colors.grey.shade50,
+          color: colorScheme.surface,
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: (_events.length * minSpacing) + 200,
+                  height: totalHeight,
                   child: Stack(
                     children: [
-                      // Central axis line (thicker, with glow effect)
+                      // Alternating time bands (every 6 hours)
+                      ..._buildTimeBands(
+                        firstEventTime,
+                        lastEventTime,
+                        pixelsPerHour,
+                        constraints.maxWidth,
+                      ),
+
+                      // Central axis line
                       Positioned(
-                        left: centerX - 3,
+                        left: centerX - 2,
                         top: 20,
                         bottom: 20,
                         child: Container(
-                          width: 6,
+                          width: 4,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                Colors.indigo.shade200,
-                                Colors.indigo.shade400,
-                                Colors.indigo.shade200,
+                                colorScheme.primary.withValues(alpha: 0.6),
+                                colorScheme.primary,
+                                colorScheme.primary.withValues(alpha: 0.6),
                               ],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.indigo.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                spreadRadius: 2,
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.2,
+                                ),
+                                blurRadius: 6,
+                                spreadRadius: 1,
                               ),
                             ],
                           ),
                         ),
                       ),
 
-                      // Date graduations on axis
-                      ..._buildDateGraduations(
+                      // Hour graduations
+                      ..._buildHourGraduations(
                         centerX,
                         firstEventTime,
                         lastEventTime,
-                        pixelsPerMinute,
+                        pixelsPerHour,
+                        isMobile,
                       ),
 
-                      // Correlation lines (ComfyUI-style bezier curves)
+                      // Correlation lines
                       ..._buildCorrelationLines(
                         centerX,
                         firstEventTime,
-                        pixelsPerMinute,
+                        pixelsPerHour,
                       ),
 
-                      // Event cards (node-style)
+                      // Event cards
                       ..._buildEventCards(
                         centerX,
                         firstEventTime,
-                        pixelsPerMinute,
+                        pixelsPerHour,
+                        isMobile,
                       ),
                     ],
                   ),
@@ -210,74 +223,198 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
     );
   }
 
-  List<Widget> _buildDateGraduations(
-    double centerX,
+  List<Widget> _buildTimeBands(
     DateTime firstEventTime,
     DateTime lastEventTime,
-    double pixelsPerMinute,
+    double pixelsPerHour,
+    double width,
   ) {
-    final graduations = <Widget>[];
-
-    // Generate one graduation per day
-    final currentDate = DateTime(
+    final bands = <Widget>[];
+    final startHour = DateTime(
       firstEventTime.year,
       firstEventTime.month,
       firstEventTime.day,
+      firstEventTime.hour,
     );
-    final endDate = DateTime(
-      lastEventTime.year,
-      lastEventTime.month,
-      lastEventTime.day,
-    ).add(const Duration(days: 1));
 
-    DateTime gradDate = currentDate;
-    while (gradDate.isBefore(endDate)) {
+    DateTime currentTime = startHour;
+    int bandIndex = 0;
+
+    while (currentTime.isBefore(lastEventTime.add(const Duration(hours: 1)))) {
       final yPosition = _calculateYPosition(
-        gradDate,
+        currentTime,
         firstEventTime,
-        pixelsPerMinute,
+        pixelsPerHour,
+      );
+      final nextTime = currentTime.add(const Duration(hours: 6));
+      final nextY = _calculateYPosition(
+        nextTime,
+        firstEventTime,
+        pixelsPerHour,
       );
 
-      // Day separator line
-      graduations.add(
+      final colorScheme = Theme.of(
+        WidgetsBinding.instance.rootElement!,
+      ).colorScheme;
+      final color = bandIndex % 2 == 0
+          ? colorScheme.surfaceContainerLowest
+          : colorScheme.surfaceContainer;
+
+      bands.add(
         Positioned(
-          left: centerX - 50,
+          left: 0,
           top: yPosition,
-          child: Row(
-            children: [
-              Container(width: 40, height: 2, color: Colors.grey.shade300),
-              Container(width: 20, height: 2, color: Colors.transparent),
-              Container(width: 40, height: 2, color: Colors.grey.shade300),
-            ],
+          child: Container(
+            width: width,
+            height: nextY - yPosition,
+            color: color,
           ),
         ),
       );
 
-      // Date label
-      graduations.add(
-        Positioned(
-          left: centerX + 110,
-          top: yPosition - 15,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
+      currentTime = nextTime;
+      bandIndex++;
+    }
+
+    return bands;
+  }
+
+  List<Widget> _buildHourGraduations(
+    double centerX,
+    DateTime firstEventTime,
+    DateTime lastEventTime,
+    double pixelsPerHour,
+    bool isMobile,
+  ) {
+    final graduations = <Widget>[];
+    final colorScheme = Theme.of(
+      WidgetsBinding.instance.rootElement!,
+    ).colorScheme;
+    final startHour = DateTime(
+      firstEventTime.year,
+      firstEventTime.month,
+      firstEventTime.day,
+      firstEventTime.hour,
+    );
+
+    DateTime currentTime = startHour;
+    DateTime? lastDayLabel;
+
+    while (currentTime.isBefore(lastEventTime.add(const Duration(hours: 1)))) {
+      final yPosition = _calculateYPosition(
+        currentTime,
+        firstEventTime,
+        pixelsPerHour,
+      );
+      final isNewDay =
+          lastDayLabel == null || currentTime.day != lastDayLabel.day;
+      final showThisHour = !isMobile || currentTime.hour % 2 == 0;
+
+      if (showThisHour) {
+        // Hour marker line
+        graduations.add(
+          Positioned(
+            left: centerX - 30,
+            top: yPosition,
+            child: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: isNewDay ? 3 : 1.5,
+                  color: isNewDay
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 20,
+                  height: isNewDay ? 3 : 1.5,
+                  color: isNewDay
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                ),
+              ],
             ),
-            child: Text(
-              DateFormat('EEE d MMM', 'fr_FR').format(gradDate),
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+          ),
+        );
+
+        // Hour label
+        graduations.add(
+          Positioned(
+            left: centerX - (isMobile ? 35 : 45),
+            top: yPosition - 12,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 6 : 8,
+                vertical: 2,
+              ),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isNewDay
+                      ? colorScheme.primary.withValues(alpha: 0.6)
+                      : colorScheme.outline,
+                  width: isNewDay ? 1.5 : 1,
+                ),
+              ),
+              child: Text(
+                DateFormat('HH:mm').format(currentTime),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontSize: isMobile ? 9 : 10,
+                  fontWeight: isNewDay ? FontWeight.w700 : FontWeight.w500,
+                  color: isNewDay
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
+      }
 
-      gradDate = gradDate.add(const Duration(days: 1));
+      // Day label on the right
+      if (isNewDay) {
+        graduations.add(
+          Positioned(
+            right: isMobile ? 8 : 20,
+            top: yPosition - 15,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 8 : 12,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    colorScheme.primary.withValues(alpha: 0.9),
+                    colorScheme.primary,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                DateFormat('EEE d MMM', 'fr_FR').format(currentTime),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontSize: isMobile ? 10 : 11,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onPrimary,
+                ),
+              ),
+            ),
+          ),
+        );
+        lastDayLabel = currentTime;
+      }
+
+      currentTime = currentTime.add(const Duration(hours: 1));
     }
 
     return graduations;
@@ -286,9 +423,12 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
   List<Widget> _buildCorrelationLines(
     double centerX,
     DateTime firstEventTime,
-    double pixelsPerMinute,
+    double pixelsPerHour,
   ) {
     final lines = <Widget>[];
+    final colorScheme = Theme.of(
+      WidgetsBinding.instance.rootElement!,
+    ).colorScheme;
 
     _correlations.forEach((symptomId, mealIds) {
       final symptom = _events.firstWhere(
@@ -300,7 +440,7 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
       final symptomY = _calculateYPosition(
         symptomTime,
         firstEventTime,
-        pixelsPerMinute,
+        pixelsPerHour,
       );
 
       for (final mealId in mealIds) {
@@ -313,7 +453,7 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
         final mealY = _calculateYPosition(
           mealTime,
           firstEventTime,
-          pixelsPerMinute,
+          pixelsPerHour,
         );
 
         // Draw curved line from meal (right) to symptom (left)
@@ -328,7 +468,7 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
                 startY: mealY + 38,
                 endX: centerX - 78, // Left side (symptom icon center)
                 endY: symptomY + 38,
-                color: Colors.red.withValues(alpha: 0.25),
+                color: colorScheme.error.withValues(alpha: 0.2),
               ),
             ),
           ),
@@ -342,9 +482,13 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
   List<Widget> _buildEventCards(
     double centerX,
     DateTime firstEventTime,
-    double pixelsPerMinute,
+    double pixelsPerHour,
+    bool isMobile,
   ) {
     final cards = <Widget>[];
+    final cardWidth = isMobile ? 60.0 : 70.0;
+    final cardHeight = isMobile ? 60.0 : 70.0;
+    final horizontalOffset = isMobile ? 35.0 : 50.0;
 
     for (int i = 0; i < _events.length; i++) {
       final event = _events[i];
@@ -352,33 +496,7 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
       final yPosition = _calculateYPosition(
         eventTime,
         firstEventTime,
-        pixelsPerMinute,
-      );
-
-      // Timestamp on central axis
-      cards.add(
-        Positioned(
-          left: centerX - 40,
-          top: yPosition + 30,
-          child: Container(
-            width: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Text(
-              DateFormat('HH:mm').format(eventTime),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ),
-        ),
+        pixelsPerHour,
       );
 
       // Event card
@@ -386,20 +504,20 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
         // Meals on the right
         cards.add(
           Positioned(
-            left: centerX + 50,
-            top: yPosition + 10,
-            child: _buildMealCard(event),
+            left: centerX + horizontalOffset,
+            top: yPosition - (cardHeight / 2),
+            child: _buildMealCard(event, cardWidth, cardHeight),
           ),
         );
       } else {
         // Symptoms and stools on the left
         cards.add(
           Positioned(
-            right: centerX + 50,
-            top: yPosition + 10,
+            right: centerX + horizontalOffset,
+            top: yPosition - (cardHeight / 2),
             child: event.type == EventType.symptom
-                ? _buildSymptomCard(event)
-                : _buildStoolCard(event),
+                ? _buildSymptomCard(event, cardWidth, cardHeight)
+                : _buildStoolCard(event, cardWidth * 0.8, cardHeight * 0.8),
           ),
         );
       }
@@ -411,92 +529,114 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
   double _calculateYPosition(
     DateTime eventTime,
     DateTime firstEventTime,
-    double pixelsPerMinute,
+    double pixelsPerHour,
   ) {
-    final minutesDiff = eventTime.difference(firstEventTime).inMinutes;
-    return 50 + (minutesDiff * pixelsPerMinute);
+    final hoursDiff = eventTime.difference(firstEventTime).inHours;
+    final minutesFraction =
+        (eventTime.difference(firstEventTime).inMinutes % 60) / 60.0;
+    return 50 + ((hoursDiff + minutesFraction) * pixelsPerHour);
   }
 
-  Widget _buildMealCard(EventModel event) {
+  Widget _buildMealCard(EventModel event, double width, double height) {
+    final colorScheme = Theme.of(
+      WidgetsBinding.instance.rootElement!,
+    ).colorScheme;
+    final brightness = Theme.of(
+      WidgetsBinding.instance.rootElement!,
+    ).brightness;
+
     return GestureDetector(
       onTap: () => _showEventDetail(event),
       child: Container(
-        width: 70,
-        height: 70,
+        width: width,
+        height: height,
         decoration: BoxDecoration(
-          gradient: AppColors.mealGradient,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white, width: 3),
+          gradient: AppGradients.forEventType('meal', brightness),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colorScheme.onPrimary, width: 2.5),
           boxShadow: [
             BoxShadow(
-              color: AppColors.mealStart.withValues(alpha: 0.4),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-              spreadRadius: 2,
-            ),
-            BoxShadow(
-              color: Colors.white.withValues(alpha: 0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 0),
+              color: colorScheme.primary.withValues(alpha: 0.35),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+              spreadRadius: 1,
             ),
           ],
         ),
         child: Icon(
           event.isSnack ? Icons.cookie : Icons.restaurant,
-          color: Colors.white,
-          size: 32,
+          color: colorScheme.onPrimary,
+          size: width * 0.45,
         ),
       ),
     );
   }
 
-  Widget _buildSymptomCard(EventModel event) {
+  Widget _buildSymptomCard(EventModel event, double width, double height) {
+    final colorScheme = Theme.of(
+      WidgetsBinding.instance.rootElement!,
+    ).colorScheme;
+    final brightness = Theme.of(
+      WidgetsBinding.instance.rootElement!,
+    ).brightness;
+
     return GestureDetector(
       onTap: () => _showEventDetail(event),
       child: Container(
-        width: 70,
-        height: 70,
+        width: width,
+        height: height,
         decoration: BoxDecoration(
-          gradient: AppColors.painGradient,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white, width: 3),
+          gradient: AppGradients.forEventType('symptom', brightness),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colorScheme.onPrimary, width: 2.5),
           boxShadow: [
             BoxShadow(
-              color: AppColors.painStart.withValues(alpha: 0.5),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-              spreadRadius: 2,
-            ),
-            BoxShadow(
-              color: Colors.white.withValues(alpha: 0.3),
-              blurRadius: 6,
-              offset: const Offset(0, 0),
+              color: colorScheme.error.withValues(alpha: 0.4),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+              spreadRadius: 1,
             ),
           ],
         ),
-        child: const Icon(Icons.bolt, color: Colors.white, size: 32),
+        child: Icon(
+          Icons.bolt,
+          color: colorScheme.onPrimary,
+          size: width * 0.45,
+        ),
       ),
     );
   }
 
-  Widget _buildStoolCard(EventModel event) {
+  Widget _buildStoolCard(EventModel event, double width, double height) {
+    final colorScheme = Theme.of(
+      WidgetsBinding.instance.rootElement!,
+    ).colorScheme;
+    final brightness = Theme.of(
+      WidgetsBinding.instance.rootElement!,
+    ).brightness;
+
     return GestureDetector(
       onTap: () => _showEventDetail(event),
       child: Container(
-        width: 56,
-        height: 56,
+        width: width,
+        height: height,
         decoration: BoxDecoration(
-          gradient: AppColors.stoolGradient,
+          gradient: AppGradients.forEventType('stool', brightness),
           shape: BoxShape.circle,
+          border: Border.all(color: colorScheme.onPrimary, width: 2),
           boxShadow: [
             BoxShadow(
-              color: AppColors.stoolStart.withValues(alpha: 0.3),
+              color: colorScheme.primary.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: const Icon(Icons.waves, color: Colors.white, size: 28),
+        child: Icon(
+          Icons.waves,
+          color: colorScheme.onPrimary,
+          size: width * 0.5,
+        ),
       ),
     );
   }
@@ -603,9 +743,9 @@ class _CorrelationLinePainter extends CustomPainter {
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
 
-    // Inner highlight
+    // Inner highlight (use same color as main with reduced alpha for consistency)
     final highlightPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
+      ..color = color.withValues(alpha: 0.3)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'app_theme.dart';
+import 'themes/app_gradients.dart';
 import 'event_model.dart';
 
 class StoolEntryDialog extends StatefulWidget {
@@ -50,6 +51,10 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final brightness = theme.brightness;
+    
     return Dialog(
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
@@ -60,18 +65,18 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: 0.95),
+                colorScheme.surface.withValues(alpha: 0.95),
                 AppColors.surfaceGlass.withValues(alpha: 0.90),
               ],
             ),
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.3),
+              color: colorScheme.surface.withValues(alpha: 0.3),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: colorScheme.onSurface.withValues(alpha: 0.1),
                 blurRadius: 40,
                 offset: const Offset(0, 20),
               ),
@@ -84,8 +89,8 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
               children: [
                 // Gradient header
                 Container(
-                  decoration: const BoxDecoration(
-                    gradient: AppColors.stoolGradient,
+                  decoration: BoxDecoration(
+                    gradient: AppGradients.stool(brightness),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -98,27 +103,25 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.25),
+                          color: colorScheme.surface.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.4),
+                            color: colorScheme.surface.withValues(alpha: 0.4),
                             width: 1.5,
                           ),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.waves,
                           size: 28,
-                          color: Colors.white,
+                          color: colorScheme.onPrimary,
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(
                           "Nouvelle Selle",
-                          style: GoogleFonts.poppins(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: colorScheme.onPrimary,
                             letterSpacing: -0.5,
                           ),
                         ),
@@ -133,7 +136,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                           // Date Picker
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
+                              color: colorScheme.surface.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: InkWell(
@@ -148,7 +151,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                     return Theme(
                                       data: Theme.of(context).copyWith(
                                         colorScheme: ColorScheme.light(
-                                          primary: AppColors.stoolGradient.colors.first,
+                                          primary: colorScheme.tertiary,
                                         ),
                                       ),
                                       child: child!,
@@ -175,18 +178,17 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.calendar_today,
-                                      color: Colors.white,
+                                      color: colorScheme.onPrimary,
                                       size: 16,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
                                       DateFormat('EEE d MMM', 'fr_FR').format(_selectedDate),
-                                      style: GoogleFonts.inter(
-                                        color: Colors.white,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: colorScheme.onPrimary,
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 14,
                                       ),
                                     ),
                                   ],
@@ -198,7 +200,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                           // Time Picker
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
+                              color: colorScheme.surface.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: InkWell(
@@ -210,7 +212,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                     return Theme(
                                       data: Theme.of(context).copyWith(
                                         colorScheme: ColorScheme.light(
-                                          primary: AppColors.stoolGradient.colors.first,
+                                          primary: colorScheme.tertiary,
                                         ),
                                       ),
                                       child: child!,
@@ -237,18 +239,17 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.access_time,
-                                      color: Colors.white,
+                                      color: colorScheme.onPrimary,
                                       size: 16,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
                                       DateFormat('HH:mm').format(_selectedDate),
-                                      style: GoogleFonts.inter(
-                                        color: Colors.white,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: colorScheme.onPrimary,
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 14,
                                       ),
                                     ),
                                   ],
@@ -272,19 +273,16 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                         // Bristol Scale Title
                         Text(
                           "Échelle de Bristol",
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
+                          style: theme.textTheme.titleSmall,
                         ),
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            gradient: AppColors.stoolGradient.scale(0.15),
+                            gradient: AppGradients.stool(brightness).scale(0.15),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: AppColors.stoolStart.withValues(
+                              color: colorScheme.tertiary.withValues(
                                 alpha: 0.2,
                               ),
                               width: 1.5,
@@ -293,9 +291,8 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                           child: Text(
                             "Type $_selectedType : ${_bristolDescriptions[_selectedType]}",
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: AppColors.stoolEnd,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.tertiary,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -319,16 +316,16 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                   height: 52,
                                   decoration: BoxDecoration(
                                     gradient: isSelected
-                                        ? AppColors.stoolGradient
+                                        ? AppGradients.stool(brightness)
                                         : null,
                                     color: isSelected
                                         ? null
-                                        : Colors.grey.shade100,
+                                        : colorScheme.surfaceContainerHighest,
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: isSelected
                                           ? Colors.transparent
-                                          : AppColors.stoolStart.withValues(
+                                          : colorScheme.tertiary.withValues(
                                               alpha: 0.3,
                                             ),
                                       width: 2,
@@ -336,8 +333,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                     boxShadow: isSelected
                                         ? [
                                             BoxShadow(
-                                              color: AppColors.stoolStart
-                                                  .withValues(alpha: 0.4),
+                                              color: colorScheme.tertiary.withValues(alpha: 0.4),
                                               blurRadius: 16,
                                               offset: const Offset(0, 6),
                                             ),
@@ -347,12 +343,11 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                   alignment: Alignment.center,
                                   child: Text(
                                     "$type",
-                                    style: GoogleFonts.inter(
+                                    style: theme.textTheme.titleMedium?.copyWith(
                                       color: isSelected
-                                          ? Colors.white
-                                          : AppColors.stoolEnd,
+                                          ? colorScheme.onPrimary
+                                          : colorScheme.tertiary,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 18,
                                     ),
                                   ),
                                 ),
@@ -365,10 +360,10 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                         // Switches
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: colorScheme.surface.withValues(alpha: 0.7),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: Colors.grey.shade200,
+                              color: colorScheme.outline,
                               width: 1.5,
                             ),
                           ),
@@ -377,9 +372,8 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                               SwitchListTile(
                                 title: Text(
                                   "Urgence impérieuse",
-                                  style: GoogleFonts.inter(
+                                  style: theme.textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.w500,
-                                    fontSize: 14,
                                   ),
                                 ),
                                 value: _isUrgent,
@@ -398,26 +392,25 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                         : null,
                                     color: _isUrgent
                                         ? null
-                                        : Colors.grey.shade200,
+                                        : colorScheme.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Icon(
                                     Icons.warning_amber_rounded,
                                     color: _isUrgent
-                                        ? Colors.white
+                                        ? colorScheme.onPrimary
                                         : Colors.orange,
                                     size: 20,
                                   ),
                                 ),
-                                activeThumbColor: AppColors.stoolEnd,
+                                activeThumbColor: colorScheme.tertiary,
                               ),
-                              Divider(height: 1, color: Colors.grey.shade200),
+                              Divider(height: 1, color: colorScheme.outline),
                               SwitchListTile(
                                 title: Text(
                                   "Présence de sang",
-                                  style: GoogleFonts.inter(
+                                  style: theme.textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.w500,
-                                    fontSize: 14,
                                   ),
                                 ),
                                 value: _hasBlood,
@@ -427,22 +420,22 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     gradient: _hasBlood
-                                        ? AppColors.painGradient
+                                        ? AppGradients.pain(brightness)
                                         : null,
                                     color: _hasBlood
                                         ? null
-                                        : Colors.grey.shade200,
+                                        : colorScheme.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Icon(
                                     Icons.water_drop,
                                     color: _hasBlood
-                                        ? Colors.white
-                                        : Colors.red,
+                                        ? colorScheme.onPrimary
+                                        : colorScheme.error,
                                     size: 20,
                                   ),
                                 ),
-                                activeThumbColor: AppColors.painEnd,
+                                activeThumbColor: colorScheme.error,
                               ),
                             ],
                           ),
@@ -458,7 +451,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                   decoration: BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: Colors.black.withValues(alpha: 0.06),
+                        color: colorScheme.onSurface.withValues(alpha: 0.06),
                         width: 1,
                       ),
                     ),
@@ -469,7 +462,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                       TextButton(
                         onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
-                          foregroundColor: AppColors.stoolStart,
+                          foregroundColor: colorScheme.tertiary,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 12,
@@ -477,20 +470,19 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                         ),
                         child: Text(
                           "Annuler",
-                          style: GoogleFonts.inter(
+                          style: theme.textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
-                            fontSize: 15,
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Container(
                         decoration: BoxDecoration(
-                          gradient: AppColors.stoolGradient,
+                          gradient: AppGradients.stool(brightness),
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.stoolStart.withValues(
+                              color: colorScheme.tertiary.withValues(
                                 alpha: 0.3,
                               ),
                               blurRadius: 20,
@@ -517,10 +509,9 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                               ),
                               child: Text(
                                 "Valider",
-                                style: GoogleFonts.inter(
-                                  color: Colors.white,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: colorScheme.onPrimary,
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 15,
                                   letterSpacing: 0.2,
                                 ),
                               ),
