@@ -426,55 +426,6 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
     }
   }
 
-  Widget _buildCorrelationExplanationCard() {
-    return Card(
-      color: Colors.blue[50],
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue[700]),
-                const SizedBox(width: 8),
-                Text(
-                  'Comment ça marche ?',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue[900],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Les modèles ML analysent la fenêtre temporelle de 4 à 8 heures après chaque repas pour détecter les corrélations meal-symptôme.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.blue[900],
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '• Enregistrez vos repas et symptômes régulièrement\n'
-              '• L\'app détecte automatiquement les aliments à risque\n'
-              '• Plus de données = prédictions plus précises\n'
-              '• Minimum 30 paires repas-symptôme par type',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.blue[800],
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildTrainingHistoryCard() {
     return Card(
       child: Padding(

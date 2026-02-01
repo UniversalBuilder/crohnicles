@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
-import 'dart:math' show max;
 import 'event_model.dart';
 import 'database_helper.dart';
 import 'app_theme.dart';
@@ -132,8 +130,8 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
     final lastEventTime = DateTime.parse(_events.last.dateTime);
     final totalHours = lastEventTime.difference(firstEventTime).inHours;
 
-    // Adaptive spacing: 120px per hour (2h = 240px)
-    const pixelsPerHour = 120.0;
+    // Adaptive spacing: 60px per hour (2h = 120px) - reduced for better density
+    const pixelsPerHour = 60.0;
     final totalHeight = (totalHours * pixelsPerHour) + 200;
 
     return LayoutBuilder(

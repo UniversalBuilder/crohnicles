@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -877,16 +878,51 @@ class DatabaseHelper {
     final sensitiveToSpicy = true;
     final sensitiveToDairy = true;
 
-    // 4. Generate 90 Days of Data
-    for (int i = 90; i >= 0; i--) {
+    // Track weather patterns for stronger correlations
+    int consecutiveColdDays = 0;
+
+    // 4. Generate 100 Days of Data with realistic weather correlations
+    for (int i = 100; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
 
-      // Weather Context (Simplified random)
-      final temp = 15.0 + (i % 10);
+      // Weather Context (Realistic simulation with seasonal variations)
+      // Temperature: 2-32°C with seasonal variation
+      final seasonTemp =
+          17.5 + 12 * sin(2 * 3.14159 * i / 365); // Seasonal cycle
+      final dailyVariation = (i % 7) - 3.5; // Daily fluctuation ±3.5°C
+      final temp = (seasonTemp + dailyVariation).clamp(2.0, 32.0);
+      
+      // Track cold periods
+      if (temp < 12.0) {
+        consecutiveColdDays++;
+      } else {
+        consecutiveColdDays = 0;
+      }
+
+      // Humidity: 35-95% (higher when rainy)
+      final isRainy = (i % 11 == 0) || (i % 13 == 0); // ~20% rainy days
+      final isCloudy = (i % 5 == 0) && !isRainy;
+      
+      final humidity = isRainy
+          ? (80 + (i % 15)).toDouble()
+          : (isCloudy 
+              ? (65 + (i % 20)).toDouble()
+              : (45 + (i % 30)).toDouble());
+
+      // Pressure: 985-1030 hPa (lower during rain/storms)
+      final pressure = isRainy 
+          ? (990 + (i % 10)).toDouble()
+          : (1010 + (i % 20) - 10).toDouble();
+
+      final weatherCondition = isRainy
+          ? 'rainy'
+          : (isCloudy ? 'cloudy' : 'sunny');
+
       final weatherContext = jsonEncode({
         'temperature': temp.toStringAsFixed(1),
-        'pressure': (1013 - (i % 5)).toStringAsFixed(1),
-        'weather': (i % 7 == 0) ? 'rainy' : 'sunny',
+        'humidity': humidity.toStringAsFixed(0),
+        'pressure': pressure.toStringAsFixed(1),
+        'weather': weatherCondition,
       });
 
       // === BREAKFAST (8:00) ===
@@ -1140,6 +1176,139 @@ class DatabaseHelper {
         });
       }
 
+      // === WEATHER-RELATED SYMPTOMS (Enhanced) ===
+      
+      // Cold weather (<12°C) → Joint pain (75% probability, stronger with consecutive days)
+      if (temp < 12.0 && (i % 4 < 3)) {
+        final severityBoost = consecutiveColdDays > 2 ? 2 : 0;
+        final locations = ['Genoux', 'Mains', 'Poignets', 'Chevilles', 'Hanches'];
+        final location = locations[i % locations.length];
+        
+        batch.insert('events', {
+          'type': 'symptom',
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            8 + (i % 6), // Variable time throughout the day
+            30,
+          ).toIso8601String(),
+          'title': 'Douleurs Articulaires',
+          'subtitle': location,
+          'severity': (5 + (i % 3) + severityBoost).clamp(4, 9),
+          'tags': 'Articulations,Météo',
+          'meta_data': jsonEncode({
+            'zone': 'Articulations',
+            'location': location,
+            'weather_triggered': true,
+          }),
+          'context_data': weatherContext,
+          'isUrgent': 0,
+          'isSnack': 0,
+        });
+      }
+      
+      // Very cold (<8°C) → Additional stiffness (50% probability)
+      if (temp < 8.0 && (i % 2 == 0)) {
+        batch.insert('events', {
+          'type': 'symptom',
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            7,
+            0,
+          ).toIso8601String(),
+          'title': 'Raideur Matinale',
+          'subtitle': 'Difficultés au réveil',
+          'severity': 6 + (i % 2),
+          'tags': 'Articulations,Météo',
+          'meta_data': jsonEncode({
+            'zone': 'Articulations',
+            'duration_minutes': 30 + (i % 30),
+            'weather_triggered': true,
+          }),
+          'context_data': weatherContext,
+          'isUrgent': 0,
+          'isSnack': 0,
+        });
+      }
+
+      // High humidity (>75%) → Fatigue (60% probability)
+      if (humidity > 75 && (i % 5 < 3)) {
+        batch.insert('events', {
+          'type': 'symptom',
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            13 + (i % 4),
+            0,
+          ).toIso8601String(),
+          'title': 'Fatigue',
+          'subtitle': 'Lourdeur générale',
+          'severity': 5 + (i % 3),
+          'tags': 'Général,Énergie',
+          'meta_data': jsonEncode({
+            'zone': 'Général',
+            'weather_triggered': true,
+          }),
+          'context_data': weatherContext,
+          'isUrgent': 0,
+          'isSnack': 0,
+        });
+      }
+
+      // Rainy days + low pressure → Headaches (50% probability)
+      if (isRainy && pressure < 1000 && (i % 2 == 0)) {
+        batch.insert('events', {
+          'type': 'symptom',
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            15 + (i % 3),
+            30,
+          ).toIso8601String(),
+          'title': 'Maux de tête',
+          'subtitle': 'Pression atmosphérique',
+          'severity': 5 + (i % 2),
+          'tags': 'Tête,Météo',
+          'meta_data': jsonEncode({
+            'zone': 'Tête',
+            'weather_triggered': true,
+          }),
+          'context_data': weatherContext,
+          'isUrgent': 0,
+          'isSnack': 0,
+        });
+      }
+      
+      // Hot weather (>28°C) → Dehydration symptoms (40% probability)
+      if (temp > 28.0 && (i % 5 < 2)) {
+        batch.insert('events', {
+          'type': 'symptom',
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            14 + (i % 4),
+            0,
+          ).toIso8601String(),
+          'title': 'Fatigue & Vertiges',
+          'subtitle': 'Chaleur',
+          'severity': 4 + (i % 3),
+          'tags': 'Général,Météo',
+          'meta_data': jsonEncode({
+            'zone': 'Général',
+            'weather_triggered': true,
+          }),
+          'context_data': weatherContext,
+          'isUrgent': 0,
+          'isSnack': 0,
+        });
+      }
+
       // Daily Stool (Morning) - Normal if no flare
       if (i != 10 && i != 11 && i != 12) {
         batch.insert('events', {
@@ -1160,11 +1329,42 @@ class DatabaseHelper {
           'isSnack': 0,
         });
       }
+      
+      // === DAILY CHECKUP (Show all features) ===
+      // Add checkups on some days to demonstrate the feature
+      if (i % 7 == 0) {
+        // Weekly checkup
+        batch.insert('events', {
+          'type': 'daily_checkup',
+          'dateTime': DateTime(
+            date.year,
+            date.month,
+            date.day,
+            22,
+            0,
+          ).toIso8601String(),
+          'title': 'Bilan Journalier',
+          'subtitle': 'Fin de journée',
+          'severity': (i % 3 == 0) ? 3 : 1, // Vary the mood
+          'tags': 'Routine',
+          'meta_data': jsonEncode({
+            'mood': (i % 3 == 0) ? 'Fatigué' : 'Bien',
+            'sleep_quality': 3 + (i % 3),
+            'stress_level': 2 + (i % 3),
+            'notes': (i % 3 == 0) 
+                ? 'Journée difficile avec le froid'
+                : 'Bonne journée globalement',
+          }),
+          'context_data': weatherContext,
+          'isUrgent': 0,
+          'isSnack': 0,
+        });
+      }
     }
 
     await batch.commit();
     print(
-      '[DB] Generated 60 days of realistic demo data based on Generic Foods.',
+      '[DB] Generated 101 days of realistic demo data with enhanced weather correlations.',
     );
   }
 
@@ -1190,6 +1390,66 @@ class DatabaseHelper {
       counts[t] = (counts[t] ?? 0) + 1;
     }
     return counts;
+  }
+
+  /// Get today's latest weather data from context_data
+  Future<Map<String, dynamic>?> getTodayWeather() async {
+    Database db = await database;
+    
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day).toIso8601String();
+    final endOfDay = DateTime(today.year, today.month, today.day, 23, 59, 59).toIso8601String();
+    
+    final result = await db.query(
+      'events',
+      columns: ['context_data'],
+      where: 'dateTime >= ? AND dateTime <= ? AND context_data IS NOT NULL',
+      whereArgs: [startOfDay, endOfDay],
+      orderBy: 'dateTime DESC',
+      limit: 1,
+    );
+
+    if (result.isEmpty || result.first['context_data'] == null) {
+      return null;
+    }
+
+    try {
+      final contextJson = result.first['context_data'] as String;
+      final contextData = jsonDecode(contextJson) as Map<String, dynamic>;
+      
+      // Return weather data with temperature, humidity, pressure
+      return {
+        'temperature': contextData['temperature'],
+        'humidity': contextData['humidity'],
+        'pressure': contextData['pressure'],
+        'weather': contextData['weather'] ?? 'Unknown',
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get context_data for a specific event
+  Future<Map<String, dynamic>?> getContextForEvent(int eventId) async {
+    Database db = await database;
+    
+    final result = await db.query(
+      'events',
+      columns: ['context_data'],
+      where: 'id = ?',
+      whereArgs: [eventId],
+    );
+
+    if (result.isEmpty || result.first['context_data'] == null) {
+      return null;
+    }
+
+    try {
+      final contextJson = result.first['context_data'] as String;
+      return jsonDecode(contextJson) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
   }
 
   /// Get symptoms filtered by zone name for trigger analysis
@@ -1230,30 +1490,6 @@ class DatabaseHelper {
       ],
       orderBy: 'dateTime ASC',
     );
-  }
-
-  /// Get context data for a specific event (weather, etc.)
-  Future<Map<String, dynamic>?> getContextForEvent(int eventId) async {
-    Database db = await database;
-    
-    final result = await db.query(
-      'events',
-      columns: ['context_data'],
-      where: 'id = ?',
-      whereArgs: [eventId],
-      limit: 1,
-    );
-    
-    if (result.isEmpty || result.first['context_data'] == null) {
-      return null;
-    }
-    
-    try {
-      final contextJson = result.first['context_data'] as String;
-      return jsonDecode(contextJson) as Map<String, dynamic>;
-    } catch (e) {
-      return null;
-    }
   }
 
   // Example method to insert event (generic helper)

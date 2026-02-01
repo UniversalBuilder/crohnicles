@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,7 +10,6 @@ import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart
     as mlkit;
 import 'database_helper.dart';
 import 'food_model.dart';
-import 'app_theme.dart';
 import 'themes/app_gradients.dart';
 import 'event_model.dart';
 import 'services/off_service.dart';
@@ -1406,7 +1404,6 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   Widget _buildSearchTab() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final brightness = theme.brightness;
     
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 300),
@@ -1570,7 +1567,6 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   Widget _buildCreateTab() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final brightness = theme.brightness;
     
     final TextEditingController nameController = TextEditingController();
     String selectedCategory = 'Repas';

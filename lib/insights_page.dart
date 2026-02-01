@@ -235,7 +235,7 @@ class _InsightsPageState extends State<InsightsPage> {
       'Pluie': {'total': 0, 'withSymptom': 0},
     };
     
-    // Group events by day
+    // PHASE 1: Group ALL events by day and collect weather data
     final Map<String, Map<String, dynamic>> dayGroups = {};
     
     for (var eventData in allEventsData) {
@@ -257,70 +257,42 @@ class _InsightsPageState extends State<InsightsPage> {
           };
         }
         
-        // Count symptoms
+        // Count ALL symptoms for the day
         final type = eventData['type'] as String;
         final severity = eventData['severity'] as int;
-        if (type == 'symptom' && severity >= 5) {
+        if (type == 'symptom' && severity >= 3) {  // Lower threshold to capture more symptoms
           dayGroups[dayKey]!['symptoms'] = (dayGroups[dayKey]!['symptoms'] as int) + 1;
         }
         
-        // Extract weather data from context_data
-        final contextDataJson = eventData['context_data'] as String?;
-        if (contextDataJson != null && contextDataJson.isNotEmpty && dayGroups[dayKey]!['temperature'] == null) {
-          try {
-            final contextData = jsonDecode(contextDataJson) as Map<String, dynamic>;
-            
-            final tempRaw = contextData['temperature'];
-            final temp = tempRaw is num 
-                ? tempRaw.toDouble() 
-                : (double.tryParse(tempRaw?.toString() ?? '') ?? null);
-            dayGroups[dayKey]!['temperature'] = temp;
-            
-            final humidityRaw = contextData['humidity'];
-            final humidity = humidityRaw is num 
-                ? humidityRaw.toDouble() 
-                : (double.tryParse(humidityRaw?.toString() ?? '') ?? null);
-            dayGroups[dayKey]!['humidity'] = humidity;
-            
-            final pressureRaw = contextData['pressure'];
-            final pressure = pressureRaw is num 
-                ? pressureRaw.toDouble() 
-                : (double.tryParse(pressureRaw?.toString() ?? '') ?? null);
-            dayGroups[dayKey]!['pressure'] = pressure;
-            
-            dayGroups[dayKey]!['weather'] = contextData['weather'] ?? '';
-            
-            // Count correlations
-            final hasSymptom = (dayGroups[dayKey]!['symptoms'] as int) > 0;
-            
-            if (temp != null) {
-              if (temp < 12.0) {
-                correlations['Froid (<12°C)']!['total'] = correlations['Froid (<12°C)']!['total']! + 1;
-                if (hasSymptom) correlations['Froid (<12°C)']!['withSymptom'] = correlations['Froid (<12°C)']!['withSymptom']! + 1;
-              }
-              if (temp > 28.0) {
-                correlations['Chaud (>28°C)']!['total'] = correlations['Chaud (>28°C)']!['total']! + 1;
-                if (hasSymptom) correlations['Chaud (>28°C)']!['withSymptom'] = correlations['Chaud (>28°C)']!['withSymptom']! + 1;
-              }
+        // Extract weather data from context_data (only once per day)
+        if (dayGroups[dayKey]!['temperature'] == null) {
+          final contextDataJson = eventData['context_data'] as String?;
+          if (contextDataJson != null && contextDataJson.isNotEmpty) {
+            try {
+              final contextData = jsonDecode(contextDataJson) as Map<String, dynamic>;
+              
+              final tempRaw = contextData['temperature'];
+              final temp = tempRaw is num 
+                  ? tempRaw.toDouble() 
+                  : (double.tryParse(tempRaw?.toString() ?? '') ?? null);
+              dayGroups[dayKey]!['temperature'] = temp;
+              
+              final humidityRaw = contextData['humidity'];
+              final humidity = humidityRaw is num 
+                  ? humidityRaw.toDouble() 
+                  : (double.tryParse(humidityRaw?.toString() ?? '') ?? null);
+              dayGroups[dayKey]!['humidity'] = humidity;
+              
+              final pressureRaw = contextData['pressure'];
+              final pressure = pressureRaw is num 
+                  ? pressureRaw.toDouble() 
+                  : (double.tryParse(pressureRaw?.toString() ?? '') ?? null);
+              dayGroups[dayKey]!['pressure'] = pressure;
+              
+              dayGroups[dayKey]!['weather'] = contextData['weather'] ?? '';
+            } catch (e) {
+              // Skip invalid JSON
             }
-            
-            if (humidity != null && humidity > 75.0) {
-              correlations['Humidité élevée (>75%)']!['total'] = correlations['Humidité élevée (>75%)']!['total']! + 1;
-              if (hasSymptom) correlations['Humidité élevée (>75%)']!['withSymptom'] = correlations['Humidité élevée (>75%)']!['withSymptom']! + 1;
-            }
-            
-            if (pressure != null && pressure < 1000.0) {
-              correlations['Basse pression (<1000 hPa)']!['total'] = correlations['Basse pression (<1000 hPa)']!['total']! + 1;
-              if (hasSymptom) correlations['Basse pression (<1000 hPa)']!['withSymptom'] = correlations['Basse pression (<1000 hPa)']!['withSymptom']! + 1;
-            }
-            
-            final weatherCondition = contextData['weather']?.toString().toLowerCase() ?? '';
-            if (weatherCondition.contains('rain')) {
-              correlations['Pluie']!['total'] = correlations['Pluie']!['total']! + 1;
-              if (hasSymptom) correlations['Pluie']!['withSymptom'] = correlations['Pluie']!['withSymptom']! + 1;
-            }
-          } catch (e) {
-            // Skip invalid JSON
           }
         }
       } catch (e) {
@@ -328,11 +300,58 @@ class _InsightsPageState extends State<InsightsPage> {
       }
     }
     
+    // PHASE 2: Calculate correlations based on complete daily data
+    int totalDaysWithSymptoms = 0;
+    int totalSymptoms = 0;
+    dayGroups.forEach((dayKey, dayData) {
+      final temp = dayData['temperature'] as double?;
+      final humidity = dayData['humidity'] as double?;
+      final pressure = dayData['pressure'] as double?;
+      final weather = dayData['weather'] as String? ?? '';
+      final symptomCount = dayData['symptoms'] as int;
+      final hasSymptom = symptomCount > 0;
+      
+      if (hasSymptom) {
+        totalDaysWithSymptoms++;
+        totalSymptoms += symptomCount;
+      }
+      
+      if (temp != null) {
+        if (temp < 12.0) {
+          correlations['Froid (<12°C)']!['total'] = correlations['Froid (<12°C)']!['total']! + 1;
+          if (hasSymptom) correlations['Froid (<12°C)']!['withSymptom'] = correlations['Froid (<12°C)']!['withSymptom']! + 1;
+        }
+        if (temp > 28.0) {
+          correlations['Chaud (>28°C)']!['total'] = correlations['Chaud (>28°C)']!['total']! + 1;
+          if (hasSymptom) correlations['Chaud (>28°C)']!['withSymptom'] = correlations['Chaud (>28°C)']!['withSymptom']! + 1;
+        }
+      }
+      
+      if (humidity != null && humidity > 75.0) {
+        correlations['Humidité élevée (>75%)']!['total'] = correlations['Humidité élevée (>75%)']!['total']! + 1;
+        if (hasSymptom) correlations['Humidité élevée (>75%)']!['withSymptom'] = correlations['Humidité élevée (>75%)']!['withSymptom']! + 1;
+      }
+      
+      if (pressure != null && pressure < 1000.0) {
+        correlations['Basse pression (<1000 hPa)']!['total'] = correlations['Basse pression (<1000 hPa)']!['total']! + 1;
+        if (hasSymptom) correlations['Basse pression (<1000 hPa)']!['withSymptom'] = correlations['Basse pression (<1000 hPa)']!['withSymptom']! + 1;
+      }
+      
+      final weatherCondition = weather.toLowerCase();
+      if (weatherCondition.contains('rain')) {
+        correlations['Pluie']!['total'] = correlations['Pluie']!['total']! + 1;
+        if (hasSymptom) correlations['Pluie']!['withSymptom'] = correlations['Pluie']!['withSymptom']! + 1;
+      }
+    });
+    
     // Convert to timeline list
     timeline.addAll(dayGroups.values);
     timeline.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
     
     print('🔍 Weather correlations loaded:');
+    print('  Total days analyzed: ${dayGroups.length}');
+    print('  Days with symptoms (severity≥5): $totalDaysWithSymptoms');
+    print('  Total symptoms counted: $totalSymptoms');
     correlations.forEach((condition, data) {
       print('  $condition: ${data['withSymptom']}/${data['total']} = ${data['total']! > 0 ? (data['withSymptom']! / data['total']! * 100).toStringAsFixed(1) : 0}%');
     });

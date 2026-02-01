@@ -1,9 +1,83 @@
-# Étape 3: Timeline Visuelle Multi-Pistes - COMPLÉTÉ
+# Étape 4: Corrélations Météo dans Insights - ✅ COMPLÉTÉ
 
-## Date: 2026-01-23
+## Date: 2026-01-31
 
 ## Objectif
-Créer une vue timeline synchronisée avec 3 pistes horizontales (repas, douleurs, selles) pour visualiser les corrélations temporelles entre événements.
+Corriger l'extraction de données météo et afficher les corrélations météo dans la page Insights avec catégorisation (Froid, Chaud, Humide, Sec).
+
+## Statut
+✅ **COMPLÉTÉ** - Extraction corrigée et catégorisation implémentée
+
+## Modifications Apportées
+
+### lib/insights_page.dart (Lignes 308-365)
+**Problème corrigé**: Code extrait incorrectement `contextData['weather']['condition']` mais les données sont stockées en format plat dans `context_data` JSON.
+
+**Structure des données (demo + background service)**:
+```json
+{
+  "temperature": "14.5",
+  "humidity": "65",
+  "pressure": "1005.0",
+  "weather": "rainy"
+}
+```
+
+**Correction implémentée**:
+1. **Extraction directe** des champs: `contextData['temperature']`, `contextData['humidity']`, etc.
+2. **Conversion robuste**: Type checking avec fallback `double.tryParse()` pour gérer String/num
+3. **Catégorisation multi-dimensionnelle**:
+   - 🥶 **Température**:
+     * Froid (<12°C)
+     * Chaud (>28°C)
+   - 💧 **Humidité**:
+     * Humidité élevée (>75%)
+     * Air sec (<40%)
+   - 🌡️ **Pression**:
+     * Basse pression (<1000 hPa)
+     * Haute pression (>1020 hPa)
+   - ☁️ **Conditions**:
+     * Pluie
+     * Nuageux
+
+**Code clé**:
+```dart
+// Parse avec fallback
+final temp = tempRaw is num 
+    ? tempRaw.toDouble() 
+    : (double.tryParse(tempRaw?.toString() ?? '') ?? 20.0);
+
+// Catégorisation multidimensionnelle (un symptôme peut avoir plusieurs catégories)
+if (temp < 12.0) weatherCategories.add('Froid (<12°C)');
+if (humidity > 75.0) weatherCategories.add('Humidité élevée (>75%)');
+// ... etc
+```
+
+## Fonctionnalités Existantes Confirmées
+
+### UI Section (Lignes 790-798)
+- ✅ Section "Conditions Météo" avec icône `Icons.wb_cloudy`
+- ✅ Affichage conditionnel: `if (analysis.weatherTriggers.isNotEmpty)`
+- ✅ Style cohérent avec les autres sections (food/tag triggers)
+
+### Export PDF/Clipboard (Lignes 1008-1020)
+- ✅ Section "CONDITIONS MÉTÉO" dans le rapport texte
+- ✅ Format: Nom + Occurrences + Fréquence (%)
+- ✅ Tri par score décroissant
+
+## Résultats Attendus
+
+Avec les données démo générées (60 jours avec cycles météo):
+- **Froid (<12°C)**: ~10-15 occurrences (hiver)
+- **Humidité élevée (>75%)**: ~12 occurrences (jours pluvieux: i%11==0 || i%13==0)
+- **Pluie**: ~12 occurrences
+- **Nuageux**: ~12 occurrences (jours nuageux: i%5==0)
+
+## Validation
+- ✅ 0 erreurs de compilation
+- ✅ Type safety: String → double conversion avec fallback
+- ✅ Catégorisation alignée avec pathologie IBD (froid → articulations)
+- ✅ UI/UX cohérent avec design existant
 
 ## Fichiers Créés
 

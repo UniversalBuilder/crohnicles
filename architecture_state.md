@@ -149,3 +149,106 @@ Clarifier la distinction entre modèles statistiques et prédictions temps réel
    - Titre générique "Entraînement statistique" (pas de nom de modèle)
 4. **Validation**: App démarre sans erreur, page Model Status fonctionnelle
 
+## 2026-01-31 - Correction Corrélations Météo dans Insights
+
+### Changements
+1. **Fix Critique: Extraction Weather Data (insights_page.dart lignes 308-365)**
+   - **Problème**: Code utilisait `contextData['weather']['condition']` (structure imbriquée inexistante)
+   - **Réalité**: Données stockées en format plat JSON dans `context_data`:
+     ```json
+     {
+       "temperature": "14.5",
+       "humidity": "65", 
+       "pressure": "1005.0",
+       "weather": "rainy"
+     }
+     ```
+   - **Solution**: Accès direct aux champs avec conversion robuste String/num
+
+2. **Catégorisation Multi-Dimensionnelle**
+   - Un événement peut avoir plusieurs catégories météo simultanées
+   - **Température**: Froid (<12°C), Chaud (>28°C)
+   - **Humidité**: Humidité élevée (>75%), Air sec (<40%)
+   - **Pression**: Basse pression (<1000 hPa), Haute pression (>1020 hPa)
+   - **Conditions**: Pluie, Nuageux
+   - Seuils alignés avec pathologie IBD (froid → douleurs articulaires)
+
+3. **Type Safety**
+   - Gestion hybride String/num avec fallback:
+     ```dart
+     final temp = tempRaw is num 
+         ? tempRaw.toDouble() 
+         : (double.tryParse(tempRaw?.toString() ?? '') ?? 20.0);
+     ```
+   - Évite crashes sur données générées (demo: String) vs API (num)
+
+4. **Validation**
+   - UI Section existante confirmée (ligne 790-798): "Conditions Météo" avec icône `Icons.wb_cloudy`
+   - Export fonctionnel (ligne 1008-1020): Section "CONDITIONS MÉTÉO" dans rapport texte
+   - 0 erreurs de compilation, 195 infos warnings inchangés
+   - weatherTriggers désormais populating correctement avec données démo
+
+### Dette Technique Résolue
+✅ **weatherTriggers vide corrigé** (bug d'extraction JSON)
+✅ **Type safety amélioré** (String vs num géré)
+✅ **Catégorisation multi-facteurs** (température + humidité + pression + conditions)
+
+## 2026-01-31 - Amélioration Données Démo (v9 → v10)
+
+### Objectif
+Renforcer les corrélations météo-articulaires et démontrer toutes les fonctionnalités de l'app.
+
+### Changements
+
+1. **Weather Context Amélioré**
+   - Plage de température élargie: 2-32°C (vs 5-30°C)
+   - Amplitude saisonnière: ±12°C (vs ±10°C)
+   - Variabilité quotidienne: ±3.5°C (vs ±3°C)
+   - Humidity range: 35-95% (vs 40-90%)
+   - Pression atmosphérique: 985-1030 hPa (baisse réaliste pendant pluie)
+
+2. **Tracking Cumulatif**
+   - Compteurs `consecutiveColdDays` et `consecutiveRainyDays`
+   - Effet cumulatif: Sévérité des douleurs articulaires augmente après 3+ jours de froid (+2 points)
+
+3. **Corrélations Météo Renforcées**
+   - **Froid (<12°C) → Douleurs articulaires**: 75% probabilité (vs 60%)
+     * 5 localisations variées: Genoux, Mains, Poignets, Chevilles, Hanches
+     * Timing variable sur toute la journée
+   - **Très froid (<8°C) → Raideur matinale**: 50% (NOUVEAU)
+     * Durée variable 30-60 minutes
+   - **Humidité élevée (>75%) → Fatigue**: 60% (vs 40%)
+   - **Pluie + Basse pression (<1000 hPa) → Maux de tête**: 50% (vs 30%)
+   - **Chaleur (>28°C) → Fatigue & Vertiges**: 40% (NOUVEAU)
+     * Symptômes de déshydratation
+
+4. **Daily Checkup**
+   - Ajout d'événements `daily_checkup` chaque 7 jours
+   - Contient: mood, sleep_quality, stress_level, notes
+   - Notes contextualisées selon météo
+   - Démonstration de la fonctionnalité checkup
+
+5. **Metadata Structure**
+   - Champ `zone` ajouté pour faciliter l'analyse par zone
+   - Flag `weather_triggered: true` pour identifier les symptômes météo
+   - Champs spécifiques: `location` (articulations), `duration_minutes` (raideur)
+
+### Résultats
+
+Sur 101 jours générés (vs 60 avant):
+- ~25-30 événements de douleurs articulaires liées au froid
+- ~10 événements de raideur matinale
+- ~15 événements de fatigue (humidité)
+- ~10 événements de maux de tête (pression)
+- ~8 événements de fatigue/vertiges (chaleur)
+- 14 daily_checkups (hebdomadaires)
+
+**Total: ~400-450 événements** pour démonstration complète de toutes les fonctionnalités.
+
+### Validation
+✅ 0 erreurs de compilation
+✅ Corrélations météo-articulaires beaucoup plus visibles dans Insights
+✅ Variété de symptômes et localisations
+✅ Effet cumulatif du froid démontré
+✅ Toutes les fonctionnalités démontrées (meal, symptom, stool, daily_checkup)
+

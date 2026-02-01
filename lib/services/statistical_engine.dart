@@ -59,8 +59,6 @@ class StatisticalEngine {
       }
 
       // 2. Compute Correlations (P(Symptom | Feature))
-      // Map<SymptomType, Map<FeatureName, Probability>>
-      final stats = <String, Map<String, double>>{};
       
       // Initialize counters
       // Map<FeatureName, Count>

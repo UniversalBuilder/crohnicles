@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'logs_page.dart';
 import 'ml/model_status_page.dart';
 import 'methodology_page.dart';
 import 'about_page.dart';
 import 'database_helper.dart';
-import 'services/training_service.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -108,7 +106,7 @@ class SettingsPage extends StatelessWidget {
             context,
             icon: Icons.restore,
             title: 'Générer Données Démo',
-            subtitle: 'Ajoute 30 jours de données fictives',
+            subtitle: 'Ajoute 100 jours de données fictives réalistes',
             onTap: () => _showGenerateDemoDialog(context),
           ),
            _buildSettingsTile(
@@ -195,15 +193,16 @@ class SettingsPage extends StatelessWidget {
   void _showGenerateDemoDialog(BuildContext context) {
     showDialog(
        context: context,
-       builder: (context) => AlertDialog(
+       builder: (dialogContext) => AlertDialog(
          title: const Text('🎲 Générer Démo'),
-         content: const Text('Ceci va générer 30 jours d\'historique fictif.'),
+         content: const Text('Ceci va générer 100 jours d\'historique fictif avec météo et corrélations réalistes.'),
          actions: [
-           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+           TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Annuler')),
            TextButton(
              onPressed: () async {
-               Navigator.pop(context);
+               Navigator.pop(dialogContext);
                await DatabaseHelper().generateDemoData();
+               if (!context.mounted) return;
                ScaffoldMessenger.of(context).showSnackBar(
                  const SnackBar(content: Text('✅ Données générées')),
                );

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:workmanager/workmanager.dart';
 import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart';
@@ -91,7 +90,7 @@ void callbackDispatcher() {
               'type': 'context_log',
               'dateTime': DateTime.now().toIso8601String(),
               'title': 'Relevé Météo Auto',
-              'notes': 'Relevé automatique',
+              'subtitle': 'Relevé automatique',
               'severity': 0,
               'meta_data': '{"temperature": ${data['temperature_2m']}, "pressure": ${data['surface_pressure']}, "humidity": ${data['relative_humidity_2m']}, "weather_code": ${data['weather_code']}, "source": "background"}',
               'imagePath': null,

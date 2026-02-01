@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:io'; 
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import '../database_helper.dart';
 import '../event_model.dart';
 import '../models/context_model.dart';
 import '../symptom_taxonomy.dart';
@@ -177,8 +175,6 @@ class ModelMetadata {
 
 /// Manages statistical model loading and inference
 class ModelManager {
-  final DatabaseHelper _db = DatabaseHelper();
-
   Map<String, Map<String, Map<String, double>>> _loadedStats = {};
   bool _isInitialized = false;
   bool _isTrainedModelLoaded = false;

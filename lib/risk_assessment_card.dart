@@ -144,7 +144,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         boxShadow: [
           BoxShadow(
@@ -210,18 +210,27 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                 Container(
                   height: 50,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
                     itemCount: widget.predictions.length,
                     itemBuilder: (context, index) {
                       final pred = widget.predictions[index];
                       final isSelected = _tabController.index == index;
-                      
+
                       return GestureDetector(
                         onTap: () {
                           setState(() {
@@ -230,9 +239,12 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                         },
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
-                            gradient: isSelected 
+                            gradient: isSelected
                                 ? AppColors.mealGradient.scale(0.15)
                                 : null,
                             color: isSelected ? null : Colors.grey.shade50,
@@ -241,16 +253,24 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(pred.riskEmoji, style: const TextStyle(fontSize: 16)),
+                              Text(
+                                pred.riskEmoji,
+                                style: const TextStyle(fontSize: 16),
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 _getSymptomName(pred.symptomType),
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                                  color: isSelected 
-                                      ? AppColors.mealGradient.colors.first 
-                                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                      color: isSelected
+                                          ? AppColors.mealGradient.colors.first
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                    ),
                               ),
                             ],
                           ),
@@ -356,14 +376,18 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 20),
+                Icon(
+                  Icons.info_outline,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     prediction.explanation,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      height: 1.5,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(height: 1.5),
                   ),
                 ),
               ],
@@ -442,9 +466,9 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                       : prediction.riskLevel == "medium"
                       ? "modéré"
                       : "élevé"}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: color,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(color: color),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -491,9 +515,9 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
           Expanded(
             child: Text(
               factor.humanReadable,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
           ),
           Container(
@@ -553,9 +577,9 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
           const SizedBox(height: 6),
           Text(
             meal.tags.take(2).join(', '),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -579,7 +603,9 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
             children: [
               Text(
                 'Crohnicles utilise l\'intelligence artificielle pour analyser vos repas et prédire les risques de symptômes.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(height: 1.5),
               ),
               const SizedBox(height: 16),
               _buildExplanationPoint(
@@ -652,13 +678,16 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
             if (food is Map && food.containsKey('name')) {
               name = food['name'];
             }
-            
+
             List<String> tags = [];
             if (food is Map && food.containsKey('tags')) {
               if (food['tags'] is List) {
-                 tags = (food['tags'] as List).map((e) => e.toString()).toList();
+                tags = (food['tags'] as List).map((e) => e.toString()).toList();
               } else if (food['tags'] is String) {
-                 tags = (food['tags'] as String).split(',').where((e) => e.isNotEmpty).toList();
+                tags = (food['tags'] as String)
+                    .split(',')
+                    .where((e) => e.isNotEmpty)
+                    .toList();
               }
             }
 
@@ -680,13 +709,15 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isRisky 
+                color: isRisky
                     ? Theme.of(context).colorScheme.error.withValues(alpha: 0.1)
                     : Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isRisky 
-                      ? Theme.of(context).colorScheme.error.withValues(alpha: 0.3)
+                  color: isRisky
+                      ? Theme.of(
+                          context,
+                        ).colorScheme.error.withValues(alpha: 0.3)
                       : Theme.of(context).colorScheme.outline,
                 ),
               ),
@@ -706,26 +737,29 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                       children: [
                         Text(
                           name,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         if (tags.isNotEmpty)
                           Text(
                             tags.join(', '),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
                           ),
                         if (isRisky && foodRiskyTags.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
                               '⚠️ Potentiellement risqué: ${foodRiskyTags.join(', ')}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.error,
-                                fontWeight: FontWeight.w500,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                             ),
                           ),
                       ],
@@ -761,9 +795,9 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
               children: [
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(

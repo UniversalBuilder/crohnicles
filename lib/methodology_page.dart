@@ -11,15 +11,9 @@ class MethodologyPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           'Comment ça marche ?',
-          style: GoogleFonts.manrope(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
+          style: GoogleFonts.manrope(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -32,7 +26,7 @@ class MethodologyPage extends StatelessWidget {
               "Crohnicles analyse vos données personnelles pour identifier des corrélations entre vos repas et vos symptômes. Tout est calculé localement sur votre appareil.",
             ),
             const SizedBox(height: 24),
-            
+
             _buildCard(
               context: context,
               title: "1. Corrélations Statistiques",
@@ -48,7 +42,7 @@ L'application analyse votre historique personnel :
 Exemple : Si vous avez mangé 10 fois du gluten et eu 6 fois des douleurs dans les 8h, le risque sera de 60% avec confiance de 100%.
               """,
             ),
-             const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             _buildCard(
               context: context,
@@ -66,7 +60,7 @@ Dès que possible, entraînez le modèle statistique pour des prédictions perso
               """,
             ),
             const SizedBox(height: 16),
-             _buildCard(
+            _buildCard(
               context: context,
               title: "3. Entraînement du Modèle",
               icon: Icons.psychology,
@@ -81,8 +75,8 @@ Vous pouvez entraîner le modèle statistique manuellement (bouton 🧠 dans le 
 Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
               """,
             ),
-            
-             const SizedBox(height: 24),
+
+            const SizedBox(height: 24),
             _buildSectionTitle('🔍 Transparence'),
             _buildSectionText(
               context,

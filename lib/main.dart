@@ -28,6 +28,10 @@ import 'package:crohnicles/symptom_dialog.dart';
 import 'package:crohnicles/vertical_timeline_page.dart';
 import 'package:crohnicles/ml/model_manager.dart';
 import 'package:crohnicles/models/context_model.dart';
+import 'package:crohnicles/about_page.dart';
+import 'package:crohnicles/methodology_page.dart';
+import 'package:crohnicles/logs_page.dart';
+import 'package:crohnicles/ml/model_status_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,6 +84,15 @@ class MyApp extends StatelessWidget {
         themeMode: themeProvider.themeMode,
         home: const ResponsiveWrapper(child: TimelinePage()),
         debugShowCheckedModeBanner: false,
+        routes: {
+          '/about': (context) => const AboutPage(),
+          '/methodology': (context) => const MethodologyPage(),
+          '/logs': (context) => const LogsPage(),
+          '/model-status': (context) => const ModelStatusPage(),
+          '/insights': (context) => const InsightsPage(),
+          '/calendar': (context) => const CalendarPage(),
+          '/settings': (context) => const SettingsPage(),
+        },
       ),
     );
   }
@@ -186,13 +199,18 @@ class _TimelinePageState extends State<TimelinePage> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.white.withValues(alpha: 0.95),
-                        AppColors.surfaceGlass.withValues(alpha: 0.90),
+                        Theme.of(
+                          context,
+                        ).colorScheme.surface.withValues(alpha: 0.95),
+                        Theme.of(context).colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.90),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.3),
                       width: 1.5,
                     ),
                     boxShadow: [
@@ -222,17 +240,25 @@ class _TimelinePageState extends State<TimelinePage> {
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.25),
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer
+                                      .withValues(alpha: 0.5),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.4),
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primaryContainer
+                                        .withValues(alpha: 0.8),
                                     width: 1.5,
                                   ),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.bedtime,
                                   size: 28,
-                                  color: Colors.white,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -242,7 +268,9 @@ class _TimelinePageState extends State<TimelinePage> {
                                   style: Theme.of(context).textTheme.titleLarge
                                       ?.copyWith(
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.white,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimaryContainer,
                                         letterSpacing: -0.5,
                                       ),
                                 ),
@@ -1348,78 +1376,104 @@ class _TimelinePageState extends State<TimelinePage> {
   // --- WIDGETS D'AFFICHAGE ---
 
   Widget _buildDailySummary(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Aujourd'hui",
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  "Météo: Humide • 18°C",
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+    final colorScheme = Theme.of(context).colorScheme;
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: DatabaseHelper().getTodayWeather(),
+      builder: (context, snapshot) {
+        String weatherText = "Météo non disponible";
+        if (snapshot.hasData && snapshot.data != null) {
+          final tempRaw = snapshot.data!['temperature'];
+          final humidityRaw = snapshot.data!['humidity'];
+          
+          if (tempRaw != null) {
+            final temp = tempRaw is num ? tempRaw.toDouble() : double.tryParse(tempRaw.toString()) ?? 0.0;
+            weatherText = "${temp.toStringAsFixed(1)}°C";
+            
+            if (humidityRaw != null) {
+              final humidity = humidityRaw is num ? humidityRaw.toDouble() : double.tryParse(humidityRaw.toString()) ?? 0.0;
+              weatherText += " • ${humidity.toStringAsFixed(0)}% humidité";
+            }
+          }
+        }
+        
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+              width: 1,
             ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            flex: 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text("😊", style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      "Stable",
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Aujourd'hui",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      weatherText,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 13,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Flexible(
+                flex: 1,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text("😊", style: TextStyle(fontSize: 16)),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          "Stable",
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1439,12 +1493,17 @@ class _TimelinePageState extends State<TimelinePage> {
 
   Widget _buildMealCard(EventModel event) {
     bool isSnack = event.isSnack;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -1563,11 +1622,16 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 
   Widget _buildStoolCard(EventModel event) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -1615,10 +1679,10 @@ class _TimelinePageState extends State<TimelinePage> {
                     const SizedBox(height: 4),
                     Text(
                       event.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
-                        color: AppColors.textPrimary,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     Text(
@@ -1672,12 +1736,17 @@ class _TimelinePageState extends State<TimelinePage> {
 
   Widget _buildSymptomCard(EventModel event) {
     final color = AppColors.pain;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -1725,10 +1794,10 @@ class _TimelinePageState extends State<TimelinePage> {
                     const SizedBox(height: 4),
                     Text(
                       event.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
-                        color: AppColors.textPrimary,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1745,12 +1814,17 @@ class _TimelinePageState extends State<TimelinePage> {
 
   Widget _buildCheckupCard(EventModel event) {
     final color = AppColors.checkup;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -1798,10 +1872,10 @@ class _TimelinePageState extends State<TimelinePage> {
                     const SizedBox(height: 4),
                     Text(
                       event.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
-                        color: AppColors.textPrimary,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                     if (event.tags.isNotEmpty) ...[

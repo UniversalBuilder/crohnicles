@@ -4,7 +4,7 @@ import 'app_theme.dart';
 
 /// Reusable glassmorphic dialog wrapper with gradient header
 /// Provides consistent 2026 Sci-Fi Cyber aesthetic across all dialogs
-/// 
+///
 /// Dark mode optimization:
 /// - Blur disabled in dark mode for performance (sigmaX/Y = 0)
 /// - Colors adapted from colorScheme for theme consistency
@@ -33,22 +33,16 @@ class GlassmorphicDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    
+
     // Blur disabled in dark mode for performance
     final blurSigma = isDark ? 0.0 : 10.0;
-    
+
     return Dialog(
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: maxWidth,
-          maxHeight: maxHeight,
-        ),
+        constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
         child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: blurSigma,
-            sigmaY: blurSigma,
-          ),
+          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -56,36 +50,25 @@ class GlassmorphicDialog extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [
                   colorScheme.surface.withValues(alpha: 0.95),
-                  (isDark 
-                    ? colorScheme.surfaceContainerHigh 
-                    : colorScheme.surfaceContainer).withValues(alpha: 0.90),
+                  (isDark
+                          ? colorScheme.surfaceContainerHigh
+                          : colorScheme.surfaceContainer)
+                      .withValues(alpha: 0.90),
                 ],
               ),
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Gradient header
-                  _buildHeader(context),
-                  
-                  // Content
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: content,
-                    ),
-                  ),
-                  
-                  // Actions
-                  if (actions != null && actions!.isNotEmpty)
-                    _buildActions(context),
-                ],
-              )rossAxisAlignment: CrossAxisAlignment.stretch,
+                color: colorScheme.outline.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Gradient header
                 _buildHeader(context),
-                
+
                 // Content
                 Flexible(
                   child: SingleChildScrollView(
@@ -93,7 +76,7 @@ class GlassmorphicDialog extends StatelessWidget {
                     child: content,
                   ),
                 ),
-                
+
                 // Actions
                 if (actions != null && actions!.isNotEmpty)
                   _buildActions(context),
@@ -107,37 +90,39 @@ class GlassmorphicDialog extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: headerGradient,
-      ),
+      decoration: BoxDecoration(gradient: headerGradient),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Row(
         children: [
-          // Icon container with white glass effect
+          // Icon container with glass effect
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
+              color: Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.4),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withValues(alpha: 0.8),
                 width: 1.5,
               ),
             ),
             child: Icon(
               headerIcon,
               size: 28,
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
             ),
           ),
           const SizedBox(width: 16),
-          
+
           // Title
           Expanded(
             child: Text(
               title,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.5,
               ),
@@ -148,15 +133,15 @@ class GlassmorphicDialog extends StatelessWidget {
     );
   }
 
-  Wifinal colorScheme = Theme.of(context).colorScheme;
-    
+  Widget _buildActions(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.5
-            color: Colors.black.withValues(alpha: 0.06),
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
             width: 1,
           ),
         ),
@@ -203,31 +188,29 @@ class GradientDialogButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
         ),
       );
     }
 
     // Primary button with gradient
     final buttonGradient = gradient ?? AppColors.primaryGradient;
-    
+
     return Container(
       decoration: BoxDecoration(
         gradient: buttonGradient,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: (gradient == AppColors.mealGradient
-                    ? AppColors.mealStart
-                    : gradient == AppColors.painGradient
+            color:
+                (gradient == AppColors.mealGradient
+                        ? AppColors.mealStart
+                        : gradient == AppColors.painGradient
                         ? AppColors.painStart
                         : gradient == AppColors.stoolGradient
-                            ? AppColors.stoolStart
-                            : AppColors.primaryStart)
-                .withValues(alpha: 0.3),
+                        ? AppColors.stoolStart
+                        : AppColors.primaryStart)
+                    .withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
