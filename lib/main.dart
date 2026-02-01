@@ -619,20 +619,26 @@ class _TimelinePageState extends State<TimelinePage> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+        
         return Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.white, AppColors.surfaceGlass],
-            ),
+            color: colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             border: Border(
               top: BorderSide(
-                color: Colors.white.withValues(alpha: 0.3),
+                color: colorScheme.outlineVariant,
                 width: 1.5,
               ),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.onSurface.withValues(alpha: 0.1),
+                blurRadius: 20,
+                offset: const Offset(0, -4),
+              ),
+            ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(24),

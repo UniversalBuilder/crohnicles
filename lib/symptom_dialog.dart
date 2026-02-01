@@ -414,18 +414,20 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                       if (selectedAbdomenZones.isNotEmpty ||
                           selectedGeneralZones.isNotEmpty)
                         Container(
-                          constraints: const BoxConstraints(maxHeight: 250),
-                          padding: const EdgeInsets.all(24),
+                          constraints: const BoxConstraints(maxHeight: 180),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                           decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                             border: Border(
                               top: BorderSide(
-                                color: Colors.black.withValues(alpha: 0.06),
+                                color: colorScheme.outlineVariant,
                                 width: 1,
                               ),
                             ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 "Intensité par zone",
@@ -433,9 +435,10 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              Expanded(
+                              const SizedBox(height: 8),
+                              Flexible(
                                 child: ListView(
+                                  shrinkWrap: true,
                                   children: [
                                     ...selectedAbdomenZones.map(
                                       (zone) => _buildZoneSeverityRow(zone),

@@ -247,7 +247,11 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
                             gradient: isSelected
                                 ? AppColors.mealGradient.scale(0.15)
                                 : null,
-                            color: isSelected ? null : Colors.grey.shade50,
+                            color: isSelected
+                                ? null
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
@@ -307,7 +311,7 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -370,9 +374,14 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.5),
+              ),
             ),
             child: Row(
               children: [
@@ -493,13 +502,16 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
   }
 
   Widget _buildFactorItem(TopFactor factor) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         children: [
@@ -540,14 +552,17 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
   }
 
   Widget _buildSimilarMealCard(EventModel meal) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: 160,
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
