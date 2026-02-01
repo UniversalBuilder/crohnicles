@@ -46,12 +46,33 @@ Avant d'écrire la moindre ligne de code pour une nouvelle fonctionnalité ou un
 * **Parité Python/Dart :** Les features extraites dans `feature_extractor.dart` doivent correspondre EXACTEMENT (noms et ordre) à celles du script `train_models.py`.
 * **Impact des changements :** Si tu ajoutes un champ au modèle `Repas`, tu DOIS mettre à jour `extractMealFeatures` pour que le modèle ML puisse l'utiliser.
 
+### Clarté des Corrélations Météo (RÈGLE ABSOLUE)
+* **Obligation d'explication utilisateur :** JAMAIS afficher un pourcentage/statistique sans contexte.
+* **Informations obligatoires pour chaque corrélation :**
+    1. **Corrélation brute :** "12 jours froids sur 15 avaient des douleurs articulaires (80%)"
+    2. **Baseline comparative :** "Votre taux habituel de douleurs articulaires : 35%"
+    3. **Signification claire :** Badge/icône indiquant force (Forte/Modérée/Faible/Aucune)
+    4. **Fiabilité/Taille échantillon :** Badge (Fiable ≥10 jours, Indicatif 5-9, Insuffisant <5)
+    5. **Type de symptôme spécifique :** Séparer Articulaires, Fatigue, Digestif (pas "tous symptômes")
+* **Terminologie précise :** Utiliser "probabilité" ou "fréquence", JAMAIS "corrélation" seul (ambigu).
+* **Graphiques :** Toujours inclure légende, axes nommés, et tooltip explicatif au hover.
+
 ---
 
 ## 2. STANDARDS DE DÉVELOPPEMENT (VIBE CODING)
 
-### UI & UX (Windows/Mobile)
+### UI & UX (Mobile-First: Android/iOS/Windows)
+* **PRIORITÉ DE TEST (ordre strict) :**
+    1. **Android Emulator** (plateforme principale, tester en premier)
+    2. **iOS Simulator** (validation secondaire)
+    3. **Windows Desktop** (développement rapide uniquement)
+    * Rationale : App mobile-first pour suivi quotidien santé
 * **Glassmorphism :** Utilise `BackdropFilter` et des couleurs avec alpha (`.withValues(alpha: 0.3)`).
+* **Mobile Constraints (Android/iOS) :**
+    * Material Design 3 pour Android, respect Human Interface Guidelines iOS
+    * Navigation gestures : back swipe (iOS), back button (Android)
+    * SafeArea obligatoire pour notch/island/navigation bar
+    * Responsive : LayoutBuilder pour adapter tablet/phone
 * **Desktop/Windows Constraints :**
     * PAS de `SingleChildScrollView` horizontal (inutilisable à la souris). Utilise `Wrap`.
     * Dialogs : Utilise `constraints: BoxConstraints(maxHeight: ...)` pour éviter les débordements.

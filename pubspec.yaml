@@ -67,6 +67,10 @@ dependencies:
   url_launcher: ^6.3.1
   # geolocator: ^13.0.2  # Commented out - requires NuGet on Windows
   
+  # PDF Generation
+  pdf: ^3.11.1
+  printing: ^5.13.4
+  
   # Background Tasks
   # workmanager: ^0.5.2  # Disabled for Android build issues
   

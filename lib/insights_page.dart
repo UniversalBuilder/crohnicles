@@ -13,8 +13,10 @@ import 'package:intl/intl.dart';
 import 'ml/model_manager.dart';
 import 'event_detail_page.dart';
 import 'services/training_service.dart';
+import 'services/pdf_export_service.dart';
 import 'ml/model_status_page.dart';
 import 'methodology_page.dart';
+import 'widgets/weather_correlation_explanation.dart';
 
 class ZoneTriggerAnalysis {
   final String zoneName;
@@ -69,6 +71,11 @@ class _InsightsPageState extends State<InsightsPage> {
   // Weather Data
   List<Map<String, dynamic>> _weatherData = [];
   Map<String, Map<String, int>> _weatherSymptomCorrelations = {};
+  // Weather correlations by symptom type: {weatherCondition: {symptomType: {total, withSymptom}}}
+  Map<String, Map<String, Map<String, int>>> _weatherCorrelationsByType = {};
+  // Baseline percentages for each symptom type
+  Map<String, double> _symptomBaselinePercentages = {};
+  int _totalDaysAnalyzed = 0;
 
   // Analysis
   Map<String, int> _topSuspects = {};
@@ -200,6 +207,9 @@ class _InsightsPageState extends State<InsightsPage> {
         _hasModels = hasModels;
         _weatherData = weatherData['timeline'] as List<Map<String, dynamic>>;
         _weatherSymptomCorrelations = weatherData['correlations'] as Map<String, Map<String, int>>;
+        _weatherCorrelationsByType = weatherData['correlationsByType'] as Map<String, Map<String, Map<String, int>>>;
+        _symptomBaselinePercentages = weatherData['baselinePercentages'] as Map<String, double>;
+        _totalDaysAnalyzed = weatherData['totalDays'] as int;
         _isLoading = false;
       });
     }
@@ -357,9 +367,228 @@ class _InsightsPageState extends State<InsightsPage> {
     });
     print('Timeline days: ${timeline.length}');
     
+    // PHASE 3: Categorize symptoms by type and calculate per-type correlations
+    final Map<String, Map<String, Map<String, int>>> correlationsByType = {};
+    final symptomTypes = ['Articulaires', 'Fatigue', 'Digestif'];
+    
+    // Initialize structure for each weather condition and symptom type
+    for (final condition in correlations.keys) {
+      correlationsByType[condition] = {};
+      for (final type in symptomTypes) {
+        correlationsByType[condition]![type] = {'total': 0, 'withSymptom': 0};
+      }
+    }
+    
+    // First, categorize all symptoms by day and type
+    final Map<String, Set<String>> symptomsByDayAndType = {}; // dayKey -> Set of symptom types
+    final Map<String, int> symptomCountsByType = {
+      'Articulaires': 0,
+      'Fatigue': 0,
+      'Digestif': 0,
+    };
+    int totalDaysForBaseline = dayGroups.length;
+    
+    int symptomsCounted = 0;
+    int symptomsFiltered = 0;
+    for (var eventData in allEventsData) {
+      try {
+        final type = eventData['type'] as String;
+        if (type != 'symptom') continue;
+        
+        final severity = eventData['severity'] as int;
+        if (severity < 3) {
+          symptomsFiltered++;
+          continue;
+        }
+        
+        final dateTime = eventData['dateTime'] as String;
+        final eventDate = DateTime.parse(dateTime);
+        if (eventDate.isBefore(startDate)) continue;
+        
+        final dayKey = DateTime(eventDate.year, eventDate.month, eventDate.day).toIso8601String();
+        if (!dayGroups.containsKey(dayKey)) {
+          print('  [DEBUG] Symptom day $dayKey not in dayGroups');
+          continue;
+        }
+        
+        symptomsCounted++;
+        
+        // Categorize symptom based on title, subtitle, and tags
+        String? symptomType;
+        final title = (eventData['title'] as String? ?? '').toLowerCase();
+        final subtitle = (eventData['subtitle'] as String? ?? '').toLowerCase();
+        final zone = (eventData['zone'] as String? ?? '').toLowerCase();
+        final tagsRaw = eventData['tags'] as String? ?? '';
+        
+        // Parse tags: handle both JSON array and CSV format
+        List<String> tags = [];
+        if (tagsRaw.isNotEmpty) {
+          if (tagsRaw.startsWith('[')) {
+            // JSON format
+            try {
+              tags = (jsonDecode(tagsRaw) as List<dynamic>).map((e) => e.toString().toLowerCase()).toList();
+            } catch (e) {
+              // Fallback to CSV
+              tags = tagsRaw.split(',').map((t) => t.trim().toLowerCase()).toList();
+            }
+          } else {
+            // CSV format
+            tags = tagsRaw.split(',').map((t) => t.trim().toLowerCase()).toList();
+          }
+        }
+        
+        print('  [DEBUG] Processing symptom: title="$title", zone="$zone", tags=$tags, severity=$severity');
+        
+        // Articulaires: look for "articulation", "articulaire", "articulations", "genoux", "mains", etc.
+        if (title.contains('articulation') || subtitle.contains('articulation') || zone.contains('articulation') ||
+            tags.any((t) => t.contains('articulation') || t.contains('genoux') || t.contains('mains') || t.contains('pieds') || t.contains('arthralgie'))) {
+          symptomType = 'Articulaires';
+        } 
+        // Fatigue: look for "fatigue", "épuisement", "énergie"
+        else if (title.contains('fatigue') || subtitle.contains('fatigue') || zone.contains('fatigue') ||
+                   title.contains('épuisement') || subtitle.contains('épuisement') ||
+                   tags.any((t) => t.contains('fatigue') || t.contains('énergie') || t.contains('épuisement'))) {
+          symptomType = 'Fatigue';
+        } 
+        // Digestif: look for digestive symptoms
+        else if (title.contains('abdominale') || subtitle.contains('abdominale') ||
+                   title.contains('crampe') || subtitle.contains('crampe') ||
+                   title.contains('nausée') || subtitle.contains('nausée') ||
+                   title.contains('douleur') || subtitle.contains('douleur') ||
+                   title.contains('inflammation') || subtitle.contains('inflammation') ||
+                   zone.contains('abdomen') || zone.contains('intestin') ||
+                   tags.any((t) => t.contains('digestif') || t.contains('abdominale') || t.contains('inflammation') || t.contains('douleur'))) {
+          symptomType = 'Digestif';
+        } 
+        else {
+          // Default to Digestif for unclassified symptoms (most common in IBD)
+          symptomType = 'Digestif';
+        }
+        
+        print('  [DEBUG] Categorized as: $symptomType');
+        
+        symptomCountsByType[symptomType] = (symptomCountsByType[symptomType] ?? 0) + 1;
+        
+        // Mark this day as having this symptom type
+        if (!symptomsByDayAndType.containsKey(dayKey)) {
+          symptomsByDayAndType[dayKey] = {};
+        }
+        symptomsByDayAndType[dayKey]!.add(symptomType);
+      } catch (e) {
+        print('  [DEBUG] Error processing symptom: $e');
+      }
+    }
+    
+    print('  [DEBUG] Total symptoms in DB: ${allEventsData.where((e) => e['type'] == 'symptom').length}');
+    print('  [DEBUG] Symptoms filtered (severity<3): $symptomsFiltered');
+    print('  [DEBUG] Symptoms processed: $symptomsCounted');
+    
+    // Now calculate correlations: for each day with weather condition, check if it had each symptom type
+    dayGroups.forEach((dayKey, dayData) {
+      final temp = dayData['temperature'] as double?;
+      final humidity = dayData['humidity'] as double?;
+      final pressure = dayData['pressure'] as double?;
+      final weather = dayData['weather'] as String? ?? '';
+      
+      final symptomsThisDay = symptomsByDayAndType[dayKey] ?? {};
+      
+      // For each weather condition that applies to this day
+      if (temp != null && temp < 12.0) {
+        for (final type in symptomTypes) {
+          correlationsByType['Froid (<12°C)']![type]!['total'] = 
+              (correlationsByType['Froid (<12°C)']![type]!['total']! + 1);
+          if (symptomsThisDay.contains(type)) {
+            correlationsByType['Froid (<12°C)']![type]!['withSymptom'] = 
+                (correlationsByType['Froid (<12°C)']![type]!['withSymptom']! + 1);
+          }
+        }
+      }
+      
+      if (temp != null && temp > 28.0) {
+        for (final type in symptomTypes) {
+          correlationsByType['Chaud (>28°C)']![type]!['total'] = 
+              (correlationsByType['Chaud (>28°C)']![type]!['total']! + 1);
+          if (symptomsThisDay.contains(type)) {
+            correlationsByType['Chaud (>28°C)']![type]!['withSymptom'] = 
+                (correlationsByType['Chaud (>28°C)']![type]!['withSymptom']! + 1);
+          }
+        }
+      }
+      
+      if (humidity != null && humidity > 75.0) {
+        for (final type in symptomTypes) {
+          correlationsByType['Humidité élevée (>75%)']![type]!['total'] = 
+              (correlationsByType['Humidité élevée (>75%)']![type]!['total']! + 1);
+          if (symptomsThisDay.contains(type)) {
+            correlationsByType['Humidité élevée (>75%)']![type]!['withSymptom'] = 
+                (correlationsByType['Humidité élevée (>75%)']![type]!['withSymptom']! + 1);
+          }
+        }
+      }
+      
+      if (pressure != null && pressure < 1000.0) {
+        for (final type in symptomTypes) {
+          correlationsByType['Basse pression (<1000 hPa)']![type]!['total'] = 
+              (correlationsByType['Basse pression (<1000 hPa)']![type]!['total']! + 1);
+          if (symptomsThisDay.contains(type)) {
+            correlationsByType['Basse pression (<1000 hPa)']![type]!['withSymptom'] = 
+                (correlationsByType['Basse pression (<1000 hPa)']![type]!['withSymptom']! + 1);
+          }
+        }
+      }
+      
+      final weatherCondition = weather.toLowerCase();
+      if (weatherCondition.contains('rain')) {
+        for (final type in symptomTypes) {
+          correlationsByType['Pluie']![type]!['total'] = 
+              (correlationsByType['Pluie']![type]!['total']! + 1);
+          if (symptomsThisDay.contains(type)) {
+            correlationsByType['Pluie']![type]!['withSymptom'] = 
+                (correlationsByType['Pluie']![type]!['withSymptom']! + 1);
+          }
+        }
+      }
+    });
+    
+    // Calculate baseline percentages for each symptom type (days with symptom / total days)
+    final Map<String, double> baselinePercentages = {};
+    final Map<String, int> daysWithSymptomByType = {};
+    
+    symptomsByDayAndType.forEach((dayKey, types) {
+      for (final type in types) {
+        daysWithSymptomByType[type] = (daysWithSymptomByType[type] ?? 0) + 1;
+      }
+    });
+    
+    for (final type in symptomTypes) {
+      final daysWithSymptom = daysWithSymptomByType[type] ?? 0;
+      baselinePercentages[type] = totalDaysForBaseline > 0 
+          ? (daysWithSymptom / totalDaysForBaseline * 100) 
+          : 0.0;
+    }
+    
+    print('🔍 Symptom type breakdown:');
+    symptomCountsByType.forEach((type, count) {
+      final daysWithSymptom = daysWithSymptomByType[type] ?? 0;
+      print('  $type: $count symptoms over $daysWithSymptom days (${baselinePercentages[type]?.toStringAsFixed(1)}% baseline)');
+    });
+    print('🔍 Correlations by type:');
+    correlationsByType.forEach((condition, typeData) {
+      print('  $condition:');
+      typeData.forEach((type, data) {
+        if ((data['total'] ?? 0) > 0) {
+          final percentage = (data['withSymptom']! / data['total']! * 100);
+          print('    $type: ${data['withSymptom']}/${data['total']} = ${percentage.toStringAsFixed(1)}%');
+        }
+      });
+    });
+    
     return {
       'timeline': timeline,
       'correlations': correlations,
+      'correlationsByType': correlationsByType,
+      'baselinePercentages': baselinePercentages,
+      'totalDays': totalDaysForBaseline,
     };
   }
 
@@ -734,6 +963,104 @@ class _InsightsPageState extends State<InsightsPage> {
         builder: (context) => AlertDialog(
           title: const Text('Erreur'),
           content: Text('Échec de l\'entraînement: $e'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportPdf() async {
+    if (_weatherCorrelationsByType.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucune donnée météo à exporter. Veuillez d\'abord charger les analyses.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Génération du PDF...'),
+            ],
+          ),
+        ),
+      );
+
+      // Get recent symptoms for the report
+      final dbHelper = DatabaseHelper();
+      final recentEvents = await dbHelper.getEvents();
+      final recentSymptoms = recentEvents
+          .map((e) => EventModel.fromMap(e))
+          .where((e) => e.type == EventType.symptom && e.severity >= 5)
+          .take(20)
+          .toList();
+
+      // Generate PDF
+      final pdfFile = await PdfExportService.generateInsightsPdf(
+        correlationsByType: _weatherCorrelationsByType,
+        symptomBaselinePercentages: _symptomBaselinePercentages,
+        totalDaysAnalyzed: _totalDaysAnalyzed,
+        recentSymptoms: recentSymptoms,
+        patientName: null, // Could be fetched from settings if available
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      // Show success dialog with options
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('PDF généré !'),
+          content: Text('Le rapport a été enregistré :\n${pdfFile.path}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fermer'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await PdfExportService.sharePdf(pdfFile);
+              },
+              child: const Text('Partager'),
+            ),
+            if (Platform.isAndroid || Platform.isIOS)
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await PdfExportService.printPdf(pdfFile);
+                },
+                child: const Text('Imprimer'),
+              ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Erreur'),
+          content: Text('Échec de la génération du PDF: $e'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -1207,9 +1534,10 @@ class _InsightsPageState extends State<InsightsPage> {
         ),
         title: Text(
           "Tableau de Bord",
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
+            fontSize: 20,
           ),
         ),
         actions: [
@@ -1224,6 +1552,11 @@ class _InsightsPageState extends State<InsightsPage> {
                 ),
               );
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'Exporter en PDF',
+            onPressed: _isLoading ? null : _exportPdf,
           ),
           IconButton(
             icon: const Icon(Icons.psychology_outlined),
@@ -1480,35 +1813,41 @@ class _InsightsPageState extends State<InsightsPage> {
                   
                   const SizedBox(height: 16),
                   
-                  // Weather Correlations Bar Chart
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                          AppColors.surfaceGlass.withValues(alpha: 0.5),
+                  // Stacked Bar Chart - Symptom Types Breakdown (removed basic bar chart - redundant)
+                  if (_weatherCorrelationsByType.isNotEmpty) ...[
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                            AppColors.surfaceGlass.withValues(alpha: 0.5),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFF42A5F5).withValues(alpha: 0.15),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF42A5F5).withValues(alpha: 0.08),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFF42A5F5).withValues(alpha: 0.15),
-                        width: 1.5,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: SizedBox(height: 280, child: _buildWeatherStackedBarChart()),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF42A5F5).withValues(alpha: 0.08),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: SizedBox(height: 220, child: _buildWeatherCorrelationsBarChart()),
-                    ),
-                  ),
+                    const SizedBox(height: 16),
+                    
+                    // Detailed Explanations per Weather Condition
+                    ..._buildWeatherCorrelationExplanations(),
+                  ],
                   
                   const SizedBox(height: 24),
                 ],
@@ -2428,6 +2767,313 @@ class _InsightsPageState extends State<InsightsPage> {
         );
       },
     );
+  }
+
+  Widget _buildWeatherStackedBarChart() {
+    if (_weatherCorrelationsByType.isEmpty || _totalDaysAnalyzed == 0) {
+      return const Center(child: Text('Données insuffisantes pour l\'analyse par type'));
+    }
+
+    final chartColors = AppChartColors.forBrightness(context);
+    final List<BarChartGroupData> barGroups = [];
+    final symptomTypes = ['Articulaires', 'Fatigue', 'Digestif'];
+    final typeColors = {
+      'Articulaires': const Color(0xFF1E88E5), // Blue
+      'Fatigue': const Color(0xFFFF6F00), // Orange
+      'Digestif': const Color(0xFFE53935), // Red
+    };
+    
+    int index = 0;
+    final List<String> labels = [];
+    
+    _weatherCorrelationsByType.forEach((condition, typeData) {
+      // Create grouped bars (side by side) instead of stacked
+      final List<BarChartRodData> rods = [];
+      
+      int rodIndex = 0;
+      for (final type in symptomTypes) {
+        final data = typeData[type];
+        if (data == null) {
+          rodIndex++;
+          continue;
+        }
+        
+        final total = data['total'] ?? 0;
+        final withSymptom = data['withSymptom'] ?? 0;
+        final percentage = total > 0 ? (withSymptom / total * 100) : 0.0;
+        
+        rods.add(
+          BarChartRodData(
+            toY: percentage,
+            color: typeColors[type]!,
+            width: 14,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+          ),
+        );
+        rodIndex++;
+      }
+      
+      // Only add bars with data
+      if (rods.isNotEmpty) {
+        barGroups.add(
+          BarChartGroupData(
+            x: index,
+            barsSpace: 4,
+            barRods: rods,
+          ),
+        );
+        labels.add(condition);
+        index++;
+      }
+    });
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          children: [
+            const Text(
+              'Fréquence des symptômes par type selon la météo',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            // Legend
+            Wrap(
+              spacing: 16,
+              alignment: WrapAlignment.center,
+              children: symptomTypes.map((type) {
+                String label;
+                switch (type) {
+                  case 'Articulaires':
+                    label = 'Douleurs articulaires';
+                    break;
+                  case 'Fatigue':
+                    label = 'Fatigue';
+                    break;
+                  case 'Digestif':
+                    label = 'Symptômes digestifs';
+                    break;
+                  default:
+                    label = type;
+                }
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: typeColors[type],
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                  ],
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: 100,
+                  minY: 0,
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 70,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                            final label = labels[value.toInt()];
+                            // Shorten long labels for better readability
+                            String shortLabel = label;
+                            if (label == 'Humidité élevée') shortLabel = 'Humidité';
+                            if (label == 'Basse pression') shortLabel = 'B. pression';
+                            
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Transform.rotate(
+                                angle: -0.5,
+                                child: Text(
+                                  shortLabel,
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      axisNameWidget: const Padding(
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Fréquence (%)', 
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 42,
+                        interval: 20,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '${value.toInt()}%',
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+                          );
+                        },
+                      ),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: chartColors.gridLine,
+                        strokeWidth: 1,
+                      );
+                    },
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border.all(color: chartColors.axisLine, width: 1),
+                  ),
+                  barGroups: barGroups,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildWeatherCorrelationExplanations() {
+    final List<Widget> explanations = [];
+    final symptomTypes = ['Articulaires', 'Fatigue', 'Digestif'];
+    
+    _weatherCorrelationsByType.forEach((weatherCondition, typeData) {
+      // Check if this weather condition has any significant data
+      bool hasData = false;
+      for (final type in symptomTypes) {
+        final data = typeData[type];
+        if (data != null && (data['total'] ?? 0) > 0) {
+          hasData = true;
+          break;
+        }
+      }
+      
+      if (!hasData) return;
+      
+      // Create expansion tile for this weather condition
+      final List<Widget> typeExplanations = [];
+      for (final type in symptomTypes) {
+        final data = typeData[type];
+        if (data == null) continue;
+        
+        final total = data['total'] ?? 0;
+        final withSymptom = data['withSymptom'] ?? 0;
+        final baseline = _symptomBaselinePercentages[type] ?? 0.0;
+        
+        if (total > 0) {
+          typeExplanations.add(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: WeatherCorrelationExplanation(
+                weatherCondition: weatherCondition,
+                daysWithCondition: total,
+                daysWithSymptoms: withSymptom,
+                baselinePercentage: baseline,
+                symptomType: type,
+              ),
+            ),
+          );
+        }
+      }
+      
+      if (typeExplanations.isNotEmpty) {
+        explanations.add(
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                  AppColors.surfaceGlass.withValues(alpha: 0.5),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: _getWeatherColor(weatherCondition).withValues(alpha: 0.2),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _getWeatherColor(weatherCondition).withValues(alpha: 0.1),
+                  blurRadius: 15,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent,
+              ),
+              child: ExpansionTile(
+                initiallyExpanded: false,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                childrenPadding: const EdgeInsets.all(16),
+                leading: Icon(
+                  _getWeatherIcon(weatherCondition),
+                  color: _getWeatherColor(weatherCondition),
+                  size: 28,
+                ),
+                title: Text(
+                  weatherCondition,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  'Analyse détaillée par type de symptôme',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                  ),
+                ),
+                children: typeExplanations,
+              ),
+            ),
+          ),
+        );
+      }
+    });
+    
+    return explanations;
+  }
+
+  IconData _getWeatherIcon(String condition) {
+    if (condition.contains('Froid')) return Icons.ac_unit;
+    if (condition.contains('Chaud')) return Icons.wb_sunny;
+    if (condition.contains('Humidité')) return Icons.water_drop;
+    if (condition.contains('pression')) return Icons.compress;
+    if (condition.contains('Pluie')) return Icons.umbrella;
+    return Icons.wb_cloudy;
   }
 
   Color _getWeatherColor(String condition) {

@@ -167,9 +167,19 @@ class StatisticalEngine {
       // 4. Save to JSON
       await _saveStats(statsWithConfidence);
 
+      // Prepare detailed message showing all analyzed data
+      final totalEvents = meals.length + symptoms.length + stools.length;
+      final message = "Analyse statistique terminée.\n\n"
+          "📊 Données analysées :\n"
+          "• ${meals.length} repas\n"
+          "• ${symptoms.length} symptômes\n"
+          "• ${stools.length} selles\n"
+          "Total : $totalEvents événements\n\n"
+          "🔗 Corrélations identifiées : $totalCorrelations";
+
       return TrainingResult(
         success: true,
-        message: "Analyse statistique terminée.\n${meals.length} repas analysés.",
+        message: message,
         modelsCount: statsWithConfidence.length,
         correlationCount: totalCorrelations,
       );
