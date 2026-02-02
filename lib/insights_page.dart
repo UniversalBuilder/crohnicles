@@ -285,19 +285,19 @@ class _InsightsPageState extends State<InsightsPage> {
               final tempRaw = contextData['temperature'];
               final temp = tempRaw is num 
                   ? tempRaw.toDouble() 
-                  : (double.tryParse(tempRaw?.toString() ?? '') ?? null);
+                  : (double.tryParse(tempRaw?.toString() ?? ''));
               dayGroups[dayKey]!['temperature'] = temp;
               
               final humidityRaw = contextData['humidity'];
               final humidity = humidityRaw is num 
                   ? humidityRaw.toDouble() 
-                  : (double.tryParse(humidityRaw?.toString() ?? '') ?? null);
+                  : (double.tryParse(humidityRaw?.toString() ?? ''));
               dayGroups[dayKey]!['humidity'] = humidity;
               
               final pressureRaw = contextData['pressure'];
               final pressure = pressureRaw is num 
                   ? pressureRaw.toDouble() 
-                  : (double.tryParse(pressureRaw?.toString() ?? '') ?? null);
+                  : (double.tryParse(pressureRaw?.toString() ?? ''));
               dayGroups[dayKey]!['pressure'] = pressure;
               
               dayGroups[dayKey]!['weather'] = contextData['weather'] ?? '';
@@ -856,14 +856,7 @@ class _InsightsPageState extends State<InsightsPage> {
         builder: (context, scrollController) {
           return Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Theme.of(context).colorScheme.surface,
-                  AppColors.surfaceGlass.withValues(alpha: 0.8),
-                ],
-              ),
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: analysis.hasEnoughData
@@ -1523,16 +1516,8 @@ class _InsightsPageState extends State<InsightsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primaryStart.withValues(alpha: 0.9),
-                AppColors.primaryEnd.withValues(alpha: 0.8),
-              ],
-            ),
-          ),
-        ),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 0,
         title: Text(
           "Tableau de Bord",
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -1606,50 +1591,63 @@ class _InsightsPageState extends State<InsightsPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      "Courbe de Douleur (30j)",
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      height: 3,
-                      width: 60,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.painGradient,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            gradient: AppColors.painGradient,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.painStart.withValues(alpha: 0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.multiline_chart,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          "Courbe de Douleur (30j)",
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.95),
-                        AppColors.surfaceGlass.withValues(alpha: 0.5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.painStart.withValues(alpha: 0.15),
-                      width: 1.5,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                      child: SizedBox(height: 250, child: _buildPainChart()),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.painStart.withValues(alpha: 0.08),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-                    child: SizedBox(height: 250, child: _buildPainChart()),
                   ),
                 ),
 
@@ -1661,43 +1659,63 @@ class _InsightsPageState extends State<InsightsPage> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "Localisation des Douleurs",
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        height: 3,
-                        width: 60,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.painGradient,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              gradient: AppColors.painGradient,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.painStart.withValues(alpha: 0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.pie_chart,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            "Localisation des Douleurs",
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                          AppColors.surfaceGlass.withValues(alpha: 0.5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          ),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: AppColors.painStart.withValues(alpha: 0.15),
-                        width: 1.5,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: SizedBox(height: 220, child: _buildZoneChart()),
                       ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: SizedBox(height: 220, child: _buildZoneChart()),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -1707,50 +1725,63 @@ class _InsightsPageState extends State<InsightsPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      "Fréquence du Transit (30j)",
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      height: 3,
-                      width: 60,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.stoolGradient,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            gradient: AppColors.stoolGradient,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.stoolStart.withValues(alpha: 0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.bar_chart,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          "Fréquence du Transit (30j)",
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                        AppColors.surfaceGlass.withValues(alpha: 0.5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.stoolStart.withValues(alpha: 0.15),
-                      width: 1.5,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SizedBox(height: 200, child: _buildStoolChart()),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.stoolStart.withValues(alpha: 0.08),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: SizedBox(height: 200, child: _buildStoolChart()),
                   ),
                 ),
 
@@ -1761,54 +1792,67 @@ class _InsightsPageState extends State<InsightsPage> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "Corrélations Météo & Symptômes",
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        height: 3,
-                        width: 60,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF42A5F5), Color(0xFF1E88E5)],
+                      Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF42A5F5), Color(0xFF1E88E5)],
+                              ),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF42A5F5).withValues(alpha: 0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.wb_cloudy,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              size: 20,
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+                          const SizedBox(width: 12),
+                          Text(
+                            "Corrélations Météo & Symptômes",
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   
                   // Weather Timeline Chart
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.95),
-                          AppColors.surfaceGlass.withValues(alpha: 0.5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          ),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFF42A5F5).withValues(alpha: 0.15),
-                        width: 1.5,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                        child: SizedBox(height: 250, child: _buildWeatherTimelineChart()),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF42A5F5).withValues(alpha: 0.08),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-                      child: SizedBox(height: 250, child: _buildWeatherTimelineChart()),
                     ),
                   ),
                   
@@ -1816,34 +1860,30 @@ class _InsightsPageState extends State<InsightsPage> {
                   
                   // Stacked Bar Chart - Symptom Types Breakdown (removed basic bar chart - redundant)
                   if (_weatherCorrelationsByType.isNotEmpty) ...[
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                            AppColors.surfaceGlass.withValues(alpha: 0.5),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 15,
+                              offset: const Offset(0, 5),
+                            ),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: const Color(0xFF42A5F5).withValues(alpha: 0.15),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF42A5F5).withValues(alpha: 0.08),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: SizedBox(height: 280, child: _buildWeatherStackedBarChart()),
                       ),
                     ),
+                  ),
                     const SizedBox(height: 16),
                     
                     // Detailed Explanations per Weather Condition
@@ -2028,16 +2068,19 @@ class _InsightsPageState extends State<InsightsPage> {
     if (_topSuspects.isEmpty) {
       return Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-              AppColors.surfaceGlass.withValues(alpha: 0.5),
-            ],
-          ),
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Theme.of(context).colorScheme.outline, width: 1.5),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         padding: const EdgeInsets.all(16),
         child: Text(
@@ -2050,24 +2093,17 @@ class _InsightsPageState extends State<InsightsPage> {
     }
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primaryStart.withValues(alpha: 0.08),
-            Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-          ],
-        ),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.primaryStart.withValues(alpha: 0.2),
-          width: 1.5,
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryStart.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -2643,7 +2679,12 @@ class _InsightsPageState extends State<InsightsPage> {
               ),
             ],
             minY: 0,
-            maxY: tempSpots.isEmpty ? 30 : tempSpots.map((s) => s.y).reduce((a, b) => a > b ? a : b) + 5,
+            maxY: () {
+              if (tempSpots.isEmpty && symptomSpots.isEmpty) return 30.0;
+              final maxTemp = tempSpots.isEmpty ? 0.0 : tempSpots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
+              final maxSymptoms = symptomSpots.isEmpty ? 0.0 : symptomSpots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
+              return (maxTemp > maxSymptoms ? maxTemp : maxSymptoms) + 5;
+            }(),
           ),
         );
       },
@@ -3009,24 +3050,17 @@ class _InsightsPageState extends State<InsightsPage> {
           Container(
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                  AppColors.surfaceGlass.withValues(alpha: 0.5),
-                ],
-              ),
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: _getWeatherColor(weatherCondition).withValues(alpha: 0.2),
-                width: 1.5,
+                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+                width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _getWeatherColor(weatherCondition).withValues(alpha: 0.1),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 15,
-                  offset: const Offset(0, 4),
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
@@ -3089,24 +3123,17 @@ class _InsightsPageState extends State<InsightsPage> {
   Widget _buildMLPredictionsCard() {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-            AppColors.surfaceGlass.withValues(alpha: 0.5),
-          ],
-        ),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.primaryStart.withValues(alpha: 0.15),
-          width: 1.5,
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryStart.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -3231,24 +3258,17 @@ class _InsightsPageState extends State<InsightsPage> {
 
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-            AppColors.surfaceGlass.withValues(alpha: 0.5),
-          ],
-        ),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.15),
-          width: 1.5,
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),

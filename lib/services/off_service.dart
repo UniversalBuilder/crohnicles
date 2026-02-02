@@ -70,10 +70,10 @@ class OFFService {
       await _saveToCache(barcode, food);
 
       return food;
-    } on SocketException catch (e) {
+    } on SocketException {
       // Network error - return null silently
       return null;
-    } on TimeoutException catch (e) {
+    } on TimeoutException {
       // Timeout - return null silently
       return null;
     } catch (e) {
@@ -125,10 +125,10 @@ class OFFService {
             (product) => _mapProductToFoodModel(product, product['code'] ?? ''),
           )
           .toList();
-    } on SocketException catch (e) {
+    } on SocketException {
       // Network error - return empty list
       return [];
-    } on TimeoutException catch (e) {
+    } on TimeoutException {
       // Timeout - return empty list
       return [];
     } catch (e) {

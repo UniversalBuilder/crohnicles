@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'event_model.dart';
 import 'database_helper.dart';
-import 'app_theme.dart';
 import 'package:crohnicles/themes/app_gradients.dart';
 
 /// Vertical timeline view with central axis, meals on right, symptoms/stools on left

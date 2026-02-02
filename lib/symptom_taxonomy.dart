@@ -1,6 +1,6 @@
 /// Unified symptom taxonomy for ML training
 /// Maps symptom categories to model types and provides metadata
-library symptom_taxonomy;
+library;
 
 class SymptomModelConfig {
   final String modelKey;

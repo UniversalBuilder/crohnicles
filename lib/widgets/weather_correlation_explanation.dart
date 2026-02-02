@@ -269,7 +269,7 @@ class WeatherCorrelationExplanation extends StatelessWidget {
       } else if (strength == 'Modérée') {
         return 'Corrélation modérée : $symptomLabelPossessif ${symptomType == 'Fatigue' ? 'semble' : 'semblent'} plus ${symptomType == 'Fatigue' ? 'fréquente' : 'fréquents'} durant ${_getConditionText()}.';
       } else {
-        return 'Faible tendance : légère augmentation ${symptomType == 'Fatigue' ? 'de la fatigue' : 'des ' + symptomLabel} durant ${_getConditionText()}.';
+        return 'Faible tendance : légère augmentation ${symptomType == 'Fatigue' ? 'de la fatigue' : 'des $symptomLabel'} durant ${_getConditionText()}.';
       }
     } else {
       // Corrélation négative (protectrice)
@@ -278,7 +278,7 @@ class WeatherCorrelationExplanation extends StatelessWidget {
       } else if (strength == 'Modérée') {
         return 'Effet protecteur modéré : $symptomLabelPossessif ${symptomType == 'Fatigue' ? 'semble' : 'semblent'} moins ${symptomType == 'Fatigue' ? 'fréquente' : 'fréquents'} durant ${_getConditionText()}.';
       } else {
-        return 'Faible tendance protectrice : légère diminution ${symptomType == 'Fatigue' ? 'de la fatigue' : 'des ' + symptomLabel} durant ${_getConditionText()}.';
+        return 'Faible tendance protectrice : légère diminution ${symptomType == 'Fatigue' ? 'de la fatigue' : 'des $symptomLabel'} durant ${_getConditionText()}.';
       }
     }
   }

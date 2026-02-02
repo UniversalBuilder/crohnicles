@@ -175,7 +175,7 @@ class ModelMetadata {
 
 /// Manages statistical model loading and inference
 class ModelManager {
-  Map<String, Map<String, Map<String, double>>> _loadedStats = {};
+  final Map<String, Map<String, Map<String, double>>> _loadedStats = {};
   bool _isInitialized = false;
   bool _isTrainedModelLoaded = false;
 

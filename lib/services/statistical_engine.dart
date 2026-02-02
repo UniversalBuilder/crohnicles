@@ -113,8 +113,9 @@ class StatisticalEngine {
             String? symptomType;
             
             if (s.type == EventType.symptom) {
-              if (s.tags.contains('Douleur abdominale') || s.tags.contains('pain')) symptomType = 'pain';
-              else if (s.tags.contains('Ballonnement') || s.tags.contains('bloating')) symptomType = 'bloating';
+              if (s.tags.contains('Douleur abdominale') || s.tags.contains('pain')) {
+                symptomType = 'pain';
+              } else if (s.tags.contains('Ballonnement') || s.tags.contains('bloating')) symptomType = 'bloating';
               else if (s.tags.contains('Diarrhée') || s.tags.contains('diarrhea')) symptomType = 'diarrhea';
             } else if (s.type == EventType.stool) {
                // Consider Bristol Type 6 & 7 or Urgent as Diarrhea risk
