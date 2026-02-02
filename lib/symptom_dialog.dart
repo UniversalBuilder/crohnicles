@@ -152,24 +152,17 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
         constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                colorScheme.surface.withValues(alpha: 0.95),
-                AppColors.surfaceGlass.withValues(alpha: 0.90),
-              ],
-            ),
+            color: colorScheme.surface,
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: colorScheme.surface.withValues(alpha: 0.3),
-              width: 1.5,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+              width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: colorScheme.onSurface.withValues(alpha: 0.1),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
@@ -181,7 +174,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                 // Gradient header
                 Container(
                   decoration: BoxDecoration(
-                    gradient: AppGradients.pain(brightness),
+                    color: AppColors.painStart,
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -378,7 +371,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                     unselectedLabelColor: colorScheme.onSurfaceVariant,
                     indicatorSize: TabBarIndicatorSize.tab,
                     indicator: BoxDecoration(
-                      gradient: AppGradients.pain(brightness).scale(0.15),
+                      color: AppColors.painStart.withValues(alpha: 0.15),
                       border: Border(
                         bottom: BorderSide(
                           color: colorScheme.error,
@@ -490,7 +483,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                       const SizedBox(width: 12),
                       Container(
                         decoration: BoxDecoration(
-                          gradient: AppGradients.pain(brightness),
+                          color: AppColors.painStart,
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
@@ -631,13 +624,10 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                 },
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: isSelected ? AppGradients.pain(brightness) : null,
-                    color: isSelected ? null : colorScheme.surfaceContainerHighest,
+                    color: isSelected ? AppColors.painStart : colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isSelected
-                          ? Colors.transparent
-                          : colorScheme.outline,
+                      color: isSelected ? Colors.transparent : colorScheme.outline,
                       width: 1.5,
                     ),
                     boxShadow: isSelected
@@ -681,23 +671,25 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  colorScheme.error.withValues(alpha: 0.1),
-                  colorScheme.error.withValues(alpha: 0.05),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(16),
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: colorScheme.error.withValues(alpha: 0.2),
-                width: 1.5,
+                color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                width: 1,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
             child: ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: AppGradients.pain(brightness).scale(0.4),
+                  color: AppColors.painStart.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: _getIconForCategory(key),
@@ -796,7 +788,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
       children: [
         Container(
           decoration: BoxDecoration(
-            gradient: AppGradients.pain(brightness).scale(0.2),
+            color: AppColors.painStart.withValues(alpha: 0.2),
           ),
           child: ListTile(
             leading: Container(
@@ -838,10 +830,9 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  gradient: isSelected
-                      ? AppGradients.pain(brightness).scale(0.3)
-                      : null,
-                  color: isSelected ? null : colorScheme.surface,
+                  color: isSelected
+                      ? AppColors.painStart.withValues(alpha: 0.3)
+                      : colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isSelected

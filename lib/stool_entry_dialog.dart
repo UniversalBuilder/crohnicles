@@ -60,24 +60,17 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 650),
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                colorScheme.surface.withValues(alpha: 0.95),
-                AppColors.surfaceGlass.withValues(alpha: 0.90),
-              ],
-            ),
+            color: colorScheme.surface,
             borderRadius: BorderRadius.circular(32),
             border: Border.all(
-              color: colorScheme.surface.withValues(alpha: 0.3),
-              width: 1.5,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+              width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: colorScheme.onSurface.withValues(alpha: 0.1),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
@@ -89,7 +82,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                 // Gradient header
                 Container(
                   decoration: BoxDecoration(
-                    gradient: AppGradients.stool(brightness),
+                    color: AppColors.stoolStart,
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -278,7 +271,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            gradient: AppGradients.stool(brightness).scale(0.15),
+                            color: AppColors.stoolStart.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: colorScheme.tertiary.withValues(
@@ -381,16 +374,8 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                 secondary: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    gradient: _isUrgent
-                                        ? LinearGradient(
-                                            colors: [
-                                              Colors.orange.shade400,
-                                              Colors.orange.shade600,
-                                            ],
-                                          )
-                                        : null,
                                     color: _isUrgent
-                                        ? null
+                                        ? Colors.orange
                                         : colorScheme.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -418,11 +403,8 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                 secondary: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    gradient: _hasBlood
-                                        ? AppGradients.pain(brightness)
-                                        : null,
                                     color: _hasBlood
-                                        ? null
+                                        ? colorScheme.error
                                         : colorScheme.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -477,7 +459,7 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                       const SizedBox(width: 12),
                       Container(
                         decoration: BoxDecoration(
-                          gradient: AppGradients.stool(brightness),
+                          color: AppColors.stoolStart,
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
