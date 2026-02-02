@@ -176,25 +176,11 @@ class _CalendarPageState extends State<CalendarPage> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.95),
-            AppColors.surfaceGlass.withValues(alpha: 0.5),
-          ],
-        ),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: (event.type == EventType.symptom
-                  ? AppColors.painStart
-                  : event.type == EventType.meal
-                      ? AppColors.mealStart
-                      : event.type == EventType.stool
-                          ? AppColors.stoolStart
-                          : AppColors.primaryStart)
-              .withValues(alpha: 0.2),
-          width: 1.5,
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
@@ -245,7 +231,7 @@ class _CalendarPageState extends State<CalendarPage> {
           event.time,
           style: GoogleFonts.inter(
             fontSize: 13,
-            color: AppColors.textSecondary,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         trailing: event.severity > 0

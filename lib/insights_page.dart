@@ -1128,9 +1128,12 @@ class _InsightsPageState extends State<InsightsPage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+              width: 1,
+            ),
           ),
           child: Column(
             children: [
@@ -1280,8 +1283,12 @@ class _InsightsPageState extends State<InsightsPage> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                width: 1,
+              ),
             ),
             child: Column(
               children: [
@@ -1928,19 +1935,19 @@ class _InsightsPageState extends State<InsightsPage> {
                         (e) => Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                              colors: [
-                                AppColors.mealStart.withValues(alpha: 0.08),
-                                Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-                              ],
-                            ),
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: AppColors.mealStart.withValues(alpha: 0.2),
-                              width: 1.5,
+                              color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+                              width: 1,
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
                           ),
                           child: ListTile(
                             onTap: () {
@@ -1976,7 +1983,7 @@ class _InsightsPageState extends State<InsightsPage> {
                                         ).format(DateTime.parse(e.dateTime))
                                       : e.dateTime}\n${e.tags.join(', ')}",
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                             ),
                             isThreeLine: true,
@@ -2000,12 +2007,21 @@ class _InsightsPageState extends State<InsightsPage> {
   }
 
   Widget _buildLastRiskAssessmentCard() {
-    return Card(
-      elevation: 0,
-      color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
-      shape: RoundedRectangleBorder(
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: InkWell(
         onTap: () {
@@ -2029,12 +2045,24 @@ class _InsightsPageState extends State<InsightsPage> {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.2),
+                  gradient: AppColors.primaryGradient,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryStart.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Icon(Icons.assessment, color: Theme.of(context).colorScheme.tertiary),
+                child: Icon(
+                  Icons.assessment,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -2044,19 +2072,20 @@ class _InsightsPageState extends State<InsightsPage> {
                     Text(
                       "Dernière analyse",
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.tertiary,
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
                       "Cliquez pour voir les détails du dernier repas",
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.tertiary,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).colorScheme.tertiary),
+              Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ],
           ),
         ),
@@ -3195,10 +3224,11 @@ class _InsightsPageState extends State<InsightsPage> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surfaceGlass.withValues(alpha: 0.3),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppColors.primaryStart.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  width: 1,
                 ),
               ),
               child: Column(
@@ -3209,7 +3239,7 @@ class _InsightsPageState extends State<InsightsPage> {
                         ? "Les modèles sont entraînés sur vos données personnelles pour prédire les réactions à vos repas."
                         : "Les prédictions utilisent des corrélations statistiques. Entraînez les modèles après 30+ repas pour des prédictions personnalisées.",
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: Theme.of(context).colorScheme.onSurface,
                       height: 1.4,
                     ),
                   ),
@@ -3219,16 +3249,14 @@ class _InsightsPageState extends State<InsightsPage> {
                       Icon(
                         Icons.info_outline,
                         size: 16,
-                        color: AppColors.primaryStart.withValues(alpha: 0.6),
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           "Les prédictions s'affichent automatiquement après chaque repas.",
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary.withValues(
-                              alpha: 0.7,
-                            ),
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
