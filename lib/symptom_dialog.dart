@@ -420,26 +420,30 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
               Positioned.fill(
                 child: Padding(
                   padding: const EdgeInsets.only(
-                    left: 60,
-                    right: 60,
-                    top: 40,
-                    bottom: 80,
+                    left: 40,
+                    right: 40,
+                    top: 0,
+                    bottom: 40,
                   ),
-                  child: ColorFiltered(
-                    colorFilter: brightness == Brightness.dark
-                        ? const ColorFilter.matrix([
-                            -1, 0, 0, 0, 255, // Invert red
-                            0, -1, 0, 0, 255, // Invert green
-                            0, 0, -1, 0, 255, // Invert blue
-                            0, 0, 0, 0.3, 0, // Alpha 30%
-                          ])
-                        : ColorFilter.mode(
-                            colorScheme.outline.withValues(alpha: 0.3),
-                            BlendMode.modulate,
-                          ),
-                    child: Image.asset(
-                      'assets/abdomen.png',
-                      fit: BoxFit.contain,
+                  child: Transform.scale(
+                    scale: 2.0,
+                    child: ColorFiltered(
+                      colorFilter: brightness == Brightness.dark
+                          ? const ColorFilter.matrix([
+                              -1, 0, 0, 0, 255, // Invert red
+                              0, -1, 0, 0, 255, // Invert green
+                              0, 0, -1, 0, 255, // Invert blue
+                              0, 0, 0, 0.3, 0, // Alpha 30%
+                            ])
+                          : ColorFilter.mode(
+                              colorScheme.outline.withValues(alpha: 0.3),
+                              BlendMode.modulate,
+                            ),
+                      child: Image.asset(
+                        'assets/abdomen.png',
+                        fit: BoxFit.contain,
+                        alignment: const Alignment(0, 0.3),
+                      ),
                     ),
                   ),
                 ),
@@ -447,14 +451,14 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
               // Clickable grid zones (simple squares)
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 60, vertical: 40),
+                    const EdgeInsets.symmetric(horizontal: 60, vertical: 10),
                 child: GridView.builder(
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     crossAxisSpacing: 4,
                     mainAxisSpacing: 4,
-                    childAspectRatio: 1.0,
+                    childAspectRatio: 0.95,
                   ),
                   itemCount: abdomenZones.length,
                   itemBuilder: (context, index) {
