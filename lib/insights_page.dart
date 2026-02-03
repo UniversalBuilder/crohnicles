@@ -2435,37 +2435,41 @@ class _InsightsPageState extends State<InsightsPage> {
             ),
             // Legend
             const SizedBox(width: 24),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: _zoneData.keys.toList().asMap().entries.map((e) {
-                final index = e.key;
-                final name = e.value;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: chartColors.series[index % chartColors.series.length],
-                          shape: BoxShape.circle,
-                        ),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _zoneData.keys.toList().asMap().entries.map((e) {
+                    final index = e.key;
+                    final name = e.value;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: chartColors.series[index % chartColors.series.length],
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            name,
+                            style: TextStyle(
+                              fontSize: (12 * textScaleFactor).clamp(10.0, 14.0),
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        name,
-                        style: TextStyle(
-                          fontSize: (12 * textScaleFactor).clamp(10.0, 14.0),
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
           ],
         );
