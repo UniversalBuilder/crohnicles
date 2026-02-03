@@ -964,6 +964,7 @@ class _TimelinePageState extends State<TimelinePage> {
     showDialog(
       context: context,
       builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
         return AlertDialog(
           title: Row(
             children: [
@@ -994,20 +995,23 @@ class _TimelinePageState extends State<TimelinePage> {
                     Icon(
                       Icons.access_time,
                       size: 16,
-                      color: Colors.grey.shade600,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       event.time,
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
                     if (event.subtitle.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      Text('•', style: TextStyle(color: Colors.grey.shade600)),
+                      Text(
+                        '•',
+                        style: TextStyle(color: colorScheme.onSurfaceVariant),
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         event.subtitle,
-                        style: TextStyle(color: Colors.grey.shade600),
+                        style: TextStyle(color: colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ],
@@ -1027,7 +1031,7 @@ class _TimelinePageState extends State<TimelinePage> {
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -1042,9 +1046,11 @@ class _TimelinePageState extends State<TimelinePage> {
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
+                            border: Border.all(
+                              color: colorScheme.outlineVariant,
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -1122,7 +1128,8 @@ class _TimelinePageState extends State<TimelinePage> {
                                             .textTheme
                                             .bodySmall
                                             ?.copyWith(
-                                              color: Colors.grey.shade600,
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
                                             ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
