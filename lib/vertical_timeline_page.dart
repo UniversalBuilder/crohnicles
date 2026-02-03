@@ -254,6 +254,7 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
         elevation: isExpanded ? 8 : 2,
+        color: colorScheme.surfaceContainerHigh,
         child: Column(
           children: [
             // Day header (always visible)
@@ -469,7 +470,7 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
           decoration: BoxDecoration(
             color: isSelected
                 ? colorScheme.primaryContainer.withValues(alpha: 0.3)
-                : colorScheme.surface,
+                : colorScheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isSelected

@@ -6,8 +6,9 @@ class MethodologyPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFC),
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: Text(
           'Comment ça marche ?',
@@ -20,7 +21,7 @@ class MethodologyPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle('📊 Analyse Statistique'),
+            _buildSectionTitle('📊 Analyse Statistique', context),
             _buildSectionText(
               context,
               "Crohnicles analyse vos données personnelles pour identifier des corrélations entre vos repas et vos symptômes. Tout est calculé localement sur votre appareil.",
@@ -77,7 +78,7 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
             ),
 
             const SizedBox(height: 24),
-            _buildSectionTitle('🔍 Transparence'),
+            _buildSectionTitle('🔍 Transparence', context),
             _buildSectionText(
               context,
               "Vos données ne quittent jamais votre appareil (sauf si vous activez la sauvegarde cloud). L'analyse est effectuée localement pour garantir votre confidentialité totale.",
@@ -88,13 +89,13 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, BuildContext context) {
     return Text(
       title,
       style: GoogleFonts.poppins(
         fontSize: 18,
         fontWeight: FontWeight.bold,
-        color: const Color(0xFF1E293B),
+        color: Theme.of(context).colorScheme.onSurface,
       ),
     );
   }
@@ -119,10 +120,11 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
     required Color color,
     required String content,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -131,7 +133,7 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,7 +155,7 @@ Re-entraînez régulièrement (1x/mois) pour intégrer vos nouvelles données!
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1E293B),
+                    color: colorScheme.onSurface,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
