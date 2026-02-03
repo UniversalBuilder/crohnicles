@@ -1383,8 +1383,13 @@ class _TimelinePageState extends State<TimelinePage> {
                       return _buildCheckupCard(item);
                     }
                   } else if (item is List<EventModel>) {
-                    // Grouped weather checkups
-                    return _buildGroupedCheckupCard(item);
+                    // Grouped events
+                    final firstEvent = item.first;
+                    if (firstEvent.type == EventType.daily_checkup) {
+                      return _buildGroupedCheckupCard(item);
+                    } else if (firstEvent.type == EventType.symptom) {
+                      return _buildGroupedSymptomCard(item);
+                    }
                   }
 
                   return const SizedBox();
@@ -1399,11 +1404,22 @@ class _TimelinePageState extends State<TimelinePage> {
 
   // --- WIDGETS D'AFFICHAGE ---
 
-  /// Groups consecutive weather checkups (hourly)
+  /// Groups consecutive weather checkups (hourly) and symptoms by timestamp
   List<dynamic> _getDisplayItems() {
     final List<dynamic> items = [];
     List<EventModel>? currentWeatherGroup;
+    final Map<String, List<EventModel>> symptomGroups = {};
 
+    // First pass: group symptoms by rounded timestamp (to the minute)
+    for (final event in _events) {
+      if (event.type == EventType.symptom) {
+        final timestamp = event.dateTime.substring(0, 16); // YYYY-MM-DDTHH:MM
+        symptomGroups[timestamp] ??= [];
+        symptomGroups[timestamp]!.add(event);
+      }
+    }
+
+    // Second pass: build display items with grouped weather and symptoms
     for (int i = 0; i < _events.length; i++) {
       final event = _events[i];
 
@@ -1429,8 +1445,20 @@ class _TimelinePageState extends State<TimelinePage> {
           }
           currentWeatherGroup = null;
         }
+      } else if (event.type == EventType.symptom) {
+        final timestamp = event.dateTime.substring(0, 16);
+        final group = symptomGroups[timestamp]!;
+        
+        // Only add the group once (check if this is the first occurrence)
+        if (group.first.id == event.id) {
+          if (group.length == 1) {
+            items.add(group.first);
+          } else {
+            items.add(List<EventModel>.from(group));
+          }
+        }
       } else {
-        // Non-weather event, add directly
+        // Other events (meal, stool, checkup) - add directly
         items.add(event);
       }
     }
@@ -2106,6 +2134,149 @@ class _TimelinePageState extends State<TimelinePage> {
                     fontWeight: FontWeight.bold,
                     color: AppColors.checkup,
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupedSymptomCard(List<EventModel> events) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final time = events.first.time;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: AppColors.painGradient,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.painStart.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.bolt,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          time,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.painStart.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${events.length}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.painStart,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${events.length} symptôme${events.length > 1 ? 's' : ''}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Liste des symptômes
+                    ...events.map((event) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: colorScheme.onSurfaceVariant,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: GestureDetector(
+                              onLongPress: () => _showEventOptions(event),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      event.title,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildSymptomIntensityDisplay(event, AppColors.pain),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
                 ),
               ),
             ],

@@ -5,7 +5,6 @@ import 'app_theme.dart';
 import 'themes/app_gradients.dart';
 import 'event_model.dart';
 import 'symptom_taxonomy.dart';
-import 'widgets/abdomen_silhouette_painter.dart';
 
 class SymptomEntryDialog extends StatefulWidget {
   final EventModel? existingEvent;
@@ -417,35 +416,44 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
         Expanded(
           child: Stack(
             children: [
-              // Background silhouette
+              // Background image silhouette
               Positioned.fill(
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: CustomPaint(
-                    painter: AbdomenSilhouettePainter(
-                      selectedZones: selectedAbdomenZones
-                          .map((zone) => abdomenZones.indexOf(zone))
-                          .toSet(),
-                      selectedColor: AppColors.painStart,
-                      strokeColor: colorScheme.outline,
+                  padding: const EdgeInsets.only(
+                    left: 60,
+                    right: 60,
+                    top: 40,
+                    bottom: 80,
+                  ),
+                  child: ColorFiltered(
+                    colorFilter: brightness == Brightness.dark
+                        ? const ColorFilter.matrix([
+                            -1, 0, 0, 0, 255, // Invert red
+                            0, -1, 0, 0, 255, // Invert green
+                            0, 0, -1, 0, 255, // Invert blue
+                            0, 0, 0, 0.3, 0, // Alpha 30%
+                          ])
+                        : ColorFilter.mode(
+                            colorScheme.outline.withValues(alpha: 0.3),
+                            BlendMode.modulate,
+                          ),
+                    child: Image.asset(
+                      'assets/abdomen.png',
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
               ),
-              // Clickable grid zones
+              // Clickable grid zones (simple squares)
               Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 60, vertical: 40),
                 child: GridView.builder(
                   physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.only(
-                    left: MediaQuery.of(context).size.width * 0.125,
-                    right: MediaQuery.of(context).size.width * 0.125,
-                    top: MediaQuery.of(context).size.height * 0.05,
-                  ),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    crossAxisSpacing: 0,
-                    mainAxisSpacing: 0,
+                    crossAxisSpacing: 4,
+                    mainAxisSpacing: 4,
                     childAspectRatio: 1.0,
                   ),
                   itemCount: abdomenZones.length,
@@ -465,11 +473,15 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                       },
                       child: Container(
                         decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.painStart.withValues(alpha: 0.6)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: isSelected
-                                ? AppColors.painStart.withValues(alpha: 0.8)
-                                : Colors.transparent,
-                            width: isSelected ? 3 : 1,
+                                ? AppColors.painStart
+                                : colorScheme.outline.withValues(alpha: 0.3),
+                            width: isSelected ? 2 : 1,
                           ),
                         ),
                         alignment: Alignment.center,
@@ -477,13 +489,12 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                           _getSimplifiedAbdomenLabel(zone),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.w500,
+                            fontWeight:
+                                isSelected ? FontWeight.bold : FontWeight.w500,
                             color: isSelected
-                                ? AppColors.painStart
-                                : colorScheme.onSurface.withValues(alpha: 0.7),
-                            fontSize: 11,
+                                ? Colors.white
+                                : colorScheme.onSurface,
+                            fontSize: 10,
                           ),
                         ),
                       ),
