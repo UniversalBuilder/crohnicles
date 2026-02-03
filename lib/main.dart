@@ -620,16 +620,13 @@ class _TimelinePageState extends State<TimelinePage> {
       builder: (context) {
         final theme = Theme.of(context);
         final colorScheme = theme.colorScheme;
-        
+
         return Container(
           decoration: BoxDecoration(
             color: colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             border: Border(
-              top: BorderSide(
-                color: colorScheme.outlineVariant,
-                width: 1.5,
-              ),
+              top: BorderSide(color: colorScheme.outlineVariant, width: 1.5),
             ),
             boxShadow: [
               BoxShadow(
@@ -1359,22 +1356,30 @@ class _TimelinePageState extends State<TimelinePage> {
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _events.length + 1,
+                itemCount: _getDisplayItems().length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) return _buildSectionTitle("Aujourd'hui");
-                  final event = _events[index - 1];
-                  if (event.type == EventType.meal) {
-                    return _buildMealCard(event);
+                  final item = _getDisplayItems()[index - 1];
+
+                  if (item is EventModel) {
+                    // Single event display
+                    if (item.type == EventType.meal) {
+                      return _buildMealCard(item);
+                    }
+                    if (item.type == EventType.symptom) {
+                      return _buildSymptomCard(item);
+                    }
+                    if (item.type == EventType.stool) {
+                      return _buildStoolCard(item);
+                    }
+                    if (item.type == EventType.daily_checkup) {
+                      return _buildCheckupCard(item);
+                    }
+                  } else if (item is List<EventModel>) {
+                    // Grouped weather checkups
+                    return _buildGroupedCheckupCard(item);
                   }
-                  if (event.type == EventType.symptom) {
-                    return _buildSymptomCard(event);
-                  }
-                  if (event.type == EventType.stool) {
-                    return _buildStoolCard(event);
-                  }
-                  if (event.type == EventType.daily_checkup) {
-                    return _buildCheckupCard(event);
-                  }
+
                   return const SizedBox();
                 },
               ),
@@ -1387,6 +1392,45 @@ class _TimelinePageState extends State<TimelinePage> {
 
   // --- WIDGETS D'AFFICHAGE ---
 
+  /// Groups consecutive weather checkups (hourly)
+  List<dynamic> _getDisplayItems() {
+    final List<dynamic> items = [];
+    List<EventModel>? currentWeatherGroup;
+
+    for (int i = 0; i < _events.length; i++) {
+      final event = _events[i];
+
+      // Check if this is a weather checkup (auto-generated)
+      final isWeather =
+          event.type == EventType.daily_checkup &&
+          event.title.contains('Météo');
+
+      if (isWeather) {
+        // Start or add to weather group
+        currentWeatherGroup ??= [];
+        currentWeatherGroup.add(event);
+
+        // Check if next event is also weather, if not, close the group
+        if (i == _events.length - 1 ||
+            !(_events[i + 1].type == EventType.daily_checkup &&
+                _events[i + 1].title.contains('Météo'))) {
+          // Close group
+          if (currentWeatherGroup.length == 1) {
+            items.add(currentWeatherGroup.first);
+          } else {
+            items.add(List<EventModel>.from(currentWeatherGroup));
+          }
+          currentWeatherGroup = null;
+        }
+      } else {
+        // Non-weather event, add directly
+        items.add(event);
+      }
+    }
+
+    return items;
+  }
+
   Widget _buildDailySummary(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return FutureBuilder<Map<String, dynamic>?>(
@@ -1396,18 +1440,22 @@ class _TimelinePageState extends State<TimelinePage> {
         if (snapshot.hasData && snapshot.data != null) {
           final tempRaw = snapshot.data!['temperature'];
           final humidityRaw = snapshot.data!['humidity'];
-          
+
           if (tempRaw != null) {
-            final temp = tempRaw is num ? tempRaw.toDouble() : double.tryParse(tempRaw.toString()) ?? 0.0;
+            final temp = tempRaw is num
+                ? tempRaw.toDouble()
+                : double.tryParse(tempRaw.toString()) ?? 0.0;
             weatherText = "${temp.toStringAsFixed(1)}°C";
-            
+
             if (humidityRaw != null) {
-              final humidity = humidityRaw is num ? humidityRaw.toDouble() : double.tryParse(humidityRaw.toString()) ?? 0.0;
+              final humidity = humidityRaw is num
+                  ? humidityRaw.toDouble()
+                  : double.tryParse(humidityRaw.toString()) ?? 0.0;
               weatherText += " • ${humidity.toStringAsFixed(0)}% humidité";
             }
           }
         }
-        
+
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           padding: const EdgeInsets.all(24),
@@ -1457,7 +1505,10 @@ class _TimelinePageState extends State<TimelinePage> {
               Flexible(
                 flex: 1,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
@@ -1470,11 +1521,12 @@ class _TimelinePageState extends State<TimelinePage> {
                       Flexible(
                         child: Text(
                           "Stable",
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1829,6 +1881,10 @@ class _TimelinePageState extends State<TimelinePage> {
     final color = AppColors.checkup;
     final colorScheme = Theme.of(context).colorScheme;
 
+    // Check if this is a weather checkup
+    final isWeather = event.title.contains('Météo');
+    final icon = isWeather ? Icons.wb_cloudy : Icons.bedtime;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -1867,7 +1923,7 @@ class _TimelinePageState extends State<TimelinePage> {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.bedtime, color: Colors.white, size: 24),
+                child: Icon(icon, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1939,6 +1995,110 @@ class _TimelinePageState extends State<TimelinePage> {
                       ),
                     ],
                   ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Builds a grouped card for consecutive weather checkups
+  Widget _buildGroupedCheckupCard(List<EventModel> events) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Get time range
+    final firstTime = events.first.time;
+    final lastTime = events.last.time;
+    final timeRange = firstTime == lastTime
+        ? firstTime
+        : '$firstTime - $lastTime';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: AppColors.checkupGradient,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.checkupStart.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.wb_cloudy,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      timeRange,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${events.length} relevés météo',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.checkup.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${events.length}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.checkup,
+                  ),
                 ),
               ),
             ],
