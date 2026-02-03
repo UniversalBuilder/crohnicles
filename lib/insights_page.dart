@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
@@ -191,7 +192,7 @@ class _InsightsPageState extends State<InsightsPage> {
       // Check if models are actually loaded (not just fallback)
       hasModels = modelManager.isReady;
     } catch (e) {
-      print('[INSIGHTS] Model loading failed (using fallback): $e');
+      debugPrint('[INSIGHTS] Model loading failed (using fallback): $e');
     }
 
     // 6. Weather Correlations Analysis
@@ -360,14 +361,14 @@ class _InsightsPageState extends State<InsightsPage> {
     timeline.addAll(dayGroups.values);
     timeline.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
     
-    print('🔍 Weather correlations loaded:');
-    print('  Total days analyzed: ${dayGroups.length}');
-    print('  Days with symptoms (severity≥5): $totalDaysWithSymptoms');
-    print('  Total symptoms counted: $totalSymptoms');
+    debugPrint('🔍 Weather correlations loaded:');
+    debugPrint('  Total days analyzed: ${dayGroups.length}');
+    debugPrint('  Days with symptoms (severity≥5): $totalDaysWithSymptoms');
+    debugPrint('  Total symptoms counted: $totalSymptoms');
     correlations.forEach((condition, data) {
-      print('  $condition: ${data['withSymptom']}/${data['total']} = ${data['total']! > 0 ? (data['withSymptom']! / data['total']! * 100).toStringAsFixed(1) : 0}%');
+      debugPrint('  $condition: ${data['withSymptom']}/${data['total']} = ${data['total']! > 0 ? (data['withSymptom']! / data['total']! * 100).toStringAsFixed(1) : 0}%');
     });
-    print('Timeline days: ${timeline.length}');
+    debugPrint('Timeline days: ${timeline.length}');
     
     // PHASE 3: Categorize symptoms by type and calculate per-type correlations
     final Map<String, Map<String, Map<String, int>>> correlationsByType = {};
@@ -409,7 +410,7 @@ class _InsightsPageState extends State<InsightsPage> {
         
         final dayKey = DateTime(eventDate.year, eventDate.month, eventDate.day).toIso8601String();
         if (!dayGroups.containsKey(dayKey)) {
-          print('  [DEBUG] Symptom day $dayKey not in dayGroups');
+          debugPrint('  [DEBUG] Symptom day $dayKey not in dayGroups');
           continue;
         }
         
@@ -439,7 +440,7 @@ class _InsightsPageState extends State<InsightsPage> {
           }
         }
         
-        print('  [DEBUG] Processing symptom: title="$title", zone="$zone", tags=$tags, severity=$severity');
+        debugPrint('  [DEBUG] Processing symptom: title="$title", zone="$zone", tags=$tags, severity=$severity');
         
         // Articulaires: look for "articulation", "articulaire", "articulations", "genoux", "mains", etc.
         if (title.contains('articulation') || subtitle.contains('articulation') || zone.contains('articulation') ||
@@ -467,7 +468,7 @@ class _InsightsPageState extends State<InsightsPage> {
           symptomType = 'Digestif';
         }
         
-        print('  [DEBUG] Categorized as: $symptomType');
+        debugPrint('  [DEBUG] Categorized as: $symptomType');
         
         symptomCountsByType[symptomType] = (symptomCountsByType[symptomType] ?? 0) + 1;
         
@@ -477,13 +478,13 @@ class _InsightsPageState extends State<InsightsPage> {
         }
         symptomsByDayAndType[dayKey]!.add(symptomType);
       } catch (e) {
-        print('  [DEBUG] Error processing symptom: $e');
+        debugPrint('  [DEBUG] Error processing symptom: $e');
       }
     }
     
-    print('  [DEBUG] Total symptoms in DB: ${allEventsData.where((e) => e['type'] == 'symptom').length}');
-    print('  [DEBUG] Symptoms filtered (severity<3): $symptomsFiltered');
-    print('  [DEBUG] Symptoms processed: $symptomsCounted');
+    debugPrint('  [DEBUG] Total symptoms in DB: ${allEventsData.where((e) => e['type'] == 'symptom').length}');
+    debugPrint('  [DEBUG] Symptoms filtered (severity<3): $symptomsFiltered');
+    debugPrint('  [DEBUG] Symptoms processed: $symptomsCounted');
     
     // Now calculate correlations: for each day with weather condition, check if it had each symptom type
     dayGroups.forEach((dayKey, dayData) {
@@ -569,21 +570,23 @@ class _InsightsPageState extends State<InsightsPage> {
           : 0.0;
     }
     
-    print('🔍 Symptom type breakdown:');
-    symptomCountsByType.forEach((type, count) {
-      final daysWithSymptom = daysWithSymptomByType[type] ?? 0;
-      print('  $type: $count symptoms over $daysWithSymptom days (${baselinePercentages[type]?.toStringAsFixed(1)}% baseline)');
-    });
-    print('🔍 Correlations by type:');
-    correlationsByType.forEach((condition, typeData) {
-      print('  $condition:');
-      typeData.forEach((type, data) {
-        if ((data['total'] ?? 0) > 0) {
-          final percentage = (data['withSymptom']! / data['total']! * 100);
-          print('    $type: ${data['withSymptom']}/${data['total']} = ${percentage.toStringAsFixed(1)}%');
-        }
+    if (kDebugMode) {
+      debugPrint('🔍 Symptom type breakdown:');
+      symptomCountsByType.forEach((type, count) {
+        final daysWithSymptom = daysWithSymptomByType[type] ?? 0;
+        debugPrint('  $type: $count symptoms over $daysWithSymptom days (${baselinePercentages[type]?.toStringAsFixed(1)}% baseline)');
       });
-    });
+      debugPrint('🔍 Correlations by type:');
+      correlationsByType.forEach((condition, typeData) {
+        debugPrint('  $condition:');
+        typeData.forEach((type, data) {
+          if ((data['total'] ?? 0) > 0) {
+            final percentage = (data['withSymptom']! / data['total']! * 100);
+            debugPrint('    $type: ${data['withSymptom']}/${data['total']} = ${percentage.toStringAsFixed(1)}%');
+          }
+        });
+      });
+    }
     
     return {
       'timeline': timeline,
@@ -1975,7 +1978,7 @@ class _InsightsPageState extends State<InsightsPage> {
                       Text(
                         "Aliments pris avant la dernière douleur > 5/10",
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -2301,7 +2304,7 @@ class _InsightsPageState extends State<InsightsPage> {
       builder: (context, constraints) {
         final chartWidth = constraints.maxWidth;
         final chartColors = AppChartColors.forBrightness(context);
-        final textScaleFactor = MediaQuery.of(context).textScaleFactor;
+        final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
 
         return LineChart(
           LineChartData(
@@ -2434,7 +2437,7 @@ class _InsightsPageState extends State<InsightsPage> {
       builder: (context, constraints) {
         final chartWidth = constraints.maxWidth;
         final chartColors = AppChartColors.forBrightness(context);
-        final textScaleFactor = MediaQuery.of(context).textScaleFactor;
+        final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
 
         int i = 0;
         List<PieChartSectionData> sections = [];
@@ -2569,7 +2572,7 @@ class _InsightsPageState extends State<InsightsPage> {
       builder: (context, constraints) {
         final chartWidth = constraints.maxWidth;
         final chartColors = AppChartColors.forBrightness(context);
-        final textScaleFactor = MediaQuery.of(context).textScaleFactor;
+        final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
 
         return BarChart(
           BarChartData(
@@ -3351,7 +3354,7 @@ class _InsightsPageState extends State<InsightsPage> {
                                 "${(correlationData['symptoms'] as int)}/${(correlationData['count'] as int)}",
                                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                   fontWeight: FontWeight.w500,
-                                  color: AppColors.textSecondary,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -3404,12 +3407,14 @@ class _InsightsPageState extends State<InsightsPage> {
         .toList();
     
     if (eventsForDay.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Aucun événement le ${DateFormat('dd/MM/yyyy').format(date)}')),
       );
       return;
     }
     
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -3524,12 +3529,14 @@ class _InsightsPageState extends State<InsightsPage> {
         .toList();
     
     if (mealsWithTag.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Aucun repas trouvé avec le tag "$tag"')),
       );
       return;
     }
     
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,

@@ -1,5 +1,48 @@
 # Journal d'Architecture
 
+## 2026-02-03 - Phase de Qualité Finale (Code Quality)
+
+### Changements
+
+1. **Migration Print → DebugPrint**
+   - Fichier: `lib/insights_page.dart` (3635 lignes)
+   - Remplacement de 19 occurrences de `print()` par `debugPrint()`
+   - Lignes modifiées: 195, 364-371, 413, 443, 471, 481, 485-487, 574-585
+   - Rationale: `debugPrint()` respecte production best practices (throttling automatique)
+   - Résultat: 19 infos `avoid_print` éliminées
+
+2. **Correction Deprecated APIs**
+   - **textSecondary** (2 occurrences):
+     - Lignes 1981, 3357: `AppColors.textSecondary` → `Theme.of(context).colorScheme.onSurfaceVariant`
+     - Raison: Material Design 3 harmonisation, meilleure intégration ThemeData
+   - **textScaleFactor** (3 occurrences):
+     - Lignes 2307, 2440, 2575: `MediaQuery.of(context).textScaleFactor` → `MediaQuery.textScalerOf(context).scale(1.0)`
+     - Raison: Support Flutter 3.12+ pour nonlinear text scaling (accessibilité)
+   - Résultat: 6 infos `deprecated_member_use` éliminées
+
+3. **Protection Async Gap**
+   - Ajout de 4 vérifications `if (!mounted) return;`
+   - Lignes 3410, 3417, 3530, 3537
+   - Pattern: Vérification avant `ScaffoldMessenger.of(context)` et `showModalBottomSheet()`
+   - Raison: Prévenir use_build_context_synchronously après async gaps
+   - Résultat: 4 infos `use_build_context_synchronously` éliminées
+
+### Métriques de Qualité
+
+- **Avant**: 28 info issues (19 avoid_print + 6 deprecated + 3 async gaps)
+- **Après**: 0 issues found ✅
+- **Build**: SUCCESS - app-debug.apk compilé sans erreurs
+- **Impact Performance**: Aucun (refactoring purement technique)
+
+### Impact
+
+- ✅ **Production-Ready**: Code respecte Flutter best practices
+- ✅ **Accessibilité**: Support nonlinear text scaling (Flutter 3.12+)
+- ✅ **Stabilité**: Pas de memory leaks ou crash liés à BuildContext
+- ✅ **Material Design 3**: Couleurs harmonisées avec ColorScheme
+
+---
+
 ## 2026-02-03 - Consolidation Post-Implémentation v1.1
 
 ### Changements
