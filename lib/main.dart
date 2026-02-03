@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
@@ -35,6 +36,9 @@ import 'package:crohnicles/ml/model_status_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
 
   final log = LogService();
   log.log('[Main] App starting...');

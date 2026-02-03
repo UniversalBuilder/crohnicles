@@ -65,6 +65,7 @@ dependencies:
   shared_preferences: ^2.5.4
   provider: ^6.1.1
   url_launcher: ^6.3.1
+  flutter_dotenv: ^5.2.1
   # geolocator: ^13.0.2  # Commented out - requires NuGet on Windows
   
   # PDF Generation
@@ -108,6 +109,7 @@ flutter:
   assets:
     - assets/models/
     - assets/abdomen.png
+    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -1,20 +1,21 @@
 // import 'package:geolocator/geolocator.dart';  // Temporarily disabled for Windows build
 import 'package:weather/weather.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/context_model.dart';
 import '../database_helper.dart';
 
 /// Service for capturing environmental context (weather, location) at event time
 /// Note: Location features temporarily disabled on Windows due to NuGet dependency
 class ContextService {
-  static const String _openWeatherApiKey = 'YOUR_API_KEY_HERE'; // TODO: Add to secure storage
   WeatherFactory? _weatherFactory;
   // bool _permissionGranted = false;  // Disabled for Windows
 
   ContextService() {
-    // Initialize weather factory if API key is configured
-    if (_openWeatherApiKey != 'YOUR_API_KEY_HERE') {
-      _weatherFactory = WeatherFactory(_openWeatherApiKey);
+    // Initialize weather factory if API key is configured in .env
+    final apiKey = dotenv.env['OPENWEATHER_API_KEY'];
+    if (apiKey != null && apiKey.isNotEmpty) {
+      _weatherFactory = WeatherFactory(apiKey);
     }
   }
 

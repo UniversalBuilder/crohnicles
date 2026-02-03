@@ -749,60 +749,6 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
     );
   }
 
-  Widget _buildZoneSeverityRow(String zone) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final severity = _zoneSeverities[zone] ?? 5.0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              zone,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 5,
-            child: SliderTheme(
-              data: SliderThemeData(
-                activeTrackColor: colorScheme.error,
-                inactiveTrackColor: colorScheme.outline,
-                thumbColor: colorScheme.error,
-                overlayColor: colorScheme.error.withValues(alpha: 0.2),
-                trackHeight: 4,
-              ),
-              child: Slider(
-                value: severity,
-                min: 0,
-                max: 10,
-                divisions: 10,
-                label: severity.round().toString(),
-                onChanged: (v) => setState(() => _zoneSeverities[zone] = v),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 40,
-            child: Text(
-              "${severity.toInt()}/10",
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.error,
-              ),
-              textAlign: TextAlign.end,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Step indicator (1/3, 2/3, 3/3)
   Widget _buildStepIndicator(ColorScheme colorScheme) {
     return Container(
