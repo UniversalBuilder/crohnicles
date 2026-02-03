@@ -12,6 +12,7 @@ class EventModel {
   final bool isSnack; // Nouvelle propriété pour distinguer Repas vs Encas
   final String? imagePath;
   final String? metaData;
+  final String? contextData; // Weather and context information
 
   EventModel({
     this.id,
@@ -25,6 +26,7 @@ class EventModel {
     this.isSnack = false,
     this.imagePath,
     this.metaData,
+    this.contextData,
   });
 
   // Getter for DateTime object
@@ -59,6 +61,7 @@ class EventModel {
       'isSnack': isSnack ? 1 : 0,
       'imagePath': imagePath,
       'meta_data': metaData,
+      'context_data': contextData,
     };
   }
 
@@ -75,6 +78,7 @@ class EventModel {
       isSnack: map['isSnack'] == 1,
       imagePath: map['imagePath'],
       metaData: map['meta_data'],
+      contextData: map['context_data'],
     );
   }
 }
