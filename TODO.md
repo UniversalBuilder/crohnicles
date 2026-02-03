@@ -1,8 +1,147 @@
-# TODO - Standardisation Typographique + Dark Theme + WCAG AA
+# TODO - Crohnicles Development Tasks
 
-**Effort estimé total:** 32-42h  
-**Date de début:** 31 janvier 2026  
-**Stratégie:** Migration incrémentale en 10 PRs atomiques
+**Dernière mise à jour:** 3 février 2026
+
+---
+
+## ✅ COMPLÉTÉ RÉCEMMENT (v1.1+)
+
+### UX & Interface
+- [x] Wizard symptômes 3 étapes (Sélection → Intensités → Résumé)
+- [x] Silhouette abdomen avec image PNG (Transform.scale + Alignment)
+- [x] Regroupement événements par timestamp sur la timeline
+- [x] Corrections mode sombre (meal detail dialog, methodology page)
+- [x] Amélioration contraste timeline mode clair (surfaceContainerHigh)
+- [x] Correction overflow graphique localisation douleurs (Flexible + SingleChildScrollView)
+
+### Architecture & Sécurité
+- [x] Sécurisation API OpenWeather avec flutter_dotenv (.env + .gitignore)
+- [x] Nettoyage code mort (_buildWeatherCorrelationsBarChart, _buildZoneSeverityRow)
+- [x] Suppression imports inutilisés (main.dart)
+
+---
+
+## 🚀 PRIORITÉ 1: ML ON-DEVICE (AUTONOME)
+
+**Objectif:** Entraînement de modèles ML directement sur iOS/Android sans dépendance Windows/Python
+
+### Stack Technique
+- `tflite_flutter` (déjà installé) + `tflite_flutter_helper`
+- Isolate Dart pour éviter freeze UI
+- Fallback graceful vers StatisticalEngine si échec
+
+### Pipeline Complet
+
+#### 1. Service d'Entraînement Dart
+**Fichier:** `lib/ml/training_service.dart`
+```dart
+class TrainingService {
+  // Utilise StatisticalEngine.train() pour créer dataset
+  // Extrait features via feature_extractor.dart (60+ features)
+  // Minimum: 30 repas + 20 symptômes (identique current logic)
+  
+  Future<TrainingResult> trainModels({
+    required List<EventModel> meals,
+    required List<EventModel> symptoms,
+    int windowHours = 8,
+  }) async {
+    // 1. Validation dataset size
+    // 2. Feature extraction (parallel isolate)
+    // 3. Train 3 models: Douleur, Ballonnement, Diarrhée
+    // 4. Export .tflite vers AppDocumentsDirectory
+    // 5. Return accuracy metrics
+  }
+}
+```
+
+#### 2. Modèle ML Dart (Alternative DecisionTree)
+**Options:**
+- **A) Port Python DecisionTree** vers Dart (complexe, 200+ lignes)
+- **B) Utiliser RandomForest** via `tflite_flutter_helper` (recommandé)
+- **C) Neural Network simple** (3-layer MLP, tflite compatible)
+
+**Recommandation:** Option B (RandomForest) + conversion via `tflite_flutter_helper`
+
+#### 3. Entraînement en Background
+```dart
+// lib/ml/training_isolate.dart
+class TrainingIsolate {
+  static Future<IsolateResult> train(TrainingParams params) async {
+    return await compute(_trainInIsolate, params);
+  }
+  
+  static Future<IsolateResult> _trainInIsolate(params) {
+    // Heavy computation here (2-3 min sur mobile)
+    // Return model bytes + metrics
+  }
+}
+```
+
+#### 4. Chargement Modèle dans ModelManager
+**Fichier:** `lib/ml/model_manager.dart` (modifier)
+```dart
+class ModelManager {
+  Interpreter? _interpreter;
+  
+  Future<void> loadTFLiteModel(String modelPath) async {
+    _interpreter = await Interpreter.fromFile(File(modelPath));
+  }
+  
+  Future<RiskPrediction> predictWithTFLite(meal, context) {
+    // 1. Extract features (feature_extractor.dart)
+    // 2. Run _interpreter.run(inputTensor, outputTensor)
+    // 3. Parse output → RiskPrediction
+  }
+}
+```
+
+#### 5. UI Integration
+**Fichier:** `lib/insights_page.dart`
+- Ajouter bouton "🧠 Entraîner Modèle ML" dans section "Analyse"
+- Dialog progress: LinearProgressIndicator + ETA
+- Notification success/error avec accuracy score
+- Badge "ML Activé" si modèle .tflite existe
+
+#### 6. Versioning & Invalidation
+**Fichier:** `lib/database_helper.dart`
+```dart
+// Table training_history
+// Ajouter colonne: model_version TEXT
+// Si feature_extractor.dart change → bump version → invalider ancien modèle
+```
+
+#### 7. Fallback Logic
+```dart
+Future<RiskPrediction> predictRisk(meal, context) async {
+  if (await _hasTFLiteModel() && await _isTFLiteModelValid()) {
+    try {
+      return await predictWithTFLite(meal, context);
+    } catch (e) {
+      log('TFLite prediction failed: $e');
+      await _deleteTFLiteModel(); // Cleanup corrupted
+      await _notifyUser('Modèle corrompu, retour au mode statistique');
+    }
+  }
+  // Fallback: use StatisticalEngine (current behavior)
+  return await _predictWithTrainedModel(meal, context);
+}
+```
+
+### Tests Requis
+- [ ] Accuracy ≥70% sur dataset test (20% holdout)
+- [ ] Latence <100ms sur Pixel 6 / iPhone 13
+- [ ] Memory usage <50MB pendant training
+- [ ] Training time <3min sur dataset 90 jours
+- [ ] Crash recovery (isolate timeout)
+- [ ] Model corruption detection
+
+### Effort Estimé
+- **Training Service:** 4-6h
+- **Model Port/Integration:** 6-8h
+- **UI + Progress Dialog:** 2-3h
+- **Tests + Edge Cases:** 3-4h
+- **Documentation:** 1-2h
+**TOTAL:** 16-23h
 
 ---
 

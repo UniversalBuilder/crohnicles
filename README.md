@@ -54,12 +54,16 @@ Les applications généralistes de santé sont trop complexes ou inadaptées. Le
 - **Autocomplétion** : Base locale des aliments personnels
 - **Tags flexibles** : Gluten, Lactose, Épices, etc.
 - **Calcul nutritionnel** : Calories, glucides, lipides, protéines (automatique si produit OpenFF)
+- **Groupement temporel** : Événements proches regroupés sur timeline (amélioration lisibilité)
 
 ### 🩹 Suivi des Symptômes
-- **Saisie structurée** : Drill-down par zone (Abdomen → Quadrant → Intensité)
+- **Wizard 3 étapes** : Navigation fluide (Sélection → Intensités → Résumé)
+  - **Étape 1** : Drill-down interactif par zone (Abdomen → Quadrant supérieur droit → Douleur aiguë)
+  - **Étape 2** : Sliders d'intensité pour chaque symptôme sélectionné
+  - **Étape 3** : Récapitulatif avec silhouette abdominale (si douleurs localisées)
 - **Taxonomie médicale** : 5 niveaux hiérarchiques (Système → Catégorie → Zone → Type → Détail)
 - **Contexte automatique** : Météo, humeur, stress (via background service)
-- **Analyse interactive** : Click sur un graphique → déclencheurs identifiés
+- **Analyse interactive** : Click sur graphique → déclencheurs identifiés avec transparence totale (5 infos obligatoires)
 
 ### 💩 Journal de Selles (Bristol Stool Scale)
 - Types 1-7 avec illustrations
@@ -128,29 +132,41 @@ Quand vous saisissez un nouveau repas, Crohnicles :
 
 ### Stack Technique
 - **Frontend** : Flutter 3.10.7 (Dart 3.x)
-- **UI Framework** : Material Design 3 (themes modulaires)
+- **UI Framework** : Material Design 3 (themes modulaires, WCAG AA)
 - **State Management** : Provider
 - **Database** : SQLite (sqflite + drift)
-- **Machine Learning** : TensorFlow Lite (modèle de classification alimentaire)
-- **Charts** : fl_chart
+- **Machine Learning** : TensorFlow Lite (prédictions on-device, aucun serveur)
+- **Charts** : fl_chart (graphiques interactifs)
 - **APIs** : OpenFoodFacts (cache local 90 jours)
-- **Background Services** : Workmanager (météo automatique)
+- **Background Services** : Workmanager (météo automatique toutes les 6h)
+- **Security** : flutter_dotenv (gestion secrets, API keys dans .env)
 
 ### Architecture Logicielle
 ```
 lib/
 ├── themes/           # Design System MD3 (5 fichiers)
 │   ├── app_theme.dart
-│   ├── text_styles.dart
-│   ├── colors.dart
-│   ├── glassmorphism.dart
+│   ├── color_schemes.dart
+│   ├── text_themes.dart
+│   ├── app_gradients.dart
 │   └── chart_colors.dart
 ├── models/           # Data Models (EventModel, FoodModel, etc.)
 ├── services/         # Business Logic (DB, ML, Context, Logs)
-├── ml/               # Machine Learning (ModelManager, FeatureExtractor)
+│   ├── database_helper.dart
+│   ├── context_service.dart (OpenWeather API)
+│   ├── off_service.dart (OpenFoodFacts)
+│   └── log_service.dart
+├── ml/               # Machine Learning (ModelManager, FeatureExtractor, StatisticalEngine)
 ├── providers/        # State Management (ThemeProvider, etc.)
-├── utils/            # Helpers (ResponsiveWrapper, DateUtils)
-└── *.dart            # Pages (main, calendar, insights, etc.)
+├── utils/            # Helpers (ResponsiveWrapper, DateUtils, PlatformUtils)
+└── *.dart            # Pages (main, calendar, insights, timeline, etc.)
+
+docs/
+├── CALCULATIONS.md   # Formules, seuils, règles de transparence
+└── SCREENSHOTS.md    # Guide visuel de l'app
+
+.env                  # Secrets (API keys, non versionné)
+.env.example          # Template pour développeurs
 ```
 
 ### Clean Architecture
@@ -188,7 +204,25 @@ cd crohnicles
 flutter pub get
 ```
 
-3. **Lancer l'application**
+3. **Configuration des variables d'environnement**
+
+Créez un fichier `.env` à la racine du projet (copier depuis `.env.example`) :
+```bash
+# Windows
+copy .env.example .env
+
+# macOS/Linux
+cp .env.example .env
+```
+
+Éditez `.env` et ajoutez votre clé API OpenWeather (optionnel, pour contexte météo) :
+```env
+OPENWEATHER_API_KEY=your_api_key_here
+```
+
+> **Note:** Le fichier `.env` est dans `.gitignore` et ne sera jamais versionné. Si vous ne fournissez pas de clé API, l'app fonctionnera normalement mais sans corrélations météorologiques.
+
+4. **Lancer l'application**
 
 **Android** (prioritaire) :
 ```bash

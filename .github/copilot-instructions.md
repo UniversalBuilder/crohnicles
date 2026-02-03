@@ -80,12 +80,243 @@ Avant d'écrire la moindre ligne de code pour une nouvelle fonctionnalité ou un
 
 ### Gestion de l'État (State)
 * **Dialogs Complexes :** Utilise le pattern "Composer" (ex: `MealComposerDialog`).
+* **Wizards Multi-Étapes :** Utilise `PageController` avec navigation progressive (ex: `SymptomDialog` 3 étapes).
 * **Persistance des Tabs :** Utilise `AutomaticKeepAliveClientMixin` pour les onglets (ex: Panier) afin de ne pas perdre la saisie en changeant de vue.
 * **Async Gap :** Vérifie TOUJOURS `if (!mounted) return;` après un `await` avant d'utiliser `context` ou `setState`.
 
+### Sécurité & Environnement
+* **API Keys :** JAMAIS hardcodées dans le code. TOUJOURS dans `.env` (git-ignored).
+* **Dotenv Pattern :**
+    ```dart
+    import 'package:flutter_dotenv/flutter_dotenv.dart';
+    
+    // main.dart
+    await dotenv.load(fileName: ".env");
+    
+    // service.dart
+    final apiKey = dotenv.env['OPENWEATHER_API_KEY'];
+    if (apiKey == null || apiKey.isEmpty) {
+      throw Exception('API key missing in .env');
+    }
+    ```
+* **Règle :** Toujours fournir `.env.example` avec placeholders pour développeurs.
+
 ---
 
-## 3. DOCUMENTATION DU PROJET (RÉFÉRENCE RAPIDE)
+## 3. PATTERNS DE CODE ÉTABLIS (À RÉUTILISER)
+
+### Pattern 1: Wizard Multi-Étapes (Navigation Progressive)
+```dart
+class MyWizardDialog extends StatefulWidget {
+  @override
+  State<MyWizardDialog> createState() => _MyWizardDialogState();
+}
+
+class _MyWizardDialogState extends State<MyWizardDialog> {
+  final PageController _controller = PageController();
+  int _currentStep = 0;
+  
+  void _nextStep() {
+    if (_currentStep < 2) {
+      _controller.nextPage(
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      setState(() => _currentStep++);
+    } else {
+      _submitData(); // Dernière étape
+    }
+  }
+  
+  void _previousStep() {
+    _controller.previousPage(
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+    setState(() => _currentStep--);
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Column(
+        children: [
+          // Indicateur de progression
+          Row(
+            children: List.generate(3, (index) => 
+              Container(
+                height: 4,
+                color: index <= _currentStep ? Colors.blue : Colors.grey,
+              )
+            ),
+          ),
+          
+          // Contenu des étapes
+          Expanded(
+            child: PageView(
+              controller: _controller,
+              physics: NeverScrollableScrollPhysics(), // Navigation par boutons uniquement
+              children: [
+                _buildStep1(),
+                _buildStep2(),
+                _buildStep3(),
+              ],
+            ),
+          ),
+          
+          // Boutons navigation
+          _buildNavigationButtons(),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildNavigationButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        if (_currentStep > 0)
+          OutlinedButton(
+            onPressed: _previousStep,
+            child: Text('Précédent'),
+          ),
+        Spacer(),
+        FilledButton(
+          onPressed: _nextStep,
+          child: Text(_currentStep == 2 ? 'Terminer' : 'Suivant'),
+        ),
+      ],
+    );
+  }
+}
+```
+
+### Pattern 2: Regroupement Événements Timeline
+```dart
+// Grouper événements par timestamp (minute-précision)
+Map<String, List<EventModel>> groupEventsByTime(List<EventModel> events) {
+  Map<String, List<EventModel>> grouped = {};
+  
+  for (var event in events) {
+    // Clé = "YYYY-MM-DDTHH:MM" (ignorer secondes)
+    String key = event.timestamp.substring(0, 16);
+    grouped.putIfAbsent(key, () => []).add(event);
+  }
+  
+  return grouped;
+}
+
+// Utilisation dans UI
+final groupedEvents = groupEventsByTime(allEvents);
+for (var entry in groupedEvents.entries) {
+  String timeKey = entry.key; // "2026-02-03T14:30"
+  List<EventModel> simultaneousEvents = entry.value;
+  
+  // Afficher dans même TimelineItem
+  TimelineItem(
+    time: timeKey,
+    children: simultaneousEvents.map((e) => EventCard(e)).toList(),
+  );
+}
+```
+
+### Pattern 3: PNG Assets Crop/Zoom Sans Éditeur
+```dart
+// Recadrer image sans créer nouvelle asset (zoom + alignment)
+Transform.scale(
+  scale: 1.2,              // Zoom 120%
+  alignment: Alignment.topCenter, // Centrer sur haut (crop bas)
+  child: Image.asset(
+    'assets/images/abdomen_silhouette.png',
+    height: 200,
+    fit: BoxFit.contain,
+  ),
+)
+
+// Autre exemple: Centrer sur zone abdominale basse
+Transform.scale(
+  scale: 1.5,
+  alignment: Alignment.bottomCenter, // Crop haut, garder bas
+  child: Image.asset('assets/images/body_outline.png'),
+)
+```
+
+### Pattern 4: Contraste Adaptatif Mode Clair/Sombre
+```dart
+// RÈGLE: Préférer surfaceContainerHigh à surface pour mode clair
+Widget build(BuildContext context) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final isDark = theme.brightness == Brightness.dark;
+  
+  return Container(
+    decoration: BoxDecoration(
+      // Mode sombre: couleur custom (surface trop clair)
+      // Mode clair: surfaceContainerHigh (meilleur contraste que surface)
+      color: isDark 
+        ? Colors.grey[850]  
+        : colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      'Contenu avec bon contraste',
+      style: theme.textTheme.bodyLarge?.copyWith(
+        // Assurer WCAG AA (4.5:1 pour texte normal)
+        color: isDark ? Colors.white : colorScheme.onSurface,
+      ),
+    ),
+  );
+}
+```
+
+### Pattern 5: Sécurisation API Keys (Dotenv)
+```dart
+// ❌ INTERDIT (hardcoded)
+static const String _apiKey = 'YOUR_API_KEY_HERE';
+
+// ✅ CORRECT (.env file)
+// Fichier: .env (git-ignored)
+OPENWEATHER_API_KEY=abc123xyz456
+
+// Fichier: .env.example (versionné)
+OPENWEATHER_API_KEY=your_api_key_here
+
+// Fichier: lib/main.dart
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env"); // Charge avant runApp
+  runApp(MyApp());
+}
+
+// Fichier: lib/services/context_service.dart
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+class ContextService {
+  Future<WeatherData> fetchWeather() async {
+    final apiKey = dotenv.env['OPENWEATHER_API_KEY'];
+    if (apiKey == null || apiKey.isEmpty) {
+      // Fallback graceful si key manquante
+      return WeatherData.empty();
+    }
+    
+    final url = 'https://api.openweathermap.org/data/2.5/weather?appid=$apiKey';
+    // ... fetch logic
+  }
+}
+```
+
+---
+
+## 4. DOCUMENTATION DU PROJET (RÉFÉRENCE RAPIDE)
+
+### Fichiers Critiques
+* `architecture_state.md` : Journal de changements (lire AVANT toute modif)
+* `docs/CALCULATIONS.md` : Formules, seuils, règles de transparence
+* `TODO.md` : Tâches prioritaires, plan ML on-device
+* `.env` : Secrets (API keys, git-ignored)
+* `.env.example` : Template pour développeurs (versionné)
 
 ### Tables Clés
 * `events` : Log central. Types: `meal`, `symptom`, `stool`, `daily_checkup`. Contient `meta_data`.
@@ -93,9 +324,9 @@ Avant d'écrire la moindre ligne de code pour une nouvelle fonctionnalité ou un
 * `products_cache` : Cache OpenFoodFacts (TTL 90 jours).
 
 ### Composants Majeurs
-* **Saisie :** `MealComposerDialog` (4 tabs), `SymptomDialog` (Drill-down), `StoolEntryDialog`.
+* **Saisie :** `MealComposerDialog` (4 tabs), `SymptomDialog` (Wizard 3 étapes), `StoolEntryDialog`.
 * **Analyse :** `InsightsPage` (fl_chart sur agrégations SQL).
-* **Services :** `OFFService` (API OpenFoodFacts avec cache strict).
+* **Services :** `OFFService` (API OpenFoodFacts avec cache strict), `ContextService` (météo avec dotenv).
 
 ### Logique OpenFoodFacts
 1.  **Cache d'abord :** Vérifie DB locale avant API.
@@ -104,7 +335,7 @@ Avant d'écrire la moindre ligne de code pour une nouvelle fonctionnalité ou un
 
 ---
 
-## 4. INSTRUCTIONS POUR L'AGENT (Processus de Réponse)
+## 5. INSTRUCTIONS POUR L'AGENT (Processus de Réponse)
 
 Si l'utilisateur demande une modification (ex: "Ajoute la gestion du stress") :
 
@@ -115,5 +346,21 @@ Si l'utilisateur demande une modification (ex: "Ajoute la gestion du stress") :
     * Step 2: Update `SymptomDialog` (UI).
     * Step 3: Update `InsightsPage` (Viz).
     * Step 4: Update `feature_extractor.dart` (ML).
+    * Step 5: Update `docs/CALCULATIONS.md` (si nouvelles formules).
 4.  **Exécute** : Code étape par étape.
 5.  **Documente** : Mets à jour `architecture_state.md`.
+
+### Priorité de Test
+1. **Android Emulator** (tester d'abord)
+2. **iOS Simulator** (validation secondaire)
+3. **Windows Desktop** (développement uniquement)
+
+### Checklist Avant Commit
+- [ ] Compilation sans erreurs (flutter analyze)
+- [ ] Formatage respecté (dart format)
+- [ ] Aucune API key hardcodée (vérifier avec grep)
+- [ ] Migrations DB testées (ancien schema → nouveau)
+- [ ] Tests unitaires passent (si existants)
+- [ ] architecture_state.md mis à jour
+- [ ] docs/CALCULATIONS.md mis à jour (si formules modifiées)
+- [ ] README.md mis à jour (si nouvelles features)

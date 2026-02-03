@@ -1,5 +1,109 @@
 # Journal d'Architecture
 
+## 2026-02-03 - Consolidation Post-Implémentation v1.1
+
+### Changements
+
+1. **Wizard Symptômes 3 Étapes**
+   - Refonte UX complète de `symptom_dialog.dart` (952 → 892 lignes)
+   - Architecture: PageController avec 3 étapes (Sélection → Intensités → Résumé)
+   - Step 1: Drill-down interactif (Zone → Symptôme)
+   - Step 2: Sliders intensité par symptôme sélectionné
+   - Step 3: Récapitulatif avec silhouette abdominale
+   - Suppression méthode inutilisée `_buildZoneSeverityRow()` (52 lignes)
+
+2. **Regroupement Événements sur Timeline**
+   - Modification `vertical_timeline_page.dart`: Grouping par timestamp (minute-précision)
+   - Structure: `Map<String, List<EventModel>>` avec clé `timestamp.substring(0,16)`
+   - Amélioration UX: Événements simultanés dans même TimelineItem
+   - Avantage: Meilleure lisibilité quand repas + symptômes proches
+
+3. **Corrections Mode Sombre**
+   - `meal_composer_dialog.dart`: Fix contraste barres navigation (surfaceContainerHigh)
+   - `methodology_page.dart`: Background card adaptatif (isDark ? Colors.grey[850] : surfaceContainerHigh)
+   - `vertical_timeline_page.dart`: Amélioration lisibilité mode clair (surface → surfaceContainerHigh)
+   - Pattern: Préférer `ColorScheme.surfaceContainerHigh` plutôt que `surface` pour contraste
+
+4. **Silhouette Abdominale Interactive**
+   - Fichier: `assets/images/abdomen_silhouette.png` (300x400px, transparent)
+   - Implémentation: `Transform.scale(1.2) + Alignment.topCenter` pour crop/zoom
+   - Affichage conditions: Douleurs abdominales + localisations définies
+   - Performance: Cached via RepaintBoundary implicite
+
+5. **Sécurité API & Environnement**
+   - Migration OpenWeather API key: Hardcodée → `.env` file
+   - Ajout `flutter_dotenv: ^5.2.1` dans `pubspec.yaml`
+   - Fichiers: `.env` (git-ignored), `.env.example` (template)
+   - Modification `lib/services/context_service.dart`: `dotenv.env['OPENWEATHER_API_KEY']`
+   - Init `main.dart`: `await dotenv.load(fileName: ".env");` avant `runApp()`
+
+6. **Nettoyage Code Mort**
+   - `insights_page.dart`: Suppression `_buildWeatherCorrelationsBarChart()` (119 lignes)
+   - Remplacé par: `_buildWeatherStackedBarChart()` (implémentation actuelle)
+   - `symptom_dialog.dart`: Suppression `_buildZoneSeverityRow()` (52 lignes, inutilisée après wizard)
+   - Total code supprimé: 171 lignes
+
+### Impact
+
+- ✅ **UX Wizard**: Navigation fluide 3 étapes, validation progressive
+- ✅ **Lisibilité Timeline**: Événements proches regroupés visuellement
+- ✅ **Accessibilité**: Contraste WCAG AA respecté en mode clair/sombre
+- ✅ **Sécurité**: API keys externalisées, pas de secrets dans Git
+- ✅ **Maintenabilité**: -171 lignes de code mort, plus de TODOs hardcodés
+- ✅ **Assets Visuels**: Silhouette abdomen améliore localisation douleurs
+
+### Patterns Établis
+
+1. **Wizard Multi-Étapes**:
+   ```dart
+   PageController _controller = PageController();
+   int _currentStep = 0;
+   
+   Widget _buildNavigationButtons() {
+     return Row(
+       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+       children: [
+         if (_currentStep > 0) OutlinedButton(...),
+         FilledButton(onPressed: _nextStep, ...),
+       ],
+     );
+   }
+   ```
+
+2. **Regroupement Timeline**:
+   ```dart
+   Map<String, List<EventModel>> groupedEvents = {};
+   for (var event in events) {
+     String key = event.timestamp.substring(0, 16); // YYYY-MM-DDTHH:mm
+     groupedEvents.putIfAbsent(key, () => []).add(event);
+   }
+   ```
+
+3. **PNG Assets Crop/Zoom**:
+   ```dart
+   Transform.scale(
+     scale: 1.2,
+     alignment: Alignment.topCenter,
+     child: Image.asset('assets/images/abdomen_silhouette.png'),
+   )
+   ```
+
+4. **Contraste Adaptatif**:
+   ```dart
+   final isDark = Theme.of(context).brightness == Brightness.dark;
+   color: isDark ? Colors.grey[850] : colorScheme.surfaceContainerHigh
+   ```
+
+### Règles Architecturales Renforcées
+
+- **Sécurité**: JAMAIS de secrets hardcodés, toujours `.env` + `.gitignore`
+- **Theme**: Préférer `surfaceContainerHigh` à `surface` pour contraste mode clair
+- **Wizard**: Utiliser PageController + étapes numérotées pour UX complexes
+- **Timeline**: Grouper événements par clé temporelle (minute-précision)
+- **Assets**: PNG avec Transform.scale pour crop sans éditeur externe
+
+---
+
 ## 2026-01-31 - Consolidation Technique (Batches 1-5)
 ### Objectif
 Réduction systématique de la dette technique identifiée dans l'audit (47 problèmes). Approche incrémentale par batches pour éviter les régressions.
