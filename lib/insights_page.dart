@@ -38,13 +38,15 @@ class ZoneTriggerAnalysis {
 
 class TriggerScore {
   final String name;
-  final int occurrences;
+  final int occurrences; // Times feature appeared with symptom
+  final int totalOccurrences; // Total times feature appeared
   final double probability; // P(Symptom|Trigger)
   final double confidence; // Based on sample size
 
   TriggerScore({
     required this.name,
     required this.occurrences,
+    required this.totalOccurrences,
     required this.probability,
     required this.confidence,
   });
@@ -767,6 +769,7 @@ class _InsightsPageState extends State<InsightsPage> {
         foodTriggers[food] = TriggerScore(
           name: food,
           occurrences: symptomCount,
+          totalOccurrences: totalCount,
           probability: probability,
           confidence: confidence,
         );
@@ -783,6 +786,7 @@ class _InsightsPageState extends State<InsightsPage> {
         tagTriggers[tag] = TriggerScore(
           name: tag,
           occurrences: symptomCount,
+          totalOccurrences: totalCount,
           probability: probability,
           confidence: confidence,
         );
@@ -799,6 +803,7 @@ class _InsightsPageState extends State<InsightsPage> {
         weatherTriggers[weather] = TriggerScore(
           name: weather,
           occurrences: symptomCount,
+          totalOccurrences: symptoms.length, // Total symptoms in zone
           probability: probability,
           confidence: confidence,
         );
@@ -1405,6 +1410,18 @@ class _InsightsPageState extends State<InsightsPage> {
             ? Theme.of(context).colorScheme.secondary
             : const Color(0xFFFBC02D); // Yellow 700
     
+    // Reliability badge based on sample size
+    final reliability = trigger.totalOccurrences >= 10
+        ? 'Fiable'
+        : trigger.totalOccurrences >= 5
+            ? 'Indicatif'
+            : 'Insuffisant';
+    final reliabilityColor = trigger.totalOccurrences >= 10
+        ? Theme.of(context).colorScheme.primary
+        : trigger.totalOccurrences >= 5
+            ? Colors.orange
+            : Colors.grey;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -1413,44 +1430,79 @@ class _InsightsPageState extends State<InsightsPage> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  trigger.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      trigger.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // RÈGLE 1: Corrélation brute (contexte)
+                    Text(
+                      '${trigger.occurrences} symptômes sur ${trigger.totalOccurrences} occurrences (${(trigger.probability * 100).toStringAsFixed(0)}%)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${trigger.occurrences} occurrence(s) • ${(trigger.probability * 100).toStringAsFixed(0)}% de risque',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: riskColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              riskLevel,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: riskColor,
               ),
-            ),
+              // RÈGLE 3: Badge de signification (force)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: riskColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  riskLevel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: riskColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // RÈGLE 4: Badge de fiabilité (taille échantillon)
+          Row(
+            children: [
+              Icon(
+                Icons.fact_check_outlined,
+                size: 14,
+                color: reliabilityColor,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                reliability,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: reliabilityColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '(${trigger.totalOccurrences} échantillons)',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2744,11 +2796,9 @@ class _InsightsPageState extends State<InsightsPage> {
       // Create grouped bars (side by side) instead of stacked
       final List<BarChartRodData> rods = [];
       
-      int rodIndex = 0;
       for (final type in symptomTypes) {
         final data = typeData[type];
         if (data == null) {
-          rodIndex++;
           continue;
         }
         
@@ -2764,7 +2814,6 @@ class _InsightsPageState extends State<InsightsPage> {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
           ),
         );
-        rodIndex++;
       }
       
       // Only add bars with data
