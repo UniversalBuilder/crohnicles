@@ -1,13 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:isolate';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
-import '../event_model.dart';
-import '../models/context_model.dart';
-import 'feature_extractor.dart';
 import '../database_helper.dart';
 
 /// Result of ML model training

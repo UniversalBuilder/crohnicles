@@ -446,15 +446,15 @@ class PdfExportService {
           pw.SizedBox(height: 4),
           pw.Text(
             '- Ce rapport est genere automatiquement par Crohnicles a partir de vos donnees de suivi.',
-            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+            style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
           ),
           pw.Text(
             '- Les correlations meteo sont basees sur des analyses statistiques et peuvent varier selon les individus.',
-            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+            style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
           ),
           pw.Text(
             '- Consultez toujours un professionnel de sante pour interpretation medicale.',
-            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+            style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
           ),
         ],
       ),
@@ -519,7 +519,7 @@ class PdfExportService {
         pw.SizedBox(height: 8),
         pw.Text(
           'NOTE : Cette liste reflète uniquement la fréquence de consommation, pas les corrélations avec symptômes.',
-          style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic),
+          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic),
         ),
       ],
     );
@@ -607,7 +607,7 @@ class PdfExportService {
         
         pw.Text(
           'INTERPRETATION : Une correlation de 80% signifie que dans 80% des cas ou cet aliment a ete consomme, le symptome est apparu dans les heures suivantes.',
-          style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic),
+          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic),
         ),
       ],
     );
@@ -653,7 +653,7 @@ class PdfExportService {
           ),
           child: pw.Text(
             'AVERTISSEMENT : Ce rapport est un outil d\'aide au suivi personnel. Il ne remplace en aucun cas un diagnostic medical. Consultez toujours votre medecin ou gastro-enterologue pour toute decision therapeutique.',
-            style: const pw.TextStyle(fontSize: 9, color: PdfColors.blue900),
+            style: pw.TextStyle(fontSize: 9, color: PdfColors.blue900),
           ),
         ),
       ],
@@ -676,7 +676,7 @@ class PdfExportService {
           pw.Expanded(
             child: pw.Text(
               definition,
-              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey800),
+              style: pw.TextStyle(fontSize: 9, color: PdfColors.grey800),
             ),
           ),
         ],

@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
-import 'dart:ui' as ui;
 import 'event_model.dart';
 import 'database_helper.dart';
-import 'event_detail_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:crohnicles/themes/app_gradients.dart';
 
 /// Extension for optional chaining
 extension LetExtension<T> on T? {
@@ -570,8 +566,6 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
         return Colors.purple;
       case EventType.context_log:
         return Colors.cyan;
-      default:
-        return Colors.grey;
     }
   }
 
