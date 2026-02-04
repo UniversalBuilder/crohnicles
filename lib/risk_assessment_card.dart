@@ -115,9 +115,11 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
       'diarrhea': 'Diarrhée',
       'bloating': 'Ballonnements',
       'joints': 'Articulations',
+      'joint': 'Articulations',
       'skin': 'Peau',
       'oral': 'Bouche/ORL',
       'systemic': 'Général',
+      'digestive': 'Digestif',
     };
     return names[symptomType] ?? symptomType;
   }
@@ -128,14 +130,51 @@ class _RiskAssessmentCardState extends State<RiskAssessmentCard>
     final modelManager = ModelManager();
     final isUsingTrainedModel = modelManager.isUsingTrainedModel;
 
-    return Text(
-      isUsingTrainedModel
-          ? 'Basé sur votre modèle statistique personnel'
-          : 'Analyse en temps réel (entraînez le modèle pour personnaliser)',
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontStyle: isUsingTrainedModel ? FontStyle.normal : FontStyle.italic,
-      ),
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: isUsingTrainedModel
+                ? Theme.of(context).colorScheme.tertiaryContainer
+                : Theme.of(context).colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isUsingTrainedModel ? '🧠' : '📊',
+                style: const TextStyle(fontSize: 11),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                isUsingTrainedModel ? 'ML Personnalisé' : 'Analyse Statistique',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: isUsingTrainedModel
+                      ? Theme.of(context).colorScheme.onTertiaryContainer
+                      : Theme.of(context).colorScheme.onSecondaryContainer,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            isUsingTrainedModel
+                ? 'Prédictions basées sur votre historique'
+                : 'Analyse temps réel (entraîner le modèle)',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontStyle: isUsingTrainedModel ? FontStyle.normal : FontStyle.italic,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 

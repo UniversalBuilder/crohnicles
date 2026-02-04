@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
@@ -81,7 +82,7 @@ class _InsightsPageState extends State<InsightsPage> {
   int _totalDaysAnalyzed = 0;
 
   // Analysis
-  Map<String, int> _topSuspects = {};
+  Map<String, int> _mostFrequentTags = {};
 
   // ML Data
   Map<String, List<Map<String, dynamic>>> _correlations = {};
@@ -125,8 +126,8 @@ class _InsightsPageState extends State<InsightsPage> {
       lastMeals = rawMeals.map((e) => EventModel.fromMap(e)).toList();
     }
 
-    // 3. Global Pattern Analysis (Top Suspects)
-    final suspects = _analyzePatterns(allEventsModels);
+    // 3. Global Pattern Analysis (Frequent Tags - not correlated)
+    final frequentTags = _computeFrequentTags(allEventsModels);
 
     // 4. ML Correlations
     final Map<String, List<Map<String, dynamic>>> correlations = {};
@@ -204,7 +205,7 @@ class _InsightsPageState extends State<InsightsPage> {
         _stoolData = stool;
         _zoneData = zones; // Set State
         _suspectMeals = lastMeals;
-        _topSuspects = suspects;
+        _mostFrequentTags = frequentTags;
         _correlations = correlations;
         _modelManager = modelManager;
         _hasModels = hasModels;
@@ -218,16 +219,19 @@ class _InsightsPageState extends State<InsightsPage> {
     }
   }
 
-  Map<String, int> _analyzePatterns(List<EventModel> events) {
-    Map<String, int> suspectCounts = {};
+  /// Calcule la fréquence d'apparition de chaque tag dans les repas
+  /// Note: Compte TOUS les repas, pas seulement ceux avant symptômes
+  /// Pour corrélations réelles, voir _correlations
+  Map<String, int> _computeFrequentTags(List<EventModel> events) {
+    Map<String, int> tagCounts = {};
 
     for (var event in events) {
       for (var tag in event.tags) {
-        suspectCounts[tag] = (suspectCounts[tag] ?? 0) + 1;
+        tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
       }
     }
 
-    return suspectCounts;
+    return tagCounts;
   }
 
   Future<Map<String, dynamic>> _loadWeatherCorrelations(List<EventModel> events) async {
@@ -976,28 +980,30 @@ class _InsightsPageState extends State<InsightsPage> {
   }
 
   Future<void> _exportPdf() async {
-    if (_weatherCorrelationsByType.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Aucune donnée météo à exporter. Veuillez d\'abord charger les analyses.'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
     try {
       // Show loading dialog
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const AlertDialog(
+        builder: (context) => AlertDialog(
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Génération du PDF...'),
+              CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Génération du rapport PDF...',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Cela peut prendre quelques secondes',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
         ),
@@ -1012,13 +1018,19 @@ class _InsightsPageState extends State<InsightsPage> {
           .take(20)
           .toList();
 
-      // Generate PDF
+      // Récupérer nom patient depuis SharedPreferences si disponible
+      final prefs = await SharedPreferences.getInstance();
+      final patientName = prefs.getString('patient_name');
+
+      // Generate PDF with enriched data
       final pdfFile = await PdfExportService.generateInsightsPdf(
         correlationsByType: _weatherCorrelationsByType,
         symptomBaselinePercentages: _symptomBaselinePercentages,
         totalDaysAnalyzed: _totalDaysAnalyzed,
         recentSymptoms: recentSymptoms,
-        patientName: null, // Could be fetched from settings if available
+        mostFrequentTags: _mostFrequentTags,
+        correlations: _correlations,
+        patientName: patientName,
       );
 
       if (!mounted) return;
@@ -2143,7 +2155,7 @@ class _InsightsPageState extends State<InsightsPage> {
   }
 
   Widget _buildSuspectsCard() {
-    if (_topSuspects.isEmpty) {
+    if (_mostFrequentTags.isEmpty) {
       return Container(
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
@@ -2209,13 +2221,16 @@ class _InsightsPageState extends State<InsightsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Déclencheurs Potentiels",
+                      "Aliments les Plus Fréquents",
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
                     ),
                     Text(
-                      "Tags les plus fréquents dans vos repas",
+                      "Classés par fréquence d'apparition (pas de corrélation)",
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -2229,7 +2244,7 @@ class _InsightsPageState extends State<InsightsPage> {
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: (_topSuspects.entries.toList()
+            children: (_mostFrequentTags.entries.toList()
               ..sort((a, b) => b.value.compareTo(a.value))) // Tri par fréquence
               .take(15) // Limite à 15 tags les plus fréquents
               .map((e) {
@@ -3121,60 +3136,17 @@ class _InsightsPageState extends State<InsightsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Évaluation des Risques",
+                        "Analyses Statistiques",
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _hasModels 
-                                ? Theme.of(context).colorScheme.tertiaryContainer
-                                : Theme.of(context).colorScheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: _hasModels 
-                                  ? Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.3)
-                                  : Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _hasModels ? "🧠" : "📊",
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _hasModels ? "ML" : "Stats",
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: _hasModels 
-                                      ? Theme.of(context).colorScheme.onTertiaryContainer
-                                      : Theme.of(context).colorScheme.onSecondaryContainer,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              _hasModels 
-                                ? "Modèle personnalisé" 
-                                : "Analyse historique",
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        "Résumé de vos données récentes",
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -3207,9 +3179,8 @@ class _InsightsPageState extends State<InsightsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _hasModels
-                        ? "Les modèles sont entraînés sur vos données personnelles pour prédire les réactions à vos repas."
-                        : "Les prédictions utilisent des corrélations statistiques. Entraînez les modèles après 30+ repas pour des prédictions personnalisées.",
+                    "Cette section présente les graphiques et statistiques de vos données. "
+                    "Les modèles ML personnalisés sont utilisés uniquement pour les prédictions après l'ajout d'un repas.",
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurface,
                       height: 1.4,
@@ -3226,7 +3197,9 @@ class _InsightsPageState extends State<InsightsPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          "Les prédictions s'affichent automatiquement après chaque repas.",
+                          _hasModels
+                              ? "Vos modèles ML personnalisés sont actifs pour les prédictions."
+                              : "Entraînez les modèles après 30+ repas pour des prédictions ML personnalisées.",
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
