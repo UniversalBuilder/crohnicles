@@ -21,12 +21,16 @@ class AppColors {
   static const Color checkupStart = Color(0xFF8B5CF6); // Purple
   static const Color checkupEnd = Color(0xFFA78BFA); // Light Purple
   
+  static const Color contextStart = Color(0xFF06B6D4); // Cyan
+  static const Color contextEnd = Color(0xFF0EA5E9); // Sky Blue
+  
   // Solid colors for icons/text
   static const Color primary = Color(0xFF7C3AED); // Purple 600
   static const Color meal = Color(0xFFF97316); // Orange 500
   static const Color pain = Color(0xFFEF4444); // Red 500
   static const Color stool = Color(0xFF3B82F6); // Blue 500
   static const Color checkup = Color(0xFF8B5CF6); // Purple 500
+  static const Color contextLog = Color(0xFF06B6D4); // Cyan 500
   
   // Background & Surface
   static const Color background = Color(0xFFF2F4F7); // Soft Blue-Gray
@@ -67,6 +71,12 @@ class AppColors {
   
   static const LinearGradient checkupGradient = LinearGradient(
     colors: [checkupStart, checkupEnd],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static const LinearGradient contextLogGradient = LinearGradient(
+    colors: [contextStart, contextEnd],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

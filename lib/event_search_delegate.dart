@@ -247,6 +247,8 @@ class EventSearchDelegate extends SearchDelegate {
         return const Icon(Icons.waves, color: Colors.brown);
       case EventType.daily_checkup:
         return const Icon(Icons.bedtime, color: Colors.indigo);
+      case EventType.context_log:
+        return const Icon(Icons.cloud_done, color: Colors.cyan);
     }
   }
 
@@ -260,6 +262,8 @@ class EventSearchDelegate extends SearchDelegate {
         return Colors.brown;
       case EventType.daily_checkup:
         return Colors.indigo;
+      case EventType.context_log:
+        return Colors.cyan;
     }
   }
 

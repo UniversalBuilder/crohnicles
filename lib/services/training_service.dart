@@ -40,21 +40,12 @@ class TrainingService {
     try {
       print('[TrainingService] Starting statistical analysis...');
 
-      // Check data availability first
-      final dataStatus = await checkDataAvailability();
-
       // Use Statistical Engine (Cross-platform)
       final result = await StatisticalEngine().train();
       
       if (result.success) {
-        // Save training history
-        final correlationCount = result.correlationCount ?? 0;
-        await _db.saveTrainingHistory(
-          mealCount: dataStatus.mealCount,
-          symptomCount: dataStatus.symptomCount,
-          correlationCount: correlationCount,
-          notes: 'Analyse statistique: $correlationCount corrélations identifiées',
-        );
+        // Note: Training history is now saved by ml/training_service.dart
+        // which uses the new schema with ML metrics
         
         try {
           final modelManager = ModelManager();

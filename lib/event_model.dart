@@ -1,4 +1,4 @@
-enum EventType { meal, symptom, stool, daily_checkup }
+enum EventType { meal, symptom, stool, daily_checkup, context_log }
 
 class EventModel {
   final int? id;

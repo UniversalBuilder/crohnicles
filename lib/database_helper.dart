@@ -53,7 +53,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       dbPath,
-      version: 11,
+      version: 12,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -193,9 +193,14 @@ class DatabaseHelper {
       CREATE TABLE training_history(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         trained_at TEXT,
-        meal_count INTEGER,
-        symptom_count INTEGER,
-        correlation_count INTEGER,
+        symptom_type TEXT,
+        accuracy REAL,
+        precision_score REAL,
+        recall REAL,
+        f1_score REAL,
+        training_examples INTEGER,
+        test_examples INTEGER,
+        model_version TEXT,
         notes TEXT
       )
     ''');
@@ -336,6 +341,26 @@ class DatabaseHelper {
           meal_count INTEGER,
           symptom_count INTEGER,
           correlation_count INTEGER,
+          notes TEXT
+        )
+      ''');
+    }
+
+    if (oldVersion < 12) {
+      print('[DB] Migrating to v12: Adding ML metrics to training_history');
+      await db.execute('DROP TABLE IF EXISTS training_history');
+      await db.execute('''
+        CREATE TABLE training_history(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trained_at TEXT,
+          symptom_type TEXT,
+          accuracy REAL,
+          precision_score REAL,
+          recall REAL,
+          f1_score REAL,
+          training_examples INTEGER,
+          test_examples INTEGER,
+          model_version TEXT,
           notes TEXT
         )
       ''');
@@ -1833,7 +1858,7 @@ class DatabaseHelper {
       AND dateTime >= datetime('now', '-90 days')
     """);
 
-    final mealCount = mealResult.first['count'] as int;
+    final mealCount = (mealResult.first['count'] as int?) ?? 0;
 
     // Count symptoms in last 90 days
     final symptomResult = await db.rawQuery("""
@@ -1843,7 +1868,7 @@ class DatabaseHelper {
       AND dateTime >= datetime('now', '-90 days')
     """);
 
-    final symptomCount = symptomResult.first['count'] as int;
+    final symptomCount = (symptomResult.first['count'] as int?) ?? 0;
 
     final hasEnoughData = mealCount >= 30 && symptomCount >= 10;
 
@@ -1896,7 +1921,7 @@ class DatabaseHelper {
         ['%$frenchTag%'],
       );
 
-      final symptomCount = symptomResult.first['count'] as int;
+      final symptomCount = (symptomResult.first['count'] as int?) ?? 0;
 
       // Count meal-symptom correlations (4-8 hour window)
       final correlationResult = await db.rawQuery(
@@ -1915,7 +1940,7 @@ class DatabaseHelper {
         ['%$frenchTag%'],
       );
 
-      final correlationCount = correlationResult.first['count'] as int;
+      final correlationCount = (correlationResult.first['count'] as int?) ?? 0;
 
       // Count total meals (for context)
       final mealResult = await db.rawQuery("""
@@ -1925,7 +1950,7 @@ class DatabaseHelper {
         AND dateTime >= datetime('now', '-90 days')
       """);
 
-      final mealCount = mealResult.first['count'] as int;
+      final mealCount = (mealResult.first['count'] as int?) ?? 0;
 
       // Determine readiness
       final minSamples =
@@ -1999,7 +2024,7 @@ class DatabaseHelper {
           [meal['dateTime']],
         );
 
-        final hasSymptom = (symptomResult.first['count'] as int) > 0;
+        final hasSymptom = ((symptomResult.first['count'] as int?) ?? 0) > 0;
 
         // Count each food
         for (final food in foods) {
@@ -2047,25 +2072,6 @@ class DatabaseHelper {
     );
 
     return suspects;
-  }
-
-  /// Save training history entry
-  Future<void> saveTrainingHistory({
-    required int mealCount,
-    required int symptomCount,
-    required int correlationCount,
-    String? notes,
-  }) async {
-    final db = await database;
-    
-    await db.insert('training_history', {
-      'trained_at': DateTime.now().toIso8601String(),
-      'meal_count': mealCount,
-      'symptom_count': symptomCount,
-      'correlation_count': correlationCount,
-      'notes': notes,
-    });
-    print('[DB] Saved training history: $correlationCount correlations');
   }
 
   /// Get latest training history entries

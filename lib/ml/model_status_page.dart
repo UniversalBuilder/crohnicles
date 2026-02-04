@@ -277,10 +277,19 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
               final correlationCount = modelStatus['correlation_count'] ?? 0;
               final isReady = modelStatus['is_ready'] ?? false;
 
-              // Check global training history (v11: no per-model tracking)
-              final trained = _trainingHistory.isNotEmpty;
+              // Check if this specific model type has been trained (new ML schema)
+              final trained = _trainingHistory.any((entry) {
+                final symptomType = entry['symptom_type'] as String?;
+                return symptomType != null && symptomType.toLowerCase().contains(config.modelKey.toLowerCase());
+              });
               final trainedAt = trained
-                  ? DateTime.parse(_trainingHistory.first['trained_at'] as String)
+                  ? (() {
+                      final entry = _trainingHistory.firstWhere((e) {
+                        final symptomType = e['symptom_type'] as String?;
+                        return symptomType != null && symptomType.toLowerCase().contains(config.modelKey.toLowerCase());
+                      });
+                      return DateTime.parse(entry['trained_at'] as String);
+                    })()
                   : null;
 
               return _buildModelExpansionTile(
@@ -458,22 +467,26 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
             else
               ..._trainingHistory.map((entry) {
                 final date = DateTime.parse(entry['trained_at'] as String);
-                final mealCount = entry['meal_count'] as int;
-                final symptomCount = entry['symptom_count'] as int;
-                final correlationCount = entry['correlation_count'] as int;
+                // New schema: symptom_type, accuracy, precision_score, etc.
+                final symptomType = entry['symptom_type'] as String?;
+                final accuracy = entry['accuracy'] as double?;
+                final trainingExamples = entry['training_examples'] as int?;
+                final modelVersion = entry['model_version'] as String?;
 
                 return ListTile(
                   dense: true,
                   leading: Icon(
-                    Icons.analytics,
-                    color: correlationCount > 10 ? Colors.green : Colors.orange,
+                    Icons.psychology,
+                    color: (accuracy ?? 0) >= 0.7 ? Colors.green : Colors.orange,
                   ),
                   title: Text(
-                    'Entraînement statistique',
+                    symptomType != null ? 'ML: $symptomType' : 'Entraînement ML',
                     style: const TextStyle(fontSize: 14),
                   ),
                   subtitle: Text(
-                    '$correlationCount corrélations • $mealCount repas • $symptomCount symptômes',
+                    accuracy != null 
+                      ? 'Précision: ${(accuracy * 100).toStringAsFixed(1)}% • ${trainingExamples ?? 0} exemples${modelVersion != null ? ' • v$modelVersion' : ''}'
+                      : 'Détails non disponibles',
                     style: const TextStyle(fontSize: 12),
                   ),
                   trailing: Text(

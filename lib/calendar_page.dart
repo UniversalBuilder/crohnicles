@@ -171,6 +171,10 @@ class _CalendarPageState extends State<CalendarPage> {
         icon = Icons.bedtime;
         gradient = AppColors.checkupGradient;
         break;
+      case EventType.context_log:
+        icon = Icons.cloud_done;
+        gradient = AppColors.contextLogGradient;
+        break;
     }
 
     return Container(

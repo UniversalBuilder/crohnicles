@@ -1,5 +1,20 @@
 # Journal d'Architecture
 
+## 2026-02-04 - Fix Dashboard Layout
+
+### Changements
+
+1. **Correction contraintes Row non bornées**
+   - Fichier: `lib/insights_page.dart`
+   - Zone: Carte "Évaluation des Risques" (header)
+   - Fix: Wrapper la colonne du header dans `Expanded` pour donner une largeur bornée
+   - Raison: Évite `RenderFlex` unbounded width avec `Flexible` dans un `Row`
+
+### Impact
+
+- ✅ **Stabilité UI**: suppression du crash `RenderFlex children have non-zero flex`
+- ✅ **Dashboard**: affichage normal de la page Tableau de bord
+
 ## 2026-02-03 - Phase de Qualité Finale (Code Quality)
 
 ### Changements

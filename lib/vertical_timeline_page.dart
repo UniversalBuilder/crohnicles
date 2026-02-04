@@ -33,7 +33,7 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
   bool _isLoading = true;
 
   // New: Day-based view states
-  Map<String, bool> _expandedDays = {}; // date → isExpanded
+  final Map<String, bool> _expandedDays = {}; // date → isExpanded
   EventModel? _selectedEvent; // For detail panel
   Map<String, Map<String, dynamic>> _weatherData = {}; // eventId → weather data
   Map<String, List<EventModel>> _eventsByDay = {}; // date → events list
@@ -568,6 +568,8 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
         return Colors.blue;
       case EventType.daily_checkup:
         return Colors.purple;
+      case EventType.context_log:
+        return Colors.cyan;
       default:
         return Colors.grey;
     }
@@ -575,7 +577,13 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
 
   /// Centralized icon selection based on event type
   IconData _getEventIcon(EventModel event) {
-    // Check for daily_checkup/weather events first
+    // Weather auto events (context_log)
+    if (event.type == EventType.context_log ||
+        event.title.toLowerCase().contains('relevé météo auto')) {
+      return Icons.cloud_done;
+    }
+
+    // Check for daily_checkup/weather events
     if (event.type == EventType.daily_checkup ||
         event.title.toLowerCase().contains('météo') ||
         event.title.toLowerCase().contains('meteo')) {
@@ -742,7 +750,7 @@ class _VerticalTimelinePageState extends State<VerticalTimelinePage> {
                           timeDiff,
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
               ),

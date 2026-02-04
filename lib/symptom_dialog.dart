@@ -952,7 +952,7 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                     ],
                   ),
                 );
-              }).toList(),
+              }),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -1025,12 +1025,12 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
         ...selectedAbdomenZones.map((zone) {
           final severity = (_zoneSeverities['Abdomen'] ?? 5.0).toInt();
           return _buildSummaryCard(zone, severity, colorScheme, theme);
-        }).toList(),
+        }),
         ...selectedGeneralZones.map((fullPath) {
           final l1 = fullPath.split(' > ').first;
           final severity = (_zoneSeverities[l1] ?? 5.0).toInt();
           return _buildSummaryCard(fullPath, severity, colorScheme, theme);
-        }).toList(),
+        }),
       ],
     );
   }

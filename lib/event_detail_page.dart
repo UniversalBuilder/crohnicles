@@ -72,6 +72,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
         return AppColors.painGradient;
       case EventType.stool:
         return AppColors.stoolGradient;
+      case EventType.context_log:
+        return AppColors.contextLogGradient;
       default:
         return AppColors.primaryGradient;
     }
@@ -85,6 +87,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
         return Icons.favorite_border;
       case EventType.stool:
         return Icons.analytics_outlined;
+      case EventType.context_log:
+        return Icons.cloud_done;
       default:
         return Icons.event_note;
     }

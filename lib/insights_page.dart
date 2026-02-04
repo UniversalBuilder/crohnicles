@@ -1608,8 +1608,8 @@ class _InsightsPageState extends State<InsightsPage> {
           IconButton(
             icon: const Icon(Icons.psychology_outlined),
             tooltip: PlatformUtils.isMobile
-                ? 'Entraînement (Desktop uniquement)'
-                : 'Analyser les corrélations',
+                ? 'Entraînement ML (Desktop uniquement)'
+                : 'Entraîner modèles ML personnalisés\n\nEntraîne des modèles d\'apprentissage automatique sur tes données pour des prédictions avancées.\n\nℹ️ Les stats simples (📊) continueront de fonctionner en parallèle.',
             onPressed: _triggerTraining,
           ),
           IconButton(
@@ -1649,40 +1649,35 @@ class _InsightsPageState extends State<InsightsPage> {
                 ],
 
                 // --- PAIN CHART ---
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            gradient: AppColors.painGradient,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.painStart.withValues(alpha: 0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.painGradient,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.painStart.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                          child: Icon(
-                            Icons.multiline_chart,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          "Courbe de Douleur (30j)",
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.multiline_chart,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      "Courbe de Douleur (30j)",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -3121,27 +3116,69 @@ class _InsightsPageState extends State<InsightsPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Évaluation des Risques",
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Évaluation des Risques",
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
-                    ),
-                    Text(
-                      _hasModels 
-                        ? "📊 Modèle statistique personnel" 
-                        : "⚡ Analyse en temps réel",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: _hasModels ? Theme.of(context).colorScheme.tertiary : Theme.of(context).colorScheme.secondary,
-                        fontWeight: FontWeight.w500,
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _hasModels 
+                                ? Theme.of(context).colorScheme.tertiaryContainer
+                                : Theme.of(context).colorScheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: _hasModels 
+                                  ? Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.3)
+                                  : Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _hasModels ? "🧠" : "📊",
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _hasModels ? "ML" : "Stats",
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: _hasModels 
+                                      ? Theme.of(context).colorScheme.onTertiaryContainer
+                                      : Theme.of(context).colorScheme.onSecondaryContainer,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              _hasModels 
+                                ? "Modèle personnalisé" 
+                                : "Analyse historique",
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const Spacer(),
                 IconButton(
                   icon: Icon(Icons.help_outline, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   onPressed: () {
@@ -3261,8 +3298,32 @@ class _InsightsPageState extends State<InsightsPage> {
                     children: [
                       Row(
                         children: [
-                          Text("📊", style: TextStyle(fontSize: 18)),
-                          SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text("📊", style: TextStyle(fontSize: 12)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "Stats",
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Flexible(
                             child: Text(
                               "Corrélations Statistiques (30j)",

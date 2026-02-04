@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/theme_provider.dart';
 import 'logs_page.dart';
 import 'ml/model_status_page.dart';
+import 'ml/training_service.dart';
 import 'methodology_page.dart';
 import 'about_page.dart';
 import 'database_helper.dart';
@@ -94,6 +95,13 @@ class SettingsPage extends StatelessWidget {
           ),
           
           _buildSectionHeader(context, 'Développeur'),
+          _buildSettingsTile(
+            context,
+            icon: Icons.psychology,
+            title: '🧠 Entraîner Modèle ML',
+            subtitle: 'Améliore les prédictions avec tes données',
+            onTap: () => _showTrainMLDialog(context),
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.delete_forever,
@@ -221,6 +229,179 @@ class SettingsPage extends StatelessWidget {
     await DatabaseHelper().enrichWithPopularOFFProducts();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('✅ Base enrichie')),
+    );
+  }
+
+  void _showTrainMLDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dismiss during training
+      builder: (dialogContext) => TrainMLDialog(),
+    );
+  }
+}
+
+/// Dialog for ML model training with progress
+class TrainMLDialog extends StatefulWidget {
+  const TrainMLDialog({super.key});
+
+  @override
+  State<TrainMLDialog> createState() => _TrainMLDialogState();
+}
+
+class _TrainMLDialogState extends State<TrainMLDialog> {
+  bool _isTraining = false;
+  String _currentStep = 'Initialisation...';
+  TrainingResult? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTraining();
+  }
+
+  Future<void> _startTraining() async {
+    setState(() {
+      _isTraining = true;
+      _currentStep = 'Démarrage...';
+    });
+
+    final trainingService = TrainingService();
+    
+    try {
+      final result = await trainingService.trainAllModels(
+        windowHours: 8,
+        onProgress: (step) {
+          if (!mounted) return;
+          setState(() {
+            _currentStep = step;
+          });
+        },
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isTraining = false;
+        _result = result;
+      });
+
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isTraining = false;
+        _result = TrainingResult(
+          success: false,
+          modelMetrics: {},
+          errorMessage: e.toString(),
+          trainedAt: DateTime.now(),
+          trainingDataSize: 0,
+          trainingDuration: Duration.zero,
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.psychology, color: colorScheme.primary),
+          const SizedBox(width: 12),
+          const Text('Entraînement ML'),
+        ],
+      ),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.8,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isTraining) ...[
+              const CircularProgressIndicator(),
+              const SizedBox(height: 24),
+              Text(
+                _currentStep,
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Cela peut prendre 1-3 minutes...',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ] else if (_result != null) ...[
+              if (_result!.success) ...[
+                Icon(Icons.check_circle, size: 64, color: Colors.green),
+                const SizedBox(height: 16),
+                Text(
+                  'Entraînement terminé !',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Durée: ${_result!.trainingDuration.inSeconds}s',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const Divider(height: 32),
+                Text(
+                  'Résultats:',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                ..._result!.modelMetrics.entries.map((entry) {
+                  final metrics = entry.value;
+                  final accuracy = (metrics.accuracy * 100).toStringAsFixed(1);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(entry.key),
+                        Chip(
+                          label: Text('$accuracy%'),
+                          backgroundColor: metrics.accuracy >= 0.7
+                              ? Colors.green.withValues(alpha: 0.2)
+                              : Colors.orange.withValues(alpha: 0.2),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ] else ...[
+                Icon(Icons.error, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(
+                  'Échec de l\'entraînement',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _result!.errorMessage ?? 'Erreur inconnue',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        if (!_isTraining)
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(_result?.success == true ? 'OK' : 'Fermer'),
+          ),
+      ],
     );
   }
 }
