@@ -122,7 +122,7 @@ class CsvExportService {
       if (weather != null) {
         final temp = weather['temperature'];
         final condition = weather['condition'];
-        if (temp != null) parts.add('Température: ${temp}°C');
+        if (temp != null) parts.add('Température: $temp°C');
         if (condition != null) parts.add('Météo: $condition');
       }
     }

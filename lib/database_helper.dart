@@ -2277,8 +2277,8 @@ class DatabaseHelper {
         dbPath,
         '${dbPath}_encrypted',
         '${dbPath}_unencrypted',
-        '${dbPath}-shm',  // SQLite shared memory
-        '${dbPath}-wal',  // SQLite write-ahead log
+        '$dbPath-shm',  // SQLite shared memory
+        '$dbPath-wal',  // SQLite write-ahead log
       ];
       
       for (final path in filesToDelete) {

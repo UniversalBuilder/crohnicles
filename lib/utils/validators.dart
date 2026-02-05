@@ -2,6 +2,7 @@
 /// 
 /// Règles de validation claires et messages d'erreur en français
 /// pour garantir l'intégrité des données saisies.
+library;
 import 'package:flutter/material.dart';
 import '../food_model.dart';
 
