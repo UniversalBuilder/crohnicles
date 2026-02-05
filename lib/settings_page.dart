@@ -7,6 +7,7 @@ import 'ml/training_service.dart';
 import 'methodology_page.dart';
 import 'about_page.dart';
 import 'database_helper.dart';
+import 'services/csv_export_service.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -132,6 +133,18 @@ class SettingsPage extends StatelessWidget {
           ),
           
           _buildSectionHeader(context, 'Développeur'),
+          _buildSettingsTile(
+            context,
+            icon: Icons.download,
+            title: 'Exporter mes données (CSV)',
+            subtitle: 'Télécharge toutes vos données au format CSV (RGPD)',
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => const _ExportCsvDialog(),
+              );
+            },
+          ),
           _buildSettingsTile(
             context,
             icon: Icons.psychology,
@@ -684,6 +697,184 @@ class _TrainMLDialogState extends State<TrainMLDialog> {
             onPressed: () => Navigator.pop(context),
             child: Text(_result?.success == true ? 'OK' : 'Fermer'),
           ),
+      ],
+    );
+  }
+}
+
+/// Dialog d'export CSV avec preview et bouton de partage
+class _ExportCsvDialog extends StatefulWidget {
+  const _ExportCsvDialog();
+
+  @override
+  State<_ExportCsvDialog> createState() => _ExportCsvDialogState();
+}
+
+class _ExportCsvDialogState extends State<_ExportCsvDialog> {
+  bool _isExporting = false;
+  int? _eventCount;
+  int? _estimatedSizeKb;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatistics();
+  }
+
+  Future<void> _loadStatistics() async {
+    final csvService = CsvExportService();
+    final count = await csvService.getEventCount();
+    final size = await csvService.getEstimatedSizeKb();
+    
+    if (mounted) {
+      setState(() {
+        _eventCount = count;
+        _estimatedSizeKb = size;
+      });
+    }
+  }
+
+  Future<void> _exportData() async {
+    setState(() => _isExporting = true);
+
+    try {
+      final csvService = CsvExportService();
+      await csvService.exportAndShare();
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Export CSV réussi'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isExporting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Erreur d\'export: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.download, color: colorScheme.primary),
+          const SizedBox(width: 12),
+          const Text('Exporter mes données'),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Conforme RGPD',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Téléchargez toutes vos données au format CSV. '
+              'Compatible Excel, Google Sheets, et tous les outils d\'analyse.',
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+            
+            // Statistiques
+            if (_eventCount != null && _estimatedSizeKb != null) ...[
+              _buildStat(context, Icons.event_note, 'Événements', '$_eventCount'),
+              const SizedBox(height: 8),
+              _buildStat(context, Icons.storage, 'Taille estimée', '$_estimatedSizeKb Ko'),
+              const SizedBox(height: 8),
+              _buildStat(context, Icons.description, 'Format', 'CSV (UTF-8)'),
+            ] else ...[
+              const Center(child: CircularProgressIndicator()),
+            ],
+            
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 20, color: colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Le fichier sera partagé via votre système (email, cloud, etc.)',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            if (_isExporting) ...[
+              const SizedBox(height: 24),
+              const LinearProgressIndicator(),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  'Génération du fichier CSV...',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isExporting ? null : () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton.icon(
+          onPressed: _isExporting || _eventCount == null ? null : _exportData,
+          icon: const Icon(Icons.download),
+          label: const Text('Télécharger'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStat(BuildContext context, IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ],
     );
   }
