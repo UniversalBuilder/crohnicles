@@ -305,11 +305,9 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                                     _selectedDate,
                                   ),
                                   builder: (context, child) {
-                                    return Theme(
-                                      data: Theme.of(context).copyWith(
-                                        colorScheme: ColorScheme.light(
-                                          primary: colorScheme.error,
-                                        ),
+                                    return MediaQuery(
+                                      data: MediaQuery.of(context).copyWith(
+                                        alwaysUse24HourFormat: true,
                                       ),
                                       child: child!,
                                     );

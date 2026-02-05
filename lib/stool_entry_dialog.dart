@@ -192,11 +192,9 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                   context: context,
                                   initialTime: TimeOfDay.fromDateTime(_selectedDate),
                                   builder: (context, child) {
-                                    return Theme(
-                                      data: Theme.of(context).copyWith(
-                                        colorScheme: ColorScheme.light(
-                                          primary: colorScheme.tertiary,
-                                        ),
+                                    return MediaQuery(
+                                      data: MediaQuery.of(context).copyWith(
+                                        alwaysUse24HourFormat: true,
                                       ),
                                       child: child!,
                                     );
