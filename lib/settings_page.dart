@@ -71,6 +71,43 @@ class SettingsPage extends StatelessWidget {
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage())),
           ),
           
+          _buildSectionHeader(context, 'Sécurité & Confidentialité'),
+          FutureBuilder<bool>(
+            future: DatabaseHelper().isEncryptionEnabled(),
+            builder: (context, snapshot) {
+              final isEncrypted = snapshot.data ?? false;
+              return SwitchListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                secondary: Icon(
+                  isEncrypted ? Icons.lock : Icons.lock_open,
+                  color: isEncrypted ? Colors.green : Colors.orange,
+                ),
+                title: Text(
+                  'Chiffrement de la base',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                subtitle: Text(
+                  isEncrypted
+                      ? '🔒 Activé - Vos données sont chiffrées AES-256'
+                      : '⚠️ Désactivé - Données en clair (non recommandé)',
+                  style: TextStyle(
+                    color: isEncrypted 
+                        ? Theme.of(context).colorScheme.onSurface
+                        : Colors.orange,
+                  ),
+                ),
+                value: isEncrypted,
+                onChanged: (value) {
+                  if (value) {
+                    _showEnableEncryptionDialog(context);
+                  } else {
+                    _showDisableEncryptionDialog(context);
+                  }
+                },
+              );
+            },
+          ),
+          
           _buildSectionHeader(context, 'Maintenance'),
           _buildSettingsTile(
             context,
@@ -106,7 +143,7 @@ class SettingsPage extends StatelessWidget {
             context,
             icon: Icons.delete_forever,
             title: 'Réinitialiser la base',
-            subtitle: 'Attention : Action irréversible',
+            subtitle: 'Supprime toutes les données (IRRÉVERSIBLE)',
             color: Theme.of(context).colorScheme.error,
             onTap: () => _showClearDatabaseDialog(context),
           ),
@@ -116,13 +153,6 @@ class SettingsPage extends StatelessWidget {
             title: 'Générer Données Démo',
             subtitle: 'Ajoute 100 jours de données fictives réalistes',
             onTap: () => _showGenerateDemoDialog(context),
-          ),
-           _buildSettingsTile(
-            context,
-            icon: Icons.cloud_download,
-            title: 'Enrichir Base Aliments',
-            subtitle: 'Télécharge des produits OpenFoodFacts',
-            onTap: () => _enrichWithOFFProducts(context),
           ),
         ],
       ),
@@ -150,6 +180,7 @@ class SettingsPage extends StatelessWidget {
     required String subtitle,
     required VoidCallback onTap,
     Color? color,
+    Widget? trailing,
   }) {
     final effectiveColor = color ?? Theme.of(context).colorScheme.onSurface;
     return ListTile(
@@ -162,38 +193,156 @@ class SettingsPage extends StatelessWidget {
         child: Icon(icon, color: effectiveColor),
       ),
       title: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: effectiveColor)),
-      subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-      trailing: Icon(Icons.chevron_right, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+      subtitle: Text(subtitle),
+      trailing: trailing ?? const Icon(Icons.chevron_right),
       onTap: onTap,
     );
   }
 
   void _showClearDatabaseDialog(BuildContext context) {
+    bool deleteEncryptionKeys = false;
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('⚠️ Effacer la base'),
-        content: const Text(
-          'Ceci va supprimer TOUTES les données.\nAction IRRÉVERSIBLE !',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(context);
-              await DatabaseHelper().database.then((db) async {
-                 await db.delete('events');
-                 await db.delete('foods');
-                 await db.delete('products_cache');
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✅ Base de données effacée')),
-              );
-            },
-            child: const Text('EFFACER TOUT'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.delete_forever, color: Colors.red),
+              SizedBox(width: 8),
+              Text('⚠️ Réinitialiser la base'),
+            ],
           ),
-        ],
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Ceci va supprimer TOUTES les données :',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text('• Tous vos repas, symptômes, selles'),
+              const Text('• Historique météo et corrélations'),
+              const Text('• Modèles ML entraînés'),
+              const Text('• Cache de la base aliments'),
+              const SizedBox(height: 16),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  '🔐 Supprimer aussi les clés de chiffrement',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Si décoché : vos données sont supprimées MAIS vous pourrez\n'
+                  're-chiffrer de futures données avec la même clé.\n\n'
+                  'Si coché (RGPD total) : clé détruite, impossible de\n'
+                  'déchiffrer d\'anciennes sauvegardes chiffrées.',
+                  style: TextStyle(fontSize: 11),
+                ),
+                value: deleteEncryptionKeys,
+                onChanged: (value) {
+                  setState(() => deleteEncryptionKeys = value ?? false);
+                },
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  '⚠️ Action IRRÉVERSIBLE',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Annuler'),
+            ),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              icon: const Icon(Icons.delete_forever),
+              label: const Text('RÉINITIALISER'),
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                
+                // Show loading dialog
+                if (!context.mounted) return;
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => const Center(child: CircularProgressIndicator()),
+                );
+
+                // CRITIQUE: Capturer Navigator et ScaffoldMessenger AVANT le await
+                // car le context sera démonté après l'opération longue
+                final navigator = Navigator.of(context);
+                final scaffold = ScaffoldMessenger.of(context);
+
+                try {
+                  debugPrint('[SETTINGS] Début réinitialisation...');
+                  if (deleteEncryptionKeys) {
+                    await DatabaseHelper().deleteAllDataPermanently();
+                  } else {
+                    final dbHelper = DatabaseHelper();
+                    final db = await dbHelper.database;
+                    await db.delete('events');
+                    await db.delete('foods');
+                    await db.delete('products_cache');
+                    await db.delete('correlation_cache');
+                    await db.delete('macro_thresholds');
+                    await db.delete('ml_feedback');
+                  }
+                  
+                  debugPrint('[SETTINGS] Suppression terminée');
+                  
+                  // Utiliser les objets capturés (fonctionnent même si context démonté)
+                  navigator.pop(); // Fermer loading dialog
+                  debugPrint('[SETTINGS] Dialog fermé');
+                  
+                  scaffold.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        deleteEncryptionKeys
+                            ? '✅ Base effacée (RGPD). Redémarrage...'
+                            : '✅ Base réinitialisée. Redémarrage...',
+                      ),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                  
+                  await Future.delayed(const Duration(milliseconds: 500));
+                  
+                  debugPrint('[SETTINGS] Redémarrage navigation...');
+                  navigator.pushNamedAndRemoveUntil('/', (route) => false);
+                  
+                } catch (e, stackTrace) {
+                  debugPrint('[SETTINGS] ❌ Erreur: $e');
+                  debugPrint('[SETTINGS] Stack: $stackTrace');
+                  
+                  navigator.pop(); // Close loading dialog
+                  scaffold.showSnackBar(
+                    SnackBar(
+                      content: Text('❌ Erreur: $e'),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -222,13 +371,147 @@ class SettingsPage extends StatelessWidget {
      );
   }
 
-  void _enrichWithOFFProducts(BuildContext context) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Téléchargement en cours...')),
+  void _showEnableEncryptionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Activer le chiffrement'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cette opération va :',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('• Chiffrer toutes vos données avec AES-256'),
+            Text('• Générer une clé stockée de manière sécurisée'),
+            Text('• Migrer automatiquement vos données existantes'),
+            SizedBox(height: 16),
+            Text(
+              '⚠️ L\'app va redémarrer après l\'opération.',
+              style: TextStyle(color: Colors.orange, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Annuler'),
+          ),
+          FilledButton.icon(
+            icon: const Icon(Icons.lock),
+            label: const Text('ACTIVER'),
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              
+              // Show loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              final result = await DatabaseHelper().enableEncryption();
+              
+              if (!context.mounted) return;
+              Navigator.pop(context); // Close loading
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(result.message),
+                  backgroundColor: result.success ? Colors.green : Colors.red,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+
+              if (result.success) {
+                // Refresh UI
+                (context as Element).markNeedsBuild();
+              }
+            },
+          ),
+        ],
+      ),
     );
-    await DatabaseHelper().enrichWithPopularOFFProducts();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ Base enrichie')),
+  }
+
+  void _showDisableEncryptionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock_open, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Désactiver le chiffrement'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '⚠️ ATTENTION',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+            ),
+            SizedBox(height: 8),
+            Text('Vos données seront stockées EN CLAIR sur l\'appareil.'),
+            Text('Toute personne ayant accès au fichier pourra les lire.'),
+            SizedBox(height: 16),
+            Text('Seulement recommandé pour le développement.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Annuler'),
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.lock_open),
+            label: const Text('DÉSACTIVER'),
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              
+              // Show loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              final result = await DatabaseHelper().disableEncryption();
+              
+              if (!context.mounted) return;
+              Navigator.pop(context); // Close loading
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(result.message),
+                  backgroundColor: result.success ? Colors.green : Colors.red,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+
+              if (result.success) {
+                // Refresh UI
+                (context as Element).markNeedsBuild();
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 

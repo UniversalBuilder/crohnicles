@@ -26,20 +26,49 @@ class _ModelStatusPageState extends State<ModelStatusPage> {
   }
 
   Future<void> _loadStatus() async {
-    final trainingService = TrainingService();
-    final dbHelper = DatabaseHelper();
+    try {
+      final trainingService = TrainingService();
+      final dbHelper = DatabaseHelper();
 
-    final status = await trainingService.checkDataAvailability();
-    final history = await dbHelper.getLatestTrainingHistory(limit: 5);
-    final byType = await dbHelper.checkTrainingDataByType();
+      final status = await trainingService.checkDataAvailability();
+      
+      // Gracefully handle missing training_history table (after DB reset)
+      List<Map<String, dynamic>> history = [];
+      try {
+        history = await dbHelper.getLatestTrainingHistory(limit: 5);
+      } catch (e) {
+        if (e.toString().contains('no such table: training_history')) {
+          debugPrint('[MODEL_STATUS] training_history table does not exist yet (DB may have been reset)');
+        } else {
+          rethrow; // Re-throw other errors
+        }
+      }
+      
+      final byType = await dbHelper.checkTrainingDataByType();
 
-    if (mounted) {
-      setState(() {
-        _dataStatus = status;
-        _trainingHistory = history;
-        _statusByType = byType;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _dataStatus = status;
+          _trainingHistory = history;
+          _statusByType = byType;
+          _isLoading = false;
+        });
+      }
+    } catch (e, stackTrace) {
+      debugPrint('[MODEL_STATUS] ❌ Error loading status: $e');
+      debugPrint('[MODEL_STATUS] Stack trace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement : $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 

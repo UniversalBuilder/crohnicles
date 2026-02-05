@@ -1,19 +1,23 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'event_model.dart';
 import 'food_model.dart';
 import 'data/generic_foods.dart';
 import 'services/off_service.dart';
 import 'services/training_service.dart';
+import 'services/database_encryption_service.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
   static Completer<Database>? _dbOpenCompleter;
+  final DatabaseEncryptionService _encryptionService = DatabaseEncryptionService();
 
   factory DatabaseHelper() {
     return _instance;
@@ -44,19 +48,27 @@ class DatabaseHelper {
     // Use different paths for different platforms
     if (kIsWeb) {
       dbPath = 'crohnicles.db';
+      // Web ne supporte pas le chiffrement sqlcipher
+      return await openDatabase(
+        dbPath,
+        version: 12,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
     } else {
       // For desktop/mobile, use proper app documents directory
       final documentsDirectory = await getApplicationDocumentsDirectory();
       dbPath = join(documentsDirectory.path, 'crohnicles.db');
       print('📁 Database path: $dbPath');
+      
+      // Utilise le service de chiffrement si activé
+      return await _encryptionService.openDatabaseWithEncryption(
+        path: dbPath,
+        version: 12,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
     }
-
-    return await openDatabase(
-      dbPath,
-      version: 12,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -853,6 +865,26 @@ class DatabaseHelper {
     print('[DB] Starting realistic demo data generation (v9)...');
 
     Database db = await database;
+    
+    // Vérifier si la table foods existe, sinon la créer
+    final tables = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='foods'"
+    );
+    if (tables.isEmpty) {
+      print('[DB] Table foods manquante, création...');
+      await _createFoodsTable(db);
+      await _seedGenericFoods(db);
+    }
+    
+    // Vérifier si les tables ML existent, sinon les créer
+    final mlTables = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='training_history'"
+    );
+    if (mlTables.isEmpty) {
+      print('[DB] Tables ML manquantes, création...');
+      await _createMLTables(db);
+    }
+    
     await db.delete('events');
     print('[DB] Deleted all existing events');
 
@@ -965,7 +997,7 @@ class DatabaseHelper {
       final bMeal = createMeal(breakfastFoods);
 
       batch.insert('events', {
-        'type': 'meal',
+        'type': EventType.meal.name,
         'dateTime': DateTime(
           date.year,
           date.month,
@@ -990,7 +1022,7 @@ class DatabaseHelper {
 
       final lMeal = createMeal(lunchFoods);
       batch.insert('events', {
-        'type': 'meal',
+        'type': EventType.meal.name,
         'dateTime': DateTime(
           date.year,
           date.month,
@@ -1040,7 +1072,7 @@ class DatabaseHelper {
         final snackFoods = [random(snacks)];
         final sMeal = createMeal(snackFoods);
         batch.insert('events', {
-          'type': 'meal',
+          'type': EventType.meal.name,
           'dateTime': DateTime(
             date.year,
             date.month,
@@ -2133,6 +2165,101 @@ class DatabaseHelper {
       'rainy_day_symptoms': rainyDaySymptoms,
       'total_weather_events': results.length,
     };
+  }
+
+  /// Vérifie si le chiffrement est activé
+  Future<bool> isEncryptionEnabled() async {
+    return await _encryptionService.isEncryptionEnabled();
+  }
+
+  /// Active le chiffrement de la base de données
+  Future<EncryptionResult> enableEncryption() async {
+    // Initialiser la DB si null
+    if (_database == null) {
+      await database; // Force l'initialisation
+    }
+
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final dbPath = join(documentsDirectory.path, 'crohnicles.db');
+
+    final result = await _encryptionService.enableEncryption(
+      currentDb: _database!,
+      databasePath: dbPath,
+      version: 12,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
+
+    // Réinitialiser la connexion
+    _database = null;
+    _dbOpenCompleter = null;
+
+    return result;
+  }
+
+  /// Désactive le chiffrement de la base de données
+  Future<EncryptionResult> disableEncryption() async {
+    // Initialiser la DB si null
+    if (_database == null) {
+      await database; // Force l'initialisation
+    }
+
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final dbPath = join(documentsDirectory.path, 'crohnicles.db');
+
+    final result = await _encryptionService.disableEncryption(
+      currentDb: _database as dynamic, // Cast nécessaire pour sqlcipher.Database
+      databasePath: dbPath,
+      version: 12,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
+
+    // Réinitialiser la connexion
+    _database = null;
+    _dbOpenCompleter = null;
+
+    return result;
+  }
+
+  /// Supprime définitivement toutes les données (RGPD - droit à l'oubli)
+  Future<void> deleteAllDataPermanently() async {
+    try {
+      // 1. Fermer la connexion DB si ouverte
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+        _dbOpenCompleter = null;
+      }
+
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final dbPath = join(documentsDirectory.path, 'crohnicles.db');
+      
+      // 2. Supprimer tous les fichiers DB (principal + temporaires de migration)
+      final filesToDelete = [
+        dbPath,
+        '${dbPath}_encrypted',
+        '${dbPath}_unencrypted',
+        '${dbPath}-shm',  // SQLite shared memory
+        '${dbPath}-wal',  // SQLite write-ahead log
+      ];
+      
+      for (final path in filesToDelete) {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+          print('[DB] Supprimé: $path');
+        }
+      }
+
+      // 3. Supprimer aussi la clé de chiffrement
+      await _encryptionService.deleteEncryptionKey();
+      
+      print('[DB] ✓ Suppression complète terminée (RGPD)');
+    } catch (e) {
+      print('[DB] ⚠️ Erreur lors de la suppression: $e');
+      rethrow;
+    }
   }
 
   int max(int a, int b) => a > b ? a : b;

@@ -96,17 +96,18 @@ class _InsightsPageState extends State<InsightsPage> {
   }
 
   Future<void> _loadData() async {
-    final dbHelper = DatabaseHelper();
+    try {
+      final dbHelper = DatabaseHelper();
 
-    // 1. Chart Data
-    final pain = await dbHelper.getPainEvolution(30);
-    final stool = await dbHelper.getStoolFrequency(30);
-    final zones = await dbHelper.getSymptomZones(30); // New Query
+      // 1. Chart Data
+      final pain = await dbHelper.getPainEvolution(30);
+      final stool = await dbHelper.getStoolFrequency(30);
+      final zones = await dbHelper.getSymptomZones(30); // New Query
 
-    // 2. Suspect Meals Logic
-    // Find the latest high pain event
-    final events = await dbHelper.getEvents(); // Get all for analysis logic
-    final allEventsModels = events.map((e) => EventModel.fromMap(e)).toList();
+      // 2. Suspect Meals Logic
+      // Find the latest high pain event
+      final events = await dbHelper.getEvents(); // Get all for analysis logic
+      final allEventsModels = events.map((e) => EventModel.fromMap(e)).toList();
 
     EventModel? lastPain;
     try {
@@ -216,6 +217,22 @@ class _InsightsPageState extends State<InsightsPage> {
         _totalDaysAnalyzed = weatherData['totalDays'] as int;
         _isLoading = false;
       });
+    }
+    } catch (e, stackTrace) {
+      debugPrint('[INSIGHTS] ❌ Error loading data: $e');
+      debugPrint('[INSIGHTS] Stack trace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement : $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 
