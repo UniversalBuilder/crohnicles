@@ -13,6 +13,7 @@ import 'event_model.dart';
 import 'services/off_service.dart';
 import 'services/food_recognizer.dart';
 import 'utils/platform_utils.dart';
+import 'utils/validators.dart';
 
 class MealComposerDialog extends StatefulWidget {
   final EventModel? existingEvent;
@@ -27,6 +28,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     with SingleTickerProviderStateMixin {
   final List<FoodModel> _cart = [];
   final TextEditingController _searchController = TextEditingController();
+  final ValueNotifier<bool> _hasSearchText = ValueNotifier<bool>(false);
   final DatabaseHelper _dbHelper = DatabaseHelper();
   late TabController _tabController;
   bool _isSnack = false;
@@ -97,6 +99,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     _debounce?.cancel();
     _tabController.dispose();
     _searchController.dispose();
+    _hasSearchText.dispose();
     super.dispose();
   }
 
@@ -107,6 +110,14 @@ class _MealComposerDialogState extends State<MealComposerDialog>
         _offResults = [];
         _hasSearchedOFF = false;
         _currentQuery = '';
+      });
+      return;
+    }
+
+    // Minimum 2 caractères pour recherche (performances)
+    if (query.length < 2) {
+      setState(() {
+        _localResults = [];
       });
       return;
     }
@@ -195,10 +206,15 @@ class _MealComposerDialogState extends State<MealComposerDialog>
       });
     }
 
-    // Trigger local search with debounce
+    // Trigger local search with debounce (2000ms pour performances critiques)
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      _searchLocal(query);
+    _debounce = Timer(const Duration(milliseconds: 2000), () {
+      // Minimum 2 caractères pour recherche DB (optimisation performances)
+      if (query.length >= 2) {
+        _searchLocal(query);
+      } else if (query.isEmpty) {
+        _searchLocal(query); // Clear results
+      }
     });
 
     // Return combined results for autocomplete
@@ -334,10 +350,17 @@ class _MealComposerDialogState extends State<MealComposerDialog>
   }
 
   void _validateMeal() {
-    if (_cart.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ajoutez au moins un aliment')),
-      );
+    // 1. Validate date (not in future, max 2 years old)
+    final dateError = EventValidators.validateEventDate(_selectedDate);
+    if (dateError != null) {
+      EventValidators.showValidationError(context, dateError);
+      return;
+    }
+
+    // 2. Validate cart (non-empty with valid quantities)
+    final cartError = EventValidators.validateMealCart(_cart);
+    if (cartError != null) {
+      EventValidators.showValidationError(context, cartError);
       return;
     }
 
@@ -517,16 +540,6 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                                 firstDate: DateTime(2020),
                                 lastDate: DateTime.now(),
                                 locale: const Locale('fr', 'FR'),
-                                builder: (context, child) {
-                                  return Theme(
-                                    data: Theme.of(context).copyWith(
-                                      colorScheme: ColorScheme.light(
-                                        primary: colorScheme.secondary,
-                                      ),
-                                    ),
-                                    child: child!,
-                                  );
-                                },
                               );
                               if (date != null) {
                                 setState(() {
@@ -1743,15 +1756,21 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               AppGradients.meal(brightness).createShader(bounds),
           child: Icon(Icons.search, color: colorScheme.surface),
         ),
-        suffixIcon: _searchController.text.isNotEmpty
-            ? IconButton(
-                icon: const Icon(Icons.clear, size: 20),
-                onPressed: () {
-                  _searchController.clear();
-                  _search(''); // Clear results by triggering empty search
-                },
-              )
-            : null,
+        suffixIcon: ValueListenableBuilder<bool>(
+          valueListenable: _hasSearchText,
+          builder: (context, hasText, child) {
+            return hasText
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    onPressed: () {
+                      _searchController.clear();
+                      _hasSearchText.value = false;
+                      _search(''); // Clear results
+                    },
+                  )
+                : const SizedBox.shrink();
+          },
+        ),
         filled: true,
         fillColor: colorScheme.surface,
         border: OutlineInputBorder(
@@ -1771,7 +1790,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
         ),
       ),
       onChanged: (value) {
-        setState(() {}); // Rebuild to toggle suffix icon
+        // Update notifier (no setState = no rebuild = performance boost)
+        _hasSearchText.value = value.isNotEmpty;
         _search(value);
       },
       onSubmitted: (value) {

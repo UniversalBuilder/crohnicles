@@ -339,8 +339,25 @@ class DatabaseEncryptionService {
         timestamp TEXT
       )
     ''');
+
+    // Table training_history (ML training logs)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS training_history(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trained_at TEXT,
+        symptom_type TEXT,
+        accuracy REAL,
+        precision_score REAL,
+        recall REAL,
+        f1_score REAL,
+        training_examples INTEGER,
+        test_examples INTEGER,
+        model_version TEXT,
+        notes TEXT
+      )
+    ''');
     
-    print('[ENCRYPTION] Structure des tables créée');
+    print('[ENCRYPTION] Structure des tables créée (7 tables + training_history)');
   }
 
   /// Ouvre une base de données (chiffrée ou non selon config)

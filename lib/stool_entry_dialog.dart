@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'app_theme.dart';
 import 'themes/app_gradients.dart';
 import 'event_model.dart';
+import 'utils/validators.dart';
 
 class StoolEntryDialog extends StatefulWidget {
   final EventModel? existingEvent;
@@ -139,16 +140,6 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                                   firstDate: DateTime(2020),
                                   lastDate: DateTime.now(),
                                   locale: const Locale('fr', 'FR'),
-                                  builder: (context, child) {
-                                    return Theme(
-                                      data: Theme.of(context).copyWith(
-                                        colorScheme: ColorScheme.light(
-                                          primary: colorScheme.tertiary,
-                                        ),
-                                      ),
-                                      child: child!,
-                                    );
-                                  },
                                 );
                                 if (date != null) {
                                   setState(() {
@@ -475,6 +466,21 @@ class _StoolEntryDialogState extends State<StoolEntryDialog> {
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () {
+                              // 1. Validate Bristol scale (1-7)
+                              final bristolError = EventValidators.validateBristolScale(_selectedType);
+                              if (bristolError != null) {
+                                EventValidators.showValidationError(context, bristolError);
+                                return;
+                              }
+
+                              // 2. Validate date
+                              final dateError = EventValidators.validateEventDate(_selectedDate);
+                              if (dateError != null) {
+                                EventValidators.showValidationError(context, dateError);
+                                return;
+                              }
+
+                              // All validations passed
                               Navigator.pop(context, {
                                 'type': _selectedType,
                                 'isUrgent': _isUrgent,

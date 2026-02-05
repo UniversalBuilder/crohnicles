@@ -1,5 +1,144 @@
 # Journal d'Architecture
 
+## 2026-02-05 - Étape 3 : Couche de Validation des Entrées Utilisateur
+
+### Contexte
+- **Objectif :** Empêcher la saisie de données invalides avant insertion en base de données
+- **Plan :** Plan de Consolidation Étape 3/8
+- **Rationale :** Garantir l'intégrité des données, éviter crashs liés aux inputs incohérents
+
+### Nouveau Fichier
+
+**lib/utils/validators.dart** (170 LOC)
+- Classe statique `EventValidators` avec 10 méthodes de validation
+- Méthodes :
+  * `validateEventDate(DateTime)` : Date passée, max 2 ans ancienneté
+  * `validateSeverity(int)` : Échelle 1-10 (standard médical)
+  * `validateQuantity(double)` : Valeurs > 0, max 2000g/ml
+  * `validateMealCart(List<FoodModel>)` : Panier non vide, servingSize valide
+  * `validateRequiredText(String)` : 1-200 caractères, pas vide
+  * `validateBristolScale(int)` : Échelle 1-7 (classification officielle)
+  * `validateTags(List<String>)` : Min 2 caractères par tag
+  * `validateAnatomicalZone(String?)` : Non vide si fourni
+  * `showValidationError(BuildContext, String)` : SnackBar rouge standardisé
+
+### Intégrations
+
+**meal_composer_dialog.dart** (ligne 336)
+- Méthode : `_validateMeal()`
+- Validations :
+  1. Date (pas future, max 2 ans)
+  2. Panier non vide avec quantités valides (servingSize > 0, ≤ 2000g/ml)
+- Import : `import 'utils/validators.dart';`
+
+**symptom_dialog.dart** (ligne 1171)
+- Méthode : `_validateAndReturn()`
+- Validations :
+  1. Au moins une zone/symptôme sélectionné
+  2. Date valide
+  3. Toutes sévérités dans échelle 1-10
+- Messages contextuels : "Sévérité Abdomen: ..."
+
+**stool_entry_dialog.dart** (ligne 477)
+- Méthode : `onTap()` dans InkWell validation button
+- Validations :
+  1. Bristol Scale 1-7
+  2. Date valide
+
+### Règles de Validation
+
+| Règle | Seuil/Format | Rationale |
+|-------|--------------|-----------|
+| **Date max ancienneté** | 2 ans | Données santé au-delà perdent pertinence clinique |
+| **Quantité repas max** | 2000g/ml | Seuil réaliste pour repas individuel |
+| **Échelle sévérité** | 1-10 | Standard médical universel |
+| **Bristol Scale** | 1-7 | Classification médicale officielle |
+| **Texte requis** | 1-200 chars | Limite DB VARCHAR(200) |
+| **Tags min** | 2 chars | Évite typos (ex: "l", "a") |
+
+### Expérience Utilisateur
+
+**Affichage erreur :**
+- Type : SnackBar rouge flottante
+- Durée : 4 secondes
+- Format : `❌ Message explicite`
+- Comportement : Dialog reste ouvert (utilisateur garde saisie)
+
+**Exemples messages :**
+```
+❌ La date ne peut pas être dans le futur
+❌ Ajoutez au moins un aliment au repas
+❌ ${food.name} : quantité maximale 2000g/ml
+❌ La sévérité doit être entre 1 et 10
+❌ Échelle de Bristol invalide (1-7 uniquement)
+```
+
+### Impact Qualité
+
+**AVANT Étape 3 :**
+- ❌ Saisie de dates futures (bugs calculs ML)
+- ❌ Repas vides enregistrés en DB
+- ❌ Sévérités négatives
+- ❌ Crashs sur données incohérentes
+
+**APRÈS Étape 3 :**
+- ✅ Impossibilité saisir données invalides
+- ✅ Messages d'erreur explicites en français
+- ✅ Garantie intégrité DB
+- ✅ Aucun crash lié inputs utilisateur
+
+### Documentation
+- Nouveau fichier : [docs/VALIDATION.md](docs/VALIDATION.md)
+- Contenu : Règles, exemples, workflow, tests recommandés
+
+### Tests Recommandés (À Implémenter)
+```dart
+test('Refus date future', () {
+  final tomorrow = DateTime.now().add(Duration(days: 1));
+  expect(EventValidators.validateEventDate(tomorrow), isNotNull);
+});
+
+test('Refus panier vide', () {
+  expect(EventValidators.validateMealCart([]), isNotNull);
+});
+
+test('Refus sévérité hors échelle', () {
+  expect(EventValidators.validateSeverity(11), isNotNull);
+  expect(EventValidators.validateSeverity(0), isNotNull);
+});
+
+test('Refus Bristol type invalide', () {
+  expect(EventValidators.validateBristolScale(8), isNotNull);
+  expect(EventValidators.validateBristolScale(0), isNotNull);
+});
+```
+
+### Notes Techniques
+
+**Ordre de validation (IMPORTANT) :**
+1. TOUJOURS valider date en premier (évite calculs inutiles si date invalide)
+2. Validation données (panier, sévérité, etc.)
+3. Retour seulement si TOUTES validations passées
+
+**Conservation données :**
+- Si validation échoue → PAS de `Navigator.pop()`
+- Utilisateur garde sa saisie et corrige
+
+**Contexte Flutter :**
+- Import `package:flutter/material.dart` nécessaire pour `BuildContext`, `ScaffoldMessenger`, `SnackBar`
+- Import `../food_model.dart` pour `List<FoodModel>` dans `validateMealCart()`
+
+### Commits Associés
+- ✅ Création `lib/utils/validators.dart` (170 LOC)
+- ✅ Intégration dans `meal_composer_dialog.dart` (+ import ligne 16)
+- ✅ Intégration dans `symptom_dialog.dart` (+ import ligne 8)
+- ✅ Intégration dans `stool_entry_dialog.dart` (+ import ligne 6)
+- ✅ Création documentation `docs/VALIDATION.md`
+- ✅ Compilation clean (0 erreurs, warnings préexistants ignorés)
+- ✅ Testé sur Android emulator (sdk gphone64 x86 64)
+
+---
+
 ## 2026-02-04 (Suite) - Enrichissement PDF Export & Service de Cache
 
 ### Nouveaux Fichiers

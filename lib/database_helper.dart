@@ -33,6 +33,10 @@ class DatabaseHelper {
     _dbOpenCompleter = Completer();
     try {
       _database = await _initDatabase();
+      
+      // 🔧 FIX: Ensure training_history table exists (migration pour DBs chiffrées)
+      await _ensureMLTablesExist(_database!);
+      
       _dbOpenCompleter!.complete(_database!);
       return _database!;
     } catch (e) {
@@ -218,6 +222,39 @@ class DatabaseHelper {
     ''');
 
     print('[DB] ML tables created');
+  }
+
+  /// Ensure ML tables exist (migration for encrypted DBs)
+  Future<void> _ensureMLTablesExist(Database db) async {
+    try {
+      // Check if training_history exists
+      final tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='training_history'"
+      );
+      
+      if (tables.isEmpty) {
+        print('[DB] ⚠️ training_history missing, creating...');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS training_history(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            trained_at TEXT,
+            symptom_type TEXT,
+            accuracy REAL,
+            precision_score REAL,
+            recall REAL,
+            f1_score REAL,
+            training_examples INTEGER,
+            test_examples INTEGER,
+            model_version TEXT,
+            notes TEXT
+          )
+        ''');
+        print('[DB] ✅ training_history created');
+      }
+    } catch (e) {
+      print('[DB] Error checking ML tables: $e');
+      // Continue anyway, will fail later if needed
+    }
   }
 
   Future<void> _createFoodsTable(Database db) async {

@@ -5,6 +5,7 @@ import 'app_theme.dart';
 import 'themes/app_gradients.dart';
 import 'event_model.dart';
 import 'symptom_taxonomy.dart';
+import 'utils/validators.dart';
 
 class SymptomEntryDialog extends StatefulWidget {
   final EventModel? existingEvent;
@@ -246,16 +247,6 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
                                   firstDate: DateTime(2020),
                                   lastDate: DateTime.now(),
                                   locale: const Locale('fr', 'FR'),
-                                  builder: (context, child) {
-                                    return Theme(
-                                      data: Theme.of(context).copyWith(
-                                        colorScheme: ColorScheme.light(
-                                          primary: colorScheme.error,
-                                        ),
-                                      ),
-                                      child: child!,
-                                    );
-                                  },
                                 );
                                 if (date != null) {
                                   setState(() {
@@ -1170,6 +1161,35 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
   }
 
   void _validateAndReturn() {
+    // 1. Validate selection (at least one zone selected)
+    if (selectedAbdomenZones.isEmpty && selectedGeneralZones.isEmpty) {
+      EventValidators.showValidationError(
+        context,
+        '❌ Sélectionnez au moins une zone ou un symptôme',
+      );
+      return;
+    }
+
+    // 2. Validate date
+    final dateError = EventValidators.validateEventDate(_selectedDate);
+    if (dateError != null) {
+      EventValidators.showValidationError(context, dateError);
+      return;
+    }
+
+    // 3. Validate all severities (1-10 range)
+    for (var entry in _zoneSeverities.entries) {
+      final severity = entry.value.toInt();
+      final severityError = EventValidators.validateSeverity(severity);
+      if (severityError != null) {
+        EventValidators.showValidationError(
+          context,
+          'Sévérité "${entry.key}": $severityError',
+        );
+        return;
+      }
+    }
+
     List<Map<String, dynamic>> results = [];
 
     for (var zone in selectedAbdomenZones) {
