@@ -57,6 +57,9 @@ class TriggerScore {
   double get score => probability * confidence;
 }
 
+// Debug flag for verbose weather correlation logs (disable to prevent frame drops)
+const bool _kVerboseWeatherLogs = false;
+
 class InsightsPage extends StatefulWidget {
   const InsightsPage({super.key});
 
@@ -383,14 +386,16 @@ class _InsightsPageState extends State<InsightsPage> {
     timeline.addAll(dayGroups.values);
     timeline.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
     
-    debugPrint('🔍 Weather correlations loaded:');
-    debugPrint('  Total days analyzed: ${dayGroups.length}');
-    debugPrint('  Days with symptoms (severity≥5): $totalDaysWithSymptoms');
-    debugPrint('  Total symptoms counted: $totalSymptoms');
-    correlations.forEach((condition, data) {
-      debugPrint('  $condition: ${data['withSymptom']}/${data['total']} = ${data['total']! > 0 ? (data['withSymptom']! / data['total']! * 100).toStringAsFixed(1) : 0}%');
-    });
-    debugPrint('Timeline days: ${timeline.length}');
+    if (_kVerboseWeatherLogs) {
+      debugPrint('🔍 Weather correlations loaded:');
+      debugPrint('  Total days analyzed: ${dayGroups.length}');
+      debugPrint('  Days with symptoms (severity≥5): $totalDaysWithSymptoms');
+      debugPrint('  Total symptoms counted: $totalSymptoms');
+      correlations.forEach((condition, data) {
+        debugPrint('  $condition: ${data['withSymptom']}/${data['total']} = ${data['total']! > 0 ? (data['withSymptom']! / data['total']! * 100).toStringAsFixed(1) : 0}%');
+      });
+      debugPrint('Timeline days: ${timeline.length}');
+    }
     
     // PHASE 3: Categorize symptoms by type and calculate per-type correlations
     final Map<String, Map<String, Map<String, int>>> correlationsByType = {};
@@ -432,7 +437,7 @@ class _InsightsPageState extends State<InsightsPage> {
         
         final dayKey = DateTime(eventDate.year, eventDate.month, eventDate.day).toIso8601String();
         if (!dayGroups.containsKey(dayKey)) {
-          debugPrint('  [DEBUG] Symptom day $dayKey not in dayGroups');
+          if (_kVerboseWeatherLogs) debugPrint('  [DEBUG] Symptom day $dayKey not in dayGroups');
           continue;
         }
         
@@ -462,7 +467,7 @@ class _InsightsPageState extends State<InsightsPage> {
           }
         }
         
-        debugPrint('  [DEBUG] Processing symptom: title="$title", zone="$zone", tags=$tags, severity=$severity');
+        if (_kVerboseWeatherLogs) debugPrint('  [DEBUG] Processing symptom: title="$title", zone="$zone", tags=$tags, severity=$severity');
         
         // Articulaires: look for "articulation", "articulaire", "articulations", "genoux", "mains", etc.
         if (title.contains('articulation') || subtitle.contains('articulation') || zone.contains('articulation') ||
@@ -490,7 +495,7 @@ class _InsightsPageState extends State<InsightsPage> {
           symptomType = 'Digestif';
         }
         
-        debugPrint('  [DEBUG] Categorized as: $symptomType');
+        if (_kVerboseWeatherLogs) debugPrint('  [DEBUG] Categorized as: $symptomType');
         
         symptomCountsByType[symptomType] = (symptomCountsByType[symptomType] ?? 0) + 1;
         
@@ -500,13 +505,15 @@ class _InsightsPageState extends State<InsightsPage> {
         }
         symptomsByDayAndType[dayKey]!.add(symptomType);
       } catch (e) {
-        debugPrint('  [DEBUG] Error processing symptom: $e');
+        if (_kVerboseWeatherLogs) debugPrint('  [DEBUG] Error processing symptom: $e');
       }
     }
     
-    debugPrint('  [DEBUG] Total symptoms in DB: ${allEventsData.where((e) => e['type'] == 'symptom').length}');
-    debugPrint('  [DEBUG] Symptoms filtered (severity<3): $symptomsFiltered');
-    debugPrint('  [DEBUG] Symptoms processed: $symptomsCounted');
+    if (_kVerboseWeatherLogs) {
+      debugPrint('  [DEBUG] Total symptoms in DB: ${allEventsData.where((e) => e['type'] == 'symptom').length}');
+      debugPrint('  [DEBUG] Symptoms filtered (severity<3): $symptomsFiltered');
+      debugPrint('  [DEBUG] Symptoms processed: $symptomsCounted');
+    }
     
     // Now calculate correlations: for each day with weather condition, check if it had each symptom type
     dayGroups.forEach((dayKey, dayData) {
@@ -592,7 +599,7 @@ class _InsightsPageState extends State<InsightsPage> {
           : 0.0;
     }
     
-    if (kDebugMode) {
+    if (_kVerboseWeatherLogs) {
       debugPrint('🔍 Symptom type breakdown:');
       symptomCountsByType.forEach((type, count) {
         final daysWithSymptom = daysWithSymptomByType[type] ?? 0;
