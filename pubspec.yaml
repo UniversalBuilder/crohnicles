@@ -48,7 +48,7 @@ dependencies:
   fl_chart: ^1.1.1
   image_picker_windows: ^0.2.2
   image_picker_linux: ^0.2.2
-  google_fonts: ^7.1.0
+  google_fonts: ^6.1.0
   openfoodfacts: ^3.0.0
   cached_network_image: ^3.3.0
   mobile_scanner: ^5.0.0
