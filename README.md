@@ -431,13 +431,13 @@ flutter build ipa
 Les contributions sont les bienvenues ! Voici comment :
 
 ### 1. Signaler un Bug
-Ouvrez une [Issue](https://github.com/YOUR_USERNAME/crohnicles/issues) avec :
+Ouvrez une [Issue](https://github.com/UniversalBuilder/crohnicles/issues) avec :
 - Description du problème
 - Étapes de reproduction
 - Logs (Settings → Logs → Copier)
 
 ### 2. Proposer une Feature
-Créez une [Discussion](https://github.com/YOUR_USERNAME/crohnicles/discussions) pour valider l'idée.
+Créez une [Discussion](https://github.com/UniversalBuilder/crohnicles/discussions) pour valider l'idée.
 
 ### 3. Soumettre une Pull Request
 1. Fork le projet
@@ -457,10 +457,7 @@ Créez une [Discussion](https://github.com/YOUR_USERNAME/crohnicles/discussions)
 ## 👨‍💻 Auteur & License
 
 ### Auteur
-**Yannick KREMPP**  
-📧 Email : [votre-email@example.com]  
-🐦 Twitter : [@your_handle]  
-💼 LinkedIn : [Votre Profil]
+**Yannick KREMPP**
 
 ### Contexte du Projet
 Crohnicles est un projet personnel créé pour gérer ma propre maladie de Crohn. L'objectif est de fournir un outil **gratuit, open source et respectueux de la vie privée** à la communauté des personnes atteintes de MICI.
@@ -483,9 +480,9 @@ Voir [LICENSE.md](LICENSE.md) pour le texte complet.
 ### Soutenir le Projet
 Si Crohnicles vous est utile, vous pouvez soutenir le développement :
 - ⭐ **Star** le dépôt GitHub
-- 💰 **Faire un don** (voir section "À propos" dans l'app)
-- 📢 **Partager** avec d'autres personnes atteintes de MICI
+- � **Partager** avec d'autres personnes atteintes de MICI
 - 🐛 **Signaler des bugs** ou proposer des features
+- 🤝 **Contribuer** au code source
 
 ---
 
@@ -566,6 +563,6 @@ Les corrélations statistiques sont **personnelles et non généralisables**. Ce
 
 **Fait avec ❤️ par Yannick KREMPP**
 
-[⭐ Star sur GitHub](https://github.com/YOUR_USERNAME/crohnicles) · [🐛 Signaler un Bug](https://github.com/YOUR_USERNAME/crohnicles/issues) · [💡 Proposer une Feature](https://github.com/YOUR_USERNAME/crohnicles/discussions)
+[⭐ Star sur GitHub](https://github.com/UniversalBuilder/crohnicles) · [🐛 Signaler un Bug](https://github.com/UniversalBuilder/crohnicles/issues) · [💡 Proposer une Feature](https://github.com/UniversalBuilder/crohnicles/discussions)
 
 </div>
