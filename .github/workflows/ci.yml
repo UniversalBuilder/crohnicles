@@ -20,14 +20,6 @@ jobs:
           channel: 'stable'
           cache: true
       
-      - name: Override with Dart 3.10.7
-        run: |
-          wget -q https://storage.googleapis.com/dart-archive/channels/stable/release/3.10.7/sdk/dartsdk-linux-x64-release.zip
-          unzip -q dartsdk-linux-x64-release.zip
-          echo "$PWD/dart-sdk/bin" >> $GITHUB_PATH
-          export PATH="$PWD/dart-sdk/bin:$PATH"
-          dart --version
-      
       - name: Install dependencies
         run: flutter pub get
       
@@ -53,14 +45,6 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
           cache: true
-      
-      - name: Override with Dart 3.10.7
-        run: |
-          wget -q https://storage.googleapis.com/dart-archive/channels/stable/release/3.10.7/sdk/dartsdk-linux-x64-release.zip
-          unzip -q dartsdk-linux-x64-release.zip
-          echo "$PWD/dart-sdk/bin" >> $GITHUB_PATH
-          export PATH="$PWD/dart-sdk/bin:$PATH"
-          dart --version
       
       - name: Install dependencies
         run: flutter pub get
@@ -94,14 +78,6 @@ jobs:
           channel: 'stable'
           cache: true
       
-      - name: Override with Dart 3.10.7
-        run: |
-          wget -q https://storage.googleapis.com/dart-archive/channels/stable/release/3.10.7/sdk/dartsdk-linux-x64-release.zip
-          unzip -q dartsdk-linux-x64-release.zip
-          echo "$PWD/dart-sdk/bin" >> $GITHUB_PATH
-          export PATH="$PWD/dart-sdk/bin:$PATH"
-          dart --version
-      
       - name: Install dependencies
         run: flutter pub get
       
@@ -128,14 +104,6 @@ jobs:
           channel: 'stable'
           cache: true
       
-      - name: Override with Dart 3.10.7
-        run: |
-          wget -q https://storage.googleapis.com/dart-archive/channels/stable/release/3.10.7/sdk/dartsdk-macos-x64-release.zip
-          unzip -q dartsdk-macos-x64-release.zip
-          echo "$PWD/dart-sdk/bin" >> $GITHUB_PATH
-          export PATH="$PWD/dart-sdk/bin:$PATH"
-          dart --version
-      
       - name: Install dependencies
         run: flutter pub get
       
@@ -161,15 +129,6 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
           cache: true
-      
-      - name: Override with Dart 3.10.7
-        shell: bash
-        run: |
-          wget -q https://storage.googleapis.com/dart-archive/channels/stable/release/3.10.7/sdk/dartsdk-windows-x64-release.zip
-          unzip -q dartsdk-windows-x64-release.zip
-          echo "$PWD/dart-sdk/bin" >> $GITHUB_PATH
-          export PATH="$PWD/dart-sdk/bin:$PATH"
-          dart --version
       
       - name: Install dependencies
         run: flutter pub get
