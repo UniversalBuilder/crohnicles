@@ -46,8 +46,8 @@ dependencies:
   path_provider: ^2.1.5
   table_calendar: ^3.2.0
   fl_chart: ^1.0.0
-  image_picker_windows: ^0.2.2
-  image_picker_linux: ^0.2.2
+  image_picker_windows: ^0.2.1
+  image_picker_linux: ^0.2.1
   google_fonts: ^6.1.0
   openfoodfacts: ^3.0.0
   cached_network_image: ^3.3.0
@@ -97,6 +97,11 @@ dev_dependencies:
   mockito: ^5.4.4
   build_runner: ^2.4.13
   golden_toolkit: ^0.15.0
+
+# Force compatible versions for Dart 3.5.0 (GitHub Actions)
+dependency_overrides:
+  image_picker_linux: 0.2.1
+  image_picker_windows: 0.2.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
