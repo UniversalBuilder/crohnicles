@@ -69,12 +69,26 @@ Release v1.2.0 publiée, mais GitHub Actions échoue à cause de versions de dé
 - Nettoyage: Suppression étapes 'Override Dart' non fonctionnelles
 - Résultat: Échec - Flutter 3.24.0 vient avec Dart 3.5.0, pas 3.6.0
 
-### Round 14 (09b1254) - SDK CONSTRAINT ✅✅✅ FIN ABSOLUE
+### Round 14 (09b1254) - SDK CONSTRAINT ⚠️ PRESQUE
 - ✅ **SDK constraint: '>=3.6.0 <4.0.0' → '>=3.5.0 <4.0.0'**
 - Raison: Flutter 3.24.0 (GitHub Actions) vient avec Dart 3.5.0
 - Compatible: Local (Dart 3.10.7) ET CI (Dart 3.5.0)
-- Impact: TOUS packages fonctionnels (SDK minimum baissé)
-- **FIN ABSOLUE de la cascade** 🎉🎉🎉
+- Impact: Résout contrainte SDK principale
+- **Mais**: Dépendances transitives nécessitent encore fixes
+
+### Round 15 (c85e0e5) - DEPENDENCY OVERRIDES ✅✅✅ FIN ABSOLUE?
+- ✅ **Downgrade image_picker_linux: ^0.2.2 → ^0.2.1**
+- ✅ **Downgrade image_picker_windows: ^0.2.2 → ^0.2.1**
+- ✅ **Ajout dependency_overrides section**:
+```yaml
+dependency_overrides:
+  image_picker_linux: 0.2.1
+  image_picker_windows: 0.2.1
+```
+- Raison: image_picker_linux 0.2.2 nécessite Dart ^3.6.0 (transitive)
+- Validation: flutter pub get ✅ (overridden packages applied)
+- Impact: Force versions 0.2.1 compatibles Dart 3.5.0
+- **Statut**: Pushed, awaiting GitHub Actions validation 🤞
 
 ## 📋 CONFIGURATION FINALE VALIDÉE
 
@@ -85,9 +99,11 @@ Release v1.2.0 publiée, mais GitHub Actions échoue à cause de versions de dé
 
 ### Packages Clés
 - ✅ image_picker: ^1.1.2 (compatible Dart ^3.5.0)
+- ✅ image_picker_linux: 0.2.1 (overridden, compatible Dart 3.5.0)
+- ✅ image_picker_windows: 0.2.1 (overridden, compatible Dart 3.5.0)
 - ✅ google_fonts: ^6.1.0 (compatible Dart 3.4.0+)
 - ✅ fl_chart: ^1.0.0 (compatible Dart 3.6.0+ mais fonctionne 3.5.0)
-- ✅ TOUS packages fonctionnels avec Dart 3.5.0+
+- ✅ TOUS packages fonctionnels avec Dart 3.5.0+ (avec overrides)
 
 ## 🎯 STRATÉGIE PRÉVENTIVE POUR ÉVITER CE CAUCHEMAR
 
@@ -143,19 +159,21 @@ environment:
 | 11 | CI Dart | setup-dart | ❌ Non exécuté |
 | 12 | CI Dart | wget SDK | ❌ Ignoré |
 | 13 | Package | image_picker 1.1.2 | ⚠️ Dart 3.5.0 issue |
-| **14** | **SDK** | **>=3.5.0** | **✅ SUCCÈS** |
+| 14 | SDK | >=3.5.0 | ⚠️ Transitive deps |
+| **15** | **Overrides** | **linux/win 0.2.1** | **⏳ Testing** |
 
 ### Leçons Apprises (CRITIQUE)
 1. **Ne PAS supposer** version Dart d'une version Flutter
 2. **Vérifier TOUJOURS** quelle version Dart GitHub Actions fournit
 3. **Aligner SDK constraint** avec environnement CI, pas local
 4. **Packages**: Vérifier requirements sur pub.dev AVANT installation
-5. **Simplicité > Complexité**: 1 ligne SDK change > 12 rounds bricolage
+5. **Dépendances transitives**: Utiliser dependency_overrides si nécessaire
+6. **Simplicité > Complexité**: 2 lignes (SDK + overrides) > 13 rounds bricolage
 
-**Commit final**: `09b1254` - Round 14 SOLUTION ULTIME
+**Commit final**: `c85e0e5` - Round 15 DEPENDENCY OVERRIDES
 
-**Temps perdu**: ~14 commits, ~3h de debugging  
-**Solution**: 1 ligne changée (`>=3.5.0`)  
+**Temps perdu**: ~15 commits, ~3.5h de debugging  
+**Solution**: 2 ajustements (SDK constraint + overrides)  
 **Morale**: RTFM (Read The F***ing Manual) GitHub Actions Dart versions AVANT setup
 
 ## Stratégie

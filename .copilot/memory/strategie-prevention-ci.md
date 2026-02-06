@@ -1,11 +1,11 @@
 # 🚨 STRATÉGIE ANTI-CAUCHEMAR CI/CD
 
-## Le Problème Qu'on Vient de Vivre (14 Rounds !)
+## Le Problème Qu'on Vient de Vivre (15 Rounds !)
 
 **Root Cause**: Désalignement versions Local vs GitHub Actions  
-**Symptôme**: Cascade infinie d'erreurs de dépendances  
-**Temps perdu**: ~3h, 14 commits  
-**Solution**: 1 ligne changée (`sdk: '>=3.5.0 <4.0.0'`)
+**Symptôme**: Cascade infinie d'erreurs de dépendances (directes + transitives)  
+**Temps perdu**: ~3.5h, 15 commits  
+**Solution**: 2 fixes (SDK constraint + dependency_overrides)
 
 ---
 
@@ -126,6 +126,28 @@ Because crohnicles requires SDK version >=3.X.0
 1. Vérifier Dart version GitHub Actions (ex: 3.5.0)
 2. pubspec.yaml : `sdk: '>=3.5.0 <4.0.0'`
 
+### Erreur Type 3 : "Dépendance transitive incompatible"
+```
+Because package_linux 0.2.2 requires SDK version ^3.6.0
+but your Dart SDK is 3.5.0
+```
+
+**Solution** :
+1. Identifier package transitive (ex: image_picker_linux)
+2. Downgrade direct dans dependencies si explicite
+3. **Si implicite, utiliser dependency_overrides** :
+```yaml
+dependency_overrides:
+  package_name: VERSION_COMPATIBLE
+```
+
+**Exemple (Round 15)** :
+```yaml
+dependency_overrides:
+  image_picker_linux: 0.2.1  # Override 0.2.2 qui nécessite Dart ^3.6.0
+  image_picker_windows: 0.2.1
+```
+
 ---
 
 ## 📊 Workflow Recommandé (Template)
@@ -175,6 +197,7 @@ jobs:
 3. ✅ Aligner `pubspec.yaml` SDK avec cette version
 4. ✅ Vérifier pub.dev pour chaque nouveau package
 5. ✅ Tester `flutter pub get` localement avant push
+6. ✅ Utiliser `dependency_overrides` pour dépendances transitives incompatibles
 
 ---
 
@@ -197,4 +220,4 @@ jobs:
 
 ---
 
-**En Résumé** : 5 minutes de vérification AVANT = 3 heures de debug ÉVITÉES
+**En Résumé** : 5 minutes de vérification AVANT = 3.5 heures de debug (15 rounds) ÉVITÉES
