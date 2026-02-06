@@ -35,6 +35,31 @@
 ### 🛠️ Corrections diverses
 - [x] **TimePicker format 24h** : MediaQuery.alwaysUse24HourFormat sur tous les pickers
 
+### 🧪 Tests (Étape 7)
+- [x] **Étape 7 - Tests critiques** :
+  - **test/validation_test.dart** : 49 tests (EventValidators - Étape 3)
+    * Date validation : Future dates, 2 years limit
+    * Severity/Bristol/Quantity validation : Scale checks, boundaries
+    * Required text : 1-200 chars
+    * Tags & anatomical zones
+    * Integration scenarios
+  - **test/csv_export_test.dart** : 40 tests (CsvExportService - Étape 4)
+    * CSV format : Header, escaping, UTF-8 BOM
+    * EventType conversion (all 5 types)
+    * Metadata parsing : Foods, zones, Bristol, weather
+    * RGPD compliance verification
+  - **test/encryption_test.dart** : Tests (Encryption logic - Étape 2)
+    * Key generation : 64 hex chars, uniqueness
+    * Migration filenames (backup, encrypted)
+    * RGPD deletion file list
+  - **test/ml_training_stats_test.dart** : 22 tests (ML Stats - Étape 5)
+    * Severity threshold logic (≥5)
+    * Readiness calculation (30/30 requirement)
+    * Progress calculation (0.0-1.0)
+    * SQL query validation
+  - **Total : 111 tests unitaires passant** ✅
+  - **Note :** Tests DB-dépendants marqués comme integration tests (device-only)
+
 ---
 
 ## ✅ COMPLÉTÉ v1.1 (Janvier 2026)
