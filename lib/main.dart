@@ -588,21 +588,43 @@ class _TimelinePageState extends State<TimelinePage> {
     await _saveEvent(newEvent);
     debugPrint('[MAIN] Event saved successfully');
 
-    // Show risk assessment for meal events
+    // Show risk assessment for meal events (async, non-blocking)
     if (type == EventType.meal && mounted) {
-      final contextService = ContextService();
-      final context = await contextService.captureCurrentContext();
-      _showRiskAssessment(newEvent, context);
+      // Close dialog first, then process in background
+      _showRiskAssessmentAsync(newEvent);
     }
   }
 
-  /// Show ML-powered risk assessment after meal is logged
-  Future<void> _showRiskAssessment(
-    EventModel meal,
-    ContextModel context,
-  ) async {
+  /// Show ML-powered risk assessment after meal is logged (async, non-blocking)
+  Future<void> _showRiskAssessmentAsync(EventModel meal) async {
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 12),
+            Text('Analyse des risques en cours...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
     try {
-      debugPrint('[MAIN] Generating risk assessment...');
+      debugPrint('[MAIN] Generating risk assessment (background)...');
+      
+      // Process in background to avoid blocking UI
+      final contextService = ContextService();
+      final context = await contextService.captureCurrentContext();
+      
       final modelManager = ModelManager();
       await modelManager.initialize();
 
@@ -610,6 +632,7 @@ class _TimelinePageState extends State<TimelinePage> {
 
       if (!mounted) return;
 
+      // Show results
       showModalBottomSheet(
         context: this.context,
         isScrollControlled: true,
@@ -623,6 +646,14 @@ class _TimelinePageState extends State<TimelinePage> {
     } catch (e) {
       debugPrint('[MAIN] Error generating risk assessment: $e');
       // Don't block the user flow if ML fails
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible de générer l\'analyse de risque'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
