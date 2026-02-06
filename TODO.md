@@ -95,131 +95,33 @@
 
 ---
 
-## 🚀 PRIORITÉ 1: ML ON-DEVICE (AUTONOME)
+## 🚀 PRIORITÉS v1.3 (Post-Consolidation)
 
-**Objectif:** Entraînement de modèles ML directement sur iOS/Android sans dépendance Windows/Python
+### Option A : Finaliser ML On-Device
+**Statut :** ✅ Service d'entraînement implémenté (`lib/ml/training_service.dart`)  
+**Restant :**
+- [ ] Bouton "🧠 Entraîner Modèle" dans insights_page avec dialog progress
+- [ ] Badge "ML Activé" si modèle .tflite existe
+- [ ] Tests : Accuracy ≥70%, latence <100ms, memory <50MB
 
-### Stack Technique
-- `tflite_flutter` (déjà installé) + `tflite_flutter_helper`
-- Isolate Dart pour éviter freeze UI
-- Fallback graceful vers StatisticalEngine si échec
+### Option B : Widget Météo Timeline
+**Statut :** ⏳ Pas commencé  
+**Objectif :** Afficher température/conditions météo dans événements timeline
+- [ ] Créer `widget/weather_chip.dart` (icône + température)
+- [ ] Intégrer dans `vertical_timeline_page.dart` event cards
+- [ ] Cache local données météo (éviter API calls répétés)
 
-### Pipeline Complet
-
-#### 1. Service d'Entraînement Dart
-**Fichier:** `lib/ml/training_service.dart`
-```dart
-class TrainingService {
-  // Utilise StatisticalEngine.train() pour créer dataset
-  // Extrait features via feature_extractor.dart (60+ features)
-  // Minimum: 30 repas + 20 symptômes (identique current logic)
-  
-  Future<TrainingResult> trainModels({
-    required List<EventModel> meals,
-    required List<EventModel> symptoms,
-    int windowHours = 8,
-  }) async {
-    // 1. Validation dataset size
-    // 2. Feature extraction (parallel isolate)
-    // 3. Train 3 models: Douleur, Ballonnement, Diarrhée
-    // 4. Export .tflite vers AppDocumentsDirectory
-    // 5. Return accuracy metrics
-  }
-}
-```
-
-#### 2. Modèle ML Dart (Alternative DecisionTree)
-**Options:**
-- **A) Port Python DecisionTree** vers Dart (complexe, 200+ lignes)
-- **B) Utiliser RandomForest** via `tflite_flutter_helper` (recommandé)
-- **C) Neural Network simple** (3-layer MLP, tflite compatible)
-
-**Recommandation:** Option B (RandomForest) + conversion via `tflite_flutter_helper`
-
-#### 3. Entraînement en Background
-```dart
-// lib/ml/training_isolate.dart
-class TrainingIsolate {
-  static Future<IsolateResult> train(TrainingParams params) async {
-    return await compute(_trainInIsolate, params);
-  }
-  
-  static Future<IsolateResult> _trainInIsolate(params) {
-    // Heavy computation here (2-3 min sur mobile)
-    // Return model bytes + metrics
-  }
-}
-```
-
-#### 4. Chargement Modèle dans ModelManager
-**Fichier:** `lib/ml/model_manager.dart` (modifier)
-```dart
-class ModelManager {
-  Interpreter? _interpreter;
-  
-  Future<void> loadTFLiteModel(String modelPath) async {
-    _interpreter = await Interpreter.fromFile(File(modelPath));
-  }
-  
-  Future<RiskPrediction> predictWithTFLite(meal, context) {
-    // 1. Extract features (feature_extractor.dart)
-    // 2. Run _interpreter.run(inputTensor, outputTensor)
-    // 3. Parse output → RiskPrediction
-  }
-}
-```
-
-#### 5. UI Integration
-**Fichier:** `lib/insights_page.dart`
-- Ajouter bouton "🧠 Entraîner Modèle ML" dans section "Analyse"
-- Dialog progress: LinearProgressIndicator + ETA
-- Notification success/error avec accuracy score
-- Badge "ML Activé" si modèle .tflite existe
-
-#### 6. Versioning & Invalidation
-**Fichier:** `lib/database_helper.dart`
-```dart
-// Table training_history
-// Ajouter colonne: model_version TEXT
-// Si feature_extractor.dart change → bump version → invalider ancien modèle
-```
-
-#### 7. Fallback Logic
-```dart
-Future<RiskPrediction> predictRisk(meal, context) async {
-  if (await _hasTFLiteModel() && await _isTFLiteModelValid()) {
-    try {
-      return await predictWithTFLite(meal, context);
-    } catch (e) {
-      log('TFLite prediction failed: $e');
-      await _deleteTFLiteModel(); // Cleanup corrupted
-      await _notifyUser('Modèle corrompu, retour au mode statistique');
-    }
-  }
-  // Fallback: use StatisticalEngine (current behavior)
-  return await _predictWithTrainedModel(meal, context);
-}
-```
-
-### Tests Requis
-- [ ] Accuracy ≥70% sur dataset test (20% holdout)
-- [ ] Latence <100ms sur Pixel 6 / iPhone 13
-- [ ] Memory usage <50MB pendant training
-- [ ] Training time <3min sur dataset 90 jours
-- [ ] Crash recovery (isolate timeout)
-- [ ] Model corruption detection
-
-### Effort Estimé
-- **Training Service:** 4-6h
-- **Model Port/Integration:** 6-8h
-- **UI + Progress Dialog:** 2-3h
-- **Tests + Edge Cases:** 3-4h
-- **Documentation:** 1-2h
-**TOTAL:** 16-23h
+### Option C : Export PDF Rapport RGPD
+**Statut :** ⏳ Pas commencé  
+**Objectif :** Génération PDF complet avec graphiques
+- [ ] Utiliser package `pdf: ^3.10.0`
+- [ ] Inclure graphiques (fl_chart → image rendering)
+- [ ] Format A4 professionnel (header, footer, pagination)
+- [ ] Bouton "Exporter PDF" dans Settings (à côté Export CSV)
 
 ---
 
-## PHASE 1: FONDATIONS (8-12h)
+## 📋 REFACTOR ARCHITECTURE (Optionnel)
 
 ### ✅ PR1: Architecture themes/ + TODO.md + deprecated aliases
 - [x] Créer TODO.md

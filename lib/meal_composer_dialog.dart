@@ -21,6 +21,7 @@ class MealComposerDialog extends StatefulWidget {
   const MealComposerDialog({super.key, this.existingEvent});
 
   @override
+  // ignore: library_private_types_in_public_api
   _MealComposerDialogState createState() => _MealComposerDialogState();
 }
 
@@ -326,6 +327,8 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                       tags: selectedTags,
                     );
                     final id = await _dbHelper.insertFood(newFood);
+                    if (!mounted) return;
+                    
                     // Update food with valid ID
                     newFood = FoodModel(
                       id: id,
@@ -967,7 +970,9 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                 );
 
                 final food = await OFFService().fetchByBarcode(code);
-                if (food != null && mounted) {
+                if (!mounted) return;
+                
+                if (food != null) {
                   setState(() {
                     _cart.add(food);
                   });
@@ -975,7 +980,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('✅ ${food.name} ajouté')),
                   );
-                } else if (mounted) {
+                } else {
                   ScaffoldMessenger.of(context).clearSnackBars();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -1047,6 +1052,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     if (detectedBarcode != null) {
       try {
         final product = await OFFService().fetchByBarcode(detectedBarcode);
+        if (!mounted) return;
         Navigator.pop(context); // Close loading
 
         if (product != null) {
@@ -1076,6 +1082,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
         debugPrint('[ImageAnalysis] Running inference...');
         final predictions = await recognizer.recognizeFood(imagePath);
 
+        if (!mounted) return;
         Navigator.pop(context); // Close loading
 
         if (predictions.isNotEmpty) {
@@ -1097,10 +1104,12 @@ class _MealComposerDialogState extends State<MealComposerDialog>
           );
         }
       } catch (e) {
-        debugPrint('[ImageAnalysis] Food recognition failed: $e');
+        if (!mounted) return;
         Navigator.pop(context); // Close loading
       }
-    } else if (mounted) {
+    } else {
+      // On Windows: skip food recognition, go directly to manual
+      if (!mounted) return;
       // On Windows: skip food recognition, go directly to manual
       Navigator.pop(context); // Close loading
       debugPrint(
@@ -1273,8 +1282,6 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               onPressed: selectedIndices.isEmpty
                   ? null
                   : () async {
-                      Navigator.pop(context);
-
                       // Add all selected foods
                       for (final index in selectedIndices) {
                         final foodModel = await _createFoodModelFromPrediction(
@@ -1283,17 +1290,18 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                         setState(() => _cart.add(foodModel));
                       }
 
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '✅ ${selectedIndices.length} aliment(s) ajouté(s)',
-                            ),
-                            backgroundColor: Colors.green,
-                            duration: const Duration(seconds: 2),
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '✅ ${selectedIndices.length} aliment(s) ajouté(s)',
                           ),
-                        );
-                      }
+                          backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: dialogColorScheme.secondary,
@@ -1708,8 +1716,10 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                       category: selectedCategory,
                       tags: selectedTags,
                     );
-
+                    
                     await _dbHelper.insertFood(newFood);
+                    if (!mounted) return;
+                    
                     setState(() {
                       _cart.add(newFood);
                     });

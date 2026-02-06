@@ -901,6 +901,7 @@ class _TimelinePageState extends State<TimelinePage> {
             metaData: firstResult['meta_data'],
           );
           await _updateEvent(event.id!, updatedEvent);
+          if (!mounted) return;
 
           // Delete old additional zones and create new ones if multiple zones selected
           if (results.length > 1) {

@@ -1,3 +1,6 @@
+// ignore_for_file: constant_identifier_names
+// NOTE: daily_checkup et context_log doivent rester snake_case pour compatibilité DB
+// Les événements sont stockés avec type='daily_checkup' et type='context_log' dans SQLite
 enum EventType { meal, symptom, stool, daily_checkup, context_log }
 
 class EventModel {

@@ -76,9 +76,9 @@ class TrainingParams {
 
 /// Service for on-device ML model training
 class TrainingService {
-  static const int MIN_MEALS_REQUIRED = 30;
-  static const int MIN_SYMPTOMS_REQUIRED = 20;
-  static const double TEST_SPLIT = 0.2; // 20% holdout for testing
+  static const int minMealsRequired = 30;
+  static const int minSymptomsRequired = 20;
+  static const double testSplit = 0.2; // 20% holdout for testing
 
   /// Train all symptom type models (Digestif, Articulaires, Fatigue)
   Future<TrainingResult> trainAllModels({
@@ -108,22 +108,22 @@ class TrainingService {
         limit: 500,
       );
 
-      if (mealsData.length < MIN_MEALS_REQUIRED) {
+      if (mealsData.length < minMealsRequired) {
         return TrainingResult(
           success: false,
           modelMetrics: {},
-          errorMessage: 'Données insuffisantes: ${mealsData.length} repas (minimum $MIN_MEALS_REQUIRED requis)',
+          errorMessage: 'Données insuffisantes: ${mealsData.length} repas (minimum $minMealsRequired requis)',
           trainedAt: DateTime.now(),
           trainingDataSize: mealsData.length,
           trainingDuration: DateTime.now().difference(startTime),
         );
       }
 
-      if (symptomsData.length < MIN_SYMPTOMS_REQUIRED) {
+      if (symptomsData.length < minSymptomsRequired) {
         return TrainingResult(
           success: false,
           modelMetrics: {},
-          errorMessage: 'Données insuffisantes: ${symptomsData.length} symptômes (minimum $MIN_SYMPTOMS_REQUIRED requis)',
+          errorMessage: 'Données insuffisantes: ${symptomsData.length} symptômes (minimum $minSymptomsRequired requis)',
           trainedAt: DateTime.now(),
           trainingDataSize: symptomsData.length,
           trainingDuration: DateTime.now().difference(startTime),
@@ -222,7 +222,7 @@ class TrainingService {
     }
 
     // Split dataset (80% train, 20% test)
-    final splitIndex = (dataset.length * (1 - TEST_SPLIT)).round();
+    final splitIndex = (dataset.length * (1 - testSplit)).round();
     final trainSet = dataset.sublist(0, splitIndex);
     final testSet = dataset.sublist(splitIndex);
 
