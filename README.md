@@ -4,10 +4,10 @@
 
 Crohnicles est une application mobile et desktop de suivi personnel pour les personnes atteintes de la **maladie de Crohn** ou de **rectocolite hémorragique (RCH)**. Elle permet d'enregistrer repas, symptômes et selles, puis utilise l'**analyse statistique locale** pour identifier des corrélations personnalisées entre alimentation et symptômes.
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.10.7-02569B?logo=flutter)](https://flutter.dev)
-[![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart)](https://dart.dev)
+[![Flutter](https://img.shields.io/badge/Flutter-3.38+-02569B?logo=flutter)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/Dart-3.10+-0175C2?logo=dart)](https://dart.dev)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-blue)](LICENSE.md)
-[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Windows%20%7C%20Web-lightgrey)]()
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-lightgrey)]()
 
 ---
 
@@ -275,29 +275,90 @@ Pour utiliser l'API OpenFoodFacts, créez un fichier `.env` :
 OPENFOODFACTS_USER_AGENT=Crohnicles/1.0.0
 ```
 
-### Build de Production
+### 📦 Build de Production
 
-**Android (APK)** :
+#### **Android (APK/AAB)**
+
+**1. Build APK (pour distribution directe ou test)** :
 ```bash
-# Debug APK (pour test)
+# Debug APK (pour test rapide)
 flutter build apk --debug
 
-# Release APK (pour distribution directe)
+# Release APK (pour distribution directe - ex: sideload)
 flutter build apk --release
-# → build/app/outputs/flutter-apk/app-release.apk
+# Sortie → build/app/outputs/flutter-apk/app-release.apk
 ```
 
-**Android (App Bundle - Google Play)** :
+**2. Build App Bundle (pour Google Play Store)** :
 ```bash
+# Release AAB (format recommandé par Google Play)
 flutter build appbundle --release
-# → build/app/outputs/bundle/release/app-release.aab
+# Sortie → build/app/outputs/bundle/release/app-release.aab
 ```
 
-**iOS (IPA)** :
+**3. Signer l'APK/AAB (requis pour distribution)** :
+- Créer un keystore : `keytool -genkey -v -keystore my-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias my-key-alias`
+- Configurer `android/key.properties` (voir [Guide officiel](https://docs.flutter.dev/deployment/android#signing-the-app))
+- Build avec signature : Flutter utilise automatiquement le keystore configuré
+
+---
+
+#### **iOS (IPA)** ⚠️ **macOS + Xcode requis**
+
+**Prérequis iOS** :
+1. **macOS** avec Xcode 13+ installé
+2. **Compte développeur Apple** ([Apple Developer Program](https://developer.apple.com/programs/) - 99 USD/an)
+3. **Certificat de distribution iOS** configuré dans Xcode
+4. **Provisioning Profile** lié à votre Bundle ID
+
+**Étapes Build iOS** :
+
+**1. Configuration initiale** :
 ```bash
-# Nécessite un compte développeur Apple + certificat
-flutter build ipa
+cd ios
+pod install
+cd ..
 ```
+
+**2. Configuration Xcode** :
+- Ouvrir `ios/Runner.xcworkspace` dans Xcode (⚠️ PAS `.xcodeproj`)
+- Sélectionner target "Runner"
+- Onglet "Signing & Capabilities" :
+  - ✅ Cocher "Automatically manage signing"
+  - Choisir votre "Team" (compte développeur Apple)
+  - Vérifier "Bundle Identifier" unique (ex: `com.votrenom.crohnicles`)
+
+**3. Build IPA** :
+```bash
+# Via Flutter CLI
+flutter build ipa --release
+
+# Sortie → build/ios/ipa/crohnicles.ipa
+```
+
+**4. Distribution** :
+- **TestFlight** (bêta testing) : Uploader via Xcode → Product → Archive → Distribute App → TestFlight
+- **App Store** : Uploader via Xcode → Product → Archive → Distribute App → App Store Connect
+- **Distribution Ad-Hoc** : Utiliser l'IPA généré + Provisioning Profile Ad-Hoc
+
+**Ressources iOS** :
+- [Guide officiel Flutter iOS](https://docs.flutter.dev/deployment/ios)
+- [Xcode Help - Distribute Apps](https://help.apple.com/xcode/mac/current/#/dev8b4250b57)
+- [App Store Connect Guide](https://developer.apple.com/app-store-connect/)
+
+**Troubleshooting iOS commun** :
+- **"No provisioning profile"** → Créer Provisioning Profile dans [Apple Developer Portal](https://developer.apple.com/account/resources/profiles/list)
+- **"Failed to register bundle identifier"** → Changer Bundle ID dans `ios/Runner.xcodeproj` ou `ios/Runner/Info.plist`
+- **"Missing capabilities"** → Ajouter dans Xcode "Signing & Capabilities" (ex: Push Notifications si requis)
+
+---
+
+#### **Windows (EXE)** (optionnel - développement rapide uniquement)
+```bash
+flutter build windows --release
+# Sortie → build/windows/x64/runner/Release/
+```
+⚠️ **Note** : La build Windows est fonctionnelle mais non testée pour distribution publique. Priorité Android/iOS.
 
 ---
 
@@ -531,9 +592,9 @@ Les corrélations statistiques sont **personnelles et non généralisables**. Ce
 ### 🚧 v1.3 (Mars 2026) - En cours
 - [ ] Tests automatisés complets (>70% coverage)
 - [ ] Documentation complète développeur (JavaDoc)
-- [ ] CI/CD GitHub Actions (build + tests)
-- [ ] Publication GitHub repository
+- [x] Publication GitHub repository (https://github.com/UniversalBuilder/crohnicles)
 - [ ] Export PDF des rapports mensuels
+- [ ] Build Android/iOS production ready
 
 ### 🔮 v1.4 (Avril 2026) - Planifié
 - [ ] Entraînement ML on-device (TensorFlow Lite)
