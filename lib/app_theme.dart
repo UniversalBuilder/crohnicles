@@ -84,6 +84,10 @@ class AppColors {
 
 class AppTheme {
   static ThemeData get lightTheme {
+    // Use direct color values to avoid deprecated AppColors.textPrimary/textSecondary
+    const textPrimary = Color(0xFF1F2937);
+    const textSecondary = Color(0xFF6B7280);
+    
     return ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: AppColors.background,
@@ -98,21 +102,21 @@ class AppTheme {
         error: AppColors.pain,
         onError: Colors.white,
         surface: AppColors.surface,
-        onSurface: AppColors.textPrimary,
+        onSurface: textPrimary,
       ),
 
       // Typography - Inter for body, Poppins for headings
       textTheme: GoogleFonts.interTextTheme().copyWith(
         displayLarge: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.black87),
         displayMedium: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.black87),
-        titleLarge: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-        titleMedium: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-        bodyLarge: GoogleFonts.inter(fontSize: 16, color: AppColors.textPrimary),
-        bodyMedium: GoogleFonts.inter(fontSize: 14, color: AppColors.textPrimary),
-        bodySmall: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+        titleLarge: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600, color: textPrimary),
+        titleMedium: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary),
+        bodyLarge: GoogleFonts.inter(fontSize: 16, color: textPrimary),
+        bodyMedium: GoogleFonts.inter(fontSize: 14, color: textPrimary),
+        bodySmall: GoogleFonts.inter(fontSize: 12, color: textSecondary),
       ).apply(
-        bodyColor: AppColors.textPrimary,
-        displayColor: AppColors.textPrimary,
+        bodyColor: textPrimary,
+        displayColor: textPrimary,
       ),
 
       // Card Style - Soft Shadow, No Border

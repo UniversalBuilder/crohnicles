@@ -63,7 +63,7 @@ class DatabaseHelper {
       // For desktop/mobile, use proper app documents directory
       final documentsDirectory = await getApplicationDocumentsDirectory();
       dbPath = join(documentsDirectory.path, 'crohnicles.db');
-      print('📁 Database path: $dbPath');
+      debugPrint('📁 Database path: $dbPath');
       
       // Utilise le service de chiffrement si activé
       return await _encryptionService.openDatabaseWithEncryption(
@@ -76,7 +76,7 @@ class DatabaseHelper {
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    print('[DB] Creating database version $version');
+    debugPrint('[DB] Creating database version $version');
     await db.execute('''
       CREATE TABLE events(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,11 +108,11 @@ class DatabaseHelper {
     // ML and Analytics tables
     await _createMLTables(db);
 
-    print('[DB] Seeding generic foods...');
+    debugPrint('[DB] Seeding generic foods...');
     await _seedGenericFoods(db);
-    print('[DB] Cleaning old cache...');
+    debugPrint('[DB] Cleaning old cache...');
     await cleanOldCache(db);
-    print('[DB] Database created successfully');
+    debugPrint('[DB] Database created successfully');
   }
 
   Future<void> _createMLTables(Database db) async {
@@ -221,7 +221,7 @@ class DatabaseHelper {
       )
     ''');
 
-    print('[DB] ML tables created');
+    debugPrint('[DB] ML tables created');
   }
 
   /// Ensure ML tables exist (migration for encrypted DBs)
@@ -233,7 +233,7 @@ class DatabaseHelper {
       );
       
       if (tables.isEmpty) {
-        print('[DB] ⚠️ training_history missing, creating...');
+        debugPrint('[DB] ⚠️ training_history missing, creating...');
         await db.execute('''
           CREATE TABLE IF NOT EXISTS training_history(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -249,10 +249,10 @@ class DatabaseHelper {
             notes TEXT
           )
         ''');
-        print('[DB] ✅ training_history created');
+        debugPrint('[DB] ✅ training_history created');
       }
     } catch (e) {
-      print('[DB] Error checking ML tables: $e');
+      debugPrint('[DB] Error checking ML tables: $e');
       // Continue anyway, will fail later if needed
     }
   }
@@ -283,7 +283,7 @@ class DatabaseHelper {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    print('[DB] Upgrading from $oldVersion to $newVersion');
+    debugPrint('[DB] Upgrading from $oldVersion to $newVersion');
 
     if (oldVersion < 2) {
       await db.execute('ALTER TABLE events ADD COLUMN imagePath TEXT');
@@ -333,16 +333,16 @@ class DatabaseHelper {
     if (oldVersion < 5) {
       // Add context_data column to events
       await db.execute('ALTER TABLE events ADD COLUMN context_data TEXT');
-      print('[DB] Added context_data column to events');
+      debugPrint('[DB] Added context_data column to events');
     }
     if (oldVersion < 6) {
       // Create all ML and analytics tables
       await _createMLTables(db);
-      print('[DB] Created ML tables');
+      debugPrint('[DB] Created ML tables');
     }
     if (oldVersion < 7) {
       // Complete reset for new category system (Repas/En-cas/Boisson)
-      print('[DB] Migrating to v7: New category and tag system');
+      debugPrint('[DB] Migrating to v7: New category and tag system');
 
       // Delete ALL old data
       await db.execute('DELETE FROM foods');
@@ -351,11 +351,11 @@ class DatabaseHelper {
       // Reseed with new categorization
       await _seedBasicFoods(db);
 
-      print('[DB] v7 migration complete');
+      debugPrint('[DB] v7 migration complete');
     }
     if (oldVersion < 8) {
       // Add generic "Poisson" entry
-      print('[DB] Adding generic Poisson entry to foods');
+      debugPrint('[DB] Adding generic Poisson entry to foods');
       await db.insert('foods', {
         'name': 'Poisson',
         'category': 'Protéine',
@@ -364,7 +364,7 @@ class DatabaseHelper {
       });
     }
     if (oldVersion < 9) {
-      print(
+      debugPrint(
         '[DB] Migrating to v9: Updating with comprehensive generic food list',
       );
       // Remove old basic foods to avoid duplicates/outdated ones
@@ -372,7 +372,7 @@ class DatabaseHelper {
       await _seedGenericFoods(db);
     }
     if (oldVersion < 10) {
-      print(
+      debugPrint(
         '[DB] Migrating to v10: Refreshing generic foods (Adding aliases like Coca)',
       );
       // Remove old basic foods to avoid duplicates before re-seeding
@@ -380,7 +380,7 @@ class DatabaseHelper {
       await _seedGenericFoods(db);
     }
     if (oldVersion < 11) {
-      print('[DB] Migrating to v11: Simplifying training_history schema');
+      debugPrint('[DB] Migrating to v11: Simplifying training_history schema');
       // Recreate training_history with simplified schema (no ML-specific columns)
       await db.execute('DROP TABLE IF EXISTS training_history');
       await db.execute('''
@@ -396,7 +396,7 @@ class DatabaseHelper {
     }
 
     if (oldVersion < 12) {
-      print('[DB] Migrating to v12: Adding ML metrics to training_history');
+      debugPrint('[DB] Migrating to v12: Adding ML metrics to training_history');
       await db.execute('DROP TABLE IF EXISTS training_history');
       await db.execute('''
         CREATE TABLE training_history(
@@ -417,7 +417,7 @@ class DatabaseHelper {
   }
 
   Future<void> _seedGenericFoods(Database db) async {
-    print('[DB] Seeding generic foods from generic_foods.dart...');
+    debugPrint('[DB] Seeding generic foods from generic_foods.dart...');
     Batch batch = db.batch();
     for (var food in genericFoods) {
       batch.insert(
@@ -427,11 +427,11 @@ class DatabaseHelper {
       );
     }
     await batch.commit(noResult: true);
-    print('[DB] Seeded ${genericFoods.length} generic foods.');
+    debugPrint('[DB] Seeded ${genericFoods.length} generic foods.');
   }
 
   Future<void> _seedBasicFoods(Database db) async {
-    print('[DB] Seeding 50+ basic foods into DB...');
+    debugPrint('[DB] Seeding 50+ basic foods into DB...');
     final List<FoodModel> basicFoods = [
       // === FRUITS === (Catégorie: En-cas)
       FoodModel(
@@ -729,7 +729,7 @@ class DatabaseHelper {
       );
     }
     final results = await batch.commit();
-    print(
+    debugPrint(
       '[DB] ${basicFoods.length} basic foods inserted successfully (${results.length} operations)',
     );
   }
@@ -750,7 +750,7 @@ class DatabaseHelper {
   /// Enrich local foods database with popular OFF products
   /// This provides realistic demo data and better autocomplete
   Future<void> enrichWithPopularOFFProducts() async {
-    print('[DB] 🌟 Enriching local DB with popular OFF products...');
+    debugPrint('[DB] 🌟 Enriching local DB with popular OFF products...');
 
     // Import OFFService - only import here to avoid circular dependency
     final offService = OFFService();
@@ -802,11 +802,11 @@ class DatabaseHelper {
         // Delay to avoid rate limiting
         await Future.delayed(const Duration(milliseconds: 200));
       } catch (e) {
-        print('[DB] ⚠️ Failed to fetch barcode $barcode: $e');
+        debugPrint('[DB] ⚠️ Failed to fetch barcode $barcode: $e');
       }
     }
 
-    print(
+    debugPrint(
       '[DB] ✅ Enriched local DB with $successCount/${popularBarcodes.length} OFF products',
     );
   }
@@ -842,7 +842,7 @@ class DatabaseHelper {
     if (existing.isEmpty) {
       // Insert new food
       await db.insert('foods', food.toMap());
-      print('[DB] ✅ Added new food to local DB: ${food.name}');
+      debugPrint('[DB] ✅ Added new food to local DB: ${food.name}');
       return true;
     } else {
       // Update existing food with new data (e.g., updated nutrition info)
@@ -855,21 +855,21 @@ class DatabaseHelper {
         where: 'id = ?',
         whereArgs: [existingId],
       );
-      print('[DB] 🔄 Updated existing food: ${food.name}');
+      debugPrint('[DB] 🔄 Updated existing food: ${food.name}');
       return true;
     }
   }
 
   Future<List<FoodModel>> searchFoods(String query) async {
-    print('[DB] Searching foods with query: "$query"');
+    debugPrint('[DB] Searching foods with query: "$query"');
     Database db = await database;
     
     // Debug: Check if DB has data
     if (query.length > 2) {
        final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM foods'));
-       print('[DB] Food table count: $count');
+       debugPrint('[DB] Food table count: $count');
        if (count == 0) {
-         print('[DB] Table empty, attempting re-seed...');
+         debugPrint('[DB] Table empty, attempting re-seed...');
          await _seedGenericFoods(db);
        }
     }
@@ -881,7 +881,7 @@ class DatabaseHelper {
       orderBy: 'isBasicFood DESC, length(name) ASC',
       limit: 20,
     );
-    print('[DB] Found ${maps.length} results for "$query"');
+    debugPrint('[DB] Found ${maps.length} results for "$query"');
     return List.generate(maps.length, (i) {
       return FoodModel.fromMap(maps[i]);
     });
@@ -899,7 +899,7 @@ class DatabaseHelper {
   }
 
   Future<void> generateDemoData() async {
-    print('[DB] Starting realistic demo data generation (v9)...');
+    debugPrint('[DB] Starting realistic demo data generation (v9)...');
 
     Database db = await database;
     
@@ -908,7 +908,7 @@ class DatabaseHelper {
       "SELECT name FROM sqlite_master WHERE type='table' AND name='foods'"
     );
     if (tables.isEmpty) {
-      print('[DB] Table foods manquante, création...');
+      debugPrint('[DB] Table foods manquante, création...');
       await _createFoodsTable(db);
       await _seedGenericFoods(db);
     }
@@ -918,12 +918,12 @@ class DatabaseHelper {
       "SELECT name FROM sqlite_master WHERE type='table' AND name='training_history'"
     );
     if (mlTables.isEmpty) {
-      print('[DB] Tables ML manquantes, création...');
+      debugPrint('[DB] Tables ML manquantes, création...');
       await _createMLTables(db);
     }
     
     await db.delete('events');
-    print('[DB] Deleted all existing events');
+    debugPrint('[DB] Deleted all existing events');
 
     final now = DateTime.now();
     Batch batch = db.batch();
@@ -936,7 +936,7 @@ class DatabaseHelper {
     final basicFoods = foodMaps.map((m) => FoodModel.fromMap(m)).toList();
 
     if (basicFoods.isEmpty) {
-      print('[DB] ⚠️ No generic foods found! Seeding...');
+      debugPrint('[DB] ⚠️ No generic foods found! Seeding...');
       await _seedGenericFoods(db);
       // Reload
       final reloaded = await db.query('foods', where: 'isBasicFood = 1');
@@ -1133,7 +1133,7 @@ class DatabaseHelper {
       bool triggerGluten = false;
       bool triggerSpicy = false;
       bool triggerDairy = false;
-      bool triggerFibers = false;
+      // bool triggerFibers = false; // Not yet used in logic
 
       final todaysMeals = [bMeal, lMeal, dMeal];
       for (var meal in todaysMeals) {
@@ -1142,7 +1142,7 @@ class DatabaseHelper {
         if (sensitiveToSpicy && tags.contains('Épicé')) triggerSpicy = true;
         if (sensitiveToDairy && tags.contains('Laitage')) triggerDairy = true;
         // Assume high fiber if lots of veggies/fruits
-        if (tags.where((t) => t == 'Fibres').length >= 2) triggerFibers = true;
+        // if (tags.where((t) => t == 'Fibres').length >= 2) triggerFibers = true;
       }
 
       // Reaction: 2-4 hours after meal (simplified to afternoon/evening/next morning)
@@ -1457,7 +1457,7 @@ class DatabaseHelper {
     }
 
     await batch.commit();
-    print(
+    debugPrint(
       '[DB] Generated 101 days of realistic demo data with enhanced weather correlations.',
     );
   }
@@ -1601,7 +1601,7 @@ class DatabaseHelper {
   // Update event by ID
   Future<int> updateEvent(int id, Map<String, dynamic> data) async {
     Database db = await database;
-    print('[DB] Updating event $id with data: $data');
+    debugPrint('[DB] Updating event $id with data: $data');
     // Remove id field to avoid NULL constraint error
     final updateData = Map<String, dynamic>.from(data);
     updateData.remove('id');
@@ -1945,7 +1945,7 @@ class DatabaseHelper {
         ? 'Ready to train: $mealCount meals, $symptomCount symptoms'
         : 'Need 30+ meals and 10+ symptoms (have: $mealCount meals, $symptomCount symptoms)';
 
-    print('[DB] Training data check: $message');
+    debugPrint('[DB] Training data check: $message');
 
     return TrainingDataStatus(
       mealCount: mealCount,
@@ -1961,7 +1961,7 @@ class DatabaseHelper {
     final db = await database;
     final statusByType = <String, Map<String, dynamic>>{};
 
-    print('[DB] Checking training data by symptom type...');
+    debugPrint('[DB] Checking training data by symptom type...');
 
     // Import symptom taxonomy mappings
     final symptomMappings = {
@@ -2040,7 +2040,7 @@ class DatabaseHelper {
         'status': isReady ? 'ready' : 'insufficient_data',
       };
 
-      print(
+      debugPrint(
         '[DB]   $modelKey ($frenchTag): $symptomCount symptoms, $correlationCount correlations → ${isReady ? "ready" : "need more data"}',
       );
     }
@@ -2054,7 +2054,7 @@ class DatabaseHelper {
   }) async {
     final db = await database;
 
-    print('[DB] Analyzing suspect ingredients...');
+    debugPrint('[DB] Analyzing suspect ingredients...');
 
     // Get all meals in last 90 days with their foods
     final mealsResult = await db.rawQuery("""
@@ -2106,7 +2106,7 @@ class DatabaseHelper {
           }
         }
       } catch (e) {
-        print('[DB] Error parsing meal $meal: $e');
+        debugPrint('[DB] Error parsing meal $meal: $e');
         continue;
       }
     }
@@ -2136,7 +2136,7 @@ class DatabaseHelper {
       ),
     );
 
-    print(
+    debugPrint(
       '[DB] Found ${suspects.length} suspect ingredients (min correlation: $minCorrelation)',
     );
 
@@ -2285,16 +2285,16 @@ class DatabaseHelper {
         final file = File(path);
         if (await file.exists()) {
           await file.delete();
-          print('[DB] Supprimé: $path');
+          debugPrint('[DB] Supprimé: $path');
         }
       }
 
       // 3. Supprimer aussi la clé de chiffrement
       await _encryptionService.deleteEncryptionKey();
       
-      print('[DB] ✓ Suppression complète terminée (RGPD)');
+      debugPrint('[DB] ✓ Suppression complète terminée (RGPD)');
     } catch (e) {
-      print('[DB] ⚠️ Erreur lors de la suppression: $e');
+      debugPrint('[DB] ⚠️ Erreur lors de la suppression: $e');
       rethrow;
     }
   }
@@ -2359,3 +2359,4 @@ class DatabaseHelper {
 
   int max(int a, int b) => a > b ? a : b;
 }
+

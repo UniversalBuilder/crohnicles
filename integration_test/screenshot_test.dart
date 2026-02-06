@@ -99,8 +99,8 @@ Future<void> _takeScreenshot(IntegrationTestWidgetsFlutterBinding binding, Strin
 
     // Capturer et sauvegarder
     await binding.takeScreenshot(name);
-    print('✅ Screenshot capturé: $name.png');
+    debugPrint('✅ Screenshot capturé: $name.png');
   } catch (e) {
-    print('❌ Erreur lors de la capture: $e');
+    debugPrint('❌ Erreur lors de la capture: $e');
   }
 }

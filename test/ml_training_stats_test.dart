@@ -214,19 +214,19 @@ void main() {
     });
 
     test('Message différent selon statut', () {
+      // Test message quand prêt
       const isReadyTrue = true;
-      const isReadyFalse = false;
-      
       final messageReady = isReadyTrue 
           ? 'Modèle prêt à analyser vos données'
           : 'Collecte de données en cours...';
+      expect(messageReady, 'Modèle prêt à analyser vos données');
       
+      // Test message quand pas prêt
+      const isReadyFalse = false;
       final messageNotReady = isReadyFalse 
           ? 'Modèle prêt à analyser vos données'
           : 'Collecte de données en cours...';
-      
-      expect(messageReady, contains('prêt'));
-      expect(messageNotReady, contains('cours'));
+      expect(messageNotReady, 'Collecte de données en cours...');
     });
   });
 }

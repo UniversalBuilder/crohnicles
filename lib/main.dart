@@ -143,13 +143,13 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 
   void _showMealDialog() async {
-    print('[MAIN] Opening meal dialog');
+    debugPrint('[MAIN] Opening meal dialog');
     final result = await showDialog(
       context: context,
       builder: (context) => const MealComposerDialog(),
     );
 
-    print('[MAIN] Meal dialog result: $result');
+    debugPrint('[MAIN] Meal dialog result: $result');
     if (result != null && result is Map) {
       // Get isSnack from result
       final bool resultIsSnack = result['is_snack'] as bool? ?? false;
@@ -558,7 +558,7 @@ class _TimelinePageState extends State<TimelinePage> {
     String? metaData,
     DateTime? customDate,
   }) async {
-    print(
+    debugPrint(
       '➕ Adding event: type=$type, title=$title, severity=$severity, isSnack=$isSnack, date=$customDate',
     );
     final now = customDate ?? DateTime.now();
@@ -586,7 +586,7 @@ class _TimelinePageState extends State<TimelinePage> {
     );
 
     await _saveEvent(newEvent);
-    print('[MAIN] Event saved successfully');
+    debugPrint('[MAIN] Event saved successfully');
 
     // Show risk assessment for meal events
     if (type == EventType.meal && mounted) {
@@ -602,7 +602,7 @@ class _TimelinePageState extends State<TimelinePage> {
     ContextModel context,
   ) async {
     try {
-      print('[MAIN] Generating risk assessment...');
+      debugPrint('[MAIN] Generating risk assessment...');
       final modelManager = ModelManager();
       await modelManager.initialize();
 
@@ -621,7 +621,7 @@ class _TimelinePageState extends State<TimelinePage> {
         ),
       );
     } catch (e) {
-      print('[MAIN] Error generating risk assessment: $e');
+      debugPrint('[MAIN] Error generating risk assessment: $e');
       // Don't block the user flow if ML fails
     }
   }
@@ -962,7 +962,7 @@ class _TimelinePageState extends State<TimelinePage> {
             try {
               f = jsonDecode(f);
             } catch (e) {
-              print('[MEAL DETAIL] Error decoding inner foods: $e');
+              debugPrint('[MEAL DETAIL] Error decoding inner foods: $e');
             }
           }
           if (f is List) {
@@ -970,7 +970,7 @@ class _TimelinePageState extends State<TimelinePage> {
           }
         }
       } catch (e) {
-        print('[MEAL DETAIL] Failed to parse meta_data: $e');
+        debugPrint('[MEAL DETAIL] Failed to parse meta_data: $e');
       }
     }
 
@@ -1291,7 +1291,7 @@ class _TimelinePageState extends State<TimelinePage> {
           }
         }
       } catch (e) {
-        print('[SYMPTOM] Failed to parse meta_data: $e');
+        debugPrint('[SYMPTOM] Failed to parse meta_data: $e');
       }
     }
 
@@ -2299,3 +2299,4 @@ class _TimelinePageState extends State<TimelinePage> {
     );
   }
 }
+

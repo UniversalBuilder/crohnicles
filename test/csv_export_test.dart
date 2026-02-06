@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:crohnicles/database_helper.dart';
 import 'package:crohnicles/event_model.dart';
 import 'package:crohnicles/services/csv_export_service.dart';
 import 'dart:convert';
@@ -171,9 +170,10 @@ void main() {
     });
 
     test('Gère metadata null gracefully', () {
-      String? metaDataString;
+      String? metaDataString; // null
       Map<String, dynamic>? metaDataMap;
 
+      // Cette condition est toujours false car metaDataString est null
       if (metaDataString != null && metaDataString.isNotEmpty) {
         metaDataMap = jsonDecode(metaDataString) as Map<String, dynamic>;
       }

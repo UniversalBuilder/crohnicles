@@ -63,12 +63,12 @@ class _MealComposerDialogState extends State<MealComposerDialog>
               try {
                 _cart.add(FoodModel.fromMap(foodJson));
               } catch (e) {
-                print('[MEAL EDIT] Failed to parse food: $e');
+                debugPrint('[MEAL EDIT] Failed to parse food: $e');
               }
             }
           }
         } catch (e) {
-          print('[MEAL EDIT] Failed to parse meta_data: $e');
+          debugPrint('[MEAL EDIT] Failed to parse meta_data: $e');
         }
       }
     }
@@ -123,7 +123,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     }
 
     final localResults = await _dbHelper.searchFoods(query);
-    print('[SEARCH] Local DB: ${localResults.length} results for "$query"');
+    debugPrint('[SEARCH] Local DB: ${localResults.length} results for "$query"');
 
     if (mounted) {
       setState(() {
@@ -140,9 +140,9 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     });
 
     try {
-      print('[SEARCH] 🔍 Recherche OpenFoodFacts: "$_currentQuery"');
+      debugPrint('[SEARCH] 🔍 Recherche OpenFoodFacts: "$_currentQuery"');
       final offResults = await OFFService().searchProducts(_currentQuery);
-      print('[SEARCH] OpenFoodFacts: ${offResults.length} results');
+      debugPrint('[SEARCH] OpenFoodFacts: ${offResults.length} results');
 
       if (mounted) {
         setState(() {
@@ -152,7 +152,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
         });
       }
     } catch (e) {
-      print('[SEARCH] OpenFoodFacts error: $e');
+      debugPrint('[SEARCH] OpenFoodFacts error: $e');
       if (mounted) {
         setState(() {
           _isSearchingOFF = false;
@@ -231,7 +231,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     if (food.barcode != null && food.barcode!.isNotEmpty) {
       _dbHelper.insertOrUpdateFood(food).then((added) {
         if (added) {
-          print('[CART] 💾 Saved OFF product to local DB: ${food.name}');
+          debugPrint('[CART] 💾 Saved OFF product to local DB: ${food.name}');
         }
       });
     }
@@ -819,7 +819,7 @@ class _MealComposerDialogState extends State<MealComposerDialog>
                   final String? code = barcodes.first.rawValue;
                   if (code == null) return;
 
-                  print('[SCANNER] Barcode detected: $code');
+                  debugPrint('[SCANNER] Barcode detected: $code');
 
                   // Fetch product from OpenFoodFacts
                   final food = await OFFService().fetchByBarcode(code);
@@ -1035,11 +1035,11 @@ class _MealComposerDialogState extends State<MealComposerDialog>
       barcodeDetectionAvailable = true;
       try {
         detectedBarcode = await _detectBarcode(imagePath);
-        print(
+        debugPrint(
           '[ImageAnalysis] Barcode detection result: ${detectedBarcode ?? "none"}',
         );
       } catch (e) {
-        print('[ImageAnalysis] Barcode detection failed: $e');
+        debugPrint('[ImageAnalysis] Barcode detection failed: $e');
       }
     }
 
@@ -1050,17 +1050,17 @@ class _MealComposerDialogState extends State<MealComposerDialog>
         Navigator.pop(context); // Close loading
 
         if (product != null) {
-          print('[ImageAnalysis] Product found via barcode: ${product.name}');
+          debugPrint('[ImageAnalysis] Product found via barcode: ${product.name}');
           _addToCart(product);
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('✅ ${product.name} ajouté')));
           return;
         } else {
-          print('[ImageAnalysis] Barcode not found in OpenFoodFacts');
+          debugPrint('[ImageAnalysis] Barcode not found in OpenFoodFacts');
         }
       } catch (e) {
-        print('[ImageAnalysis] OpenFoodFacts error: $e');
+        debugPrint('[ImageAnalysis] OpenFoodFacts error: $e');
       }
     }
 
@@ -1069,41 +1069,41 @@ class _MealComposerDialogState extends State<MealComposerDialog>
     // Works on Android/iOS platforms
     if (mounted && PlatformUtils.isMobile) {
       try {
-        print('[ImageAnalysis] Loading TFLite model...');
+        debugPrint('[ImageAnalysis] Loading TFLite model...');
         final recognizer = FoodRecognizer();
         await recognizer.loadModel();
 
-        print('[ImageAnalysis] Running inference...');
+        debugPrint('[ImageAnalysis] Running inference...');
         final predictions = await recognizer.recognizeFood(imagePath);
 
         Navigator.pop(context); // Close loading
 
         if (predictions.isNotEmpty) {
-          print(
+          debugPrint(
             '[ImageAnalysis] Top 3: ${predictions.take(3).map((p) => "${p.foodName} ${(p.confidence * 100).toStringAsFixed(1)}%").join(", ")}',
           );
         }
 
         // Lower threshold to 10% to detect more foods
         if (predictions.isNotEmpty && predictions.first.confidence > 0.10) {
-          print(
+          debugPrint(
             '[ImageAnalysis] Showing predictions (best: ${(predictions.first.confidence * 100).toStringAsFixed(1)}%)',
           );
           _showFoodPredictionsDialog(predictions, imagePath);
           return;
         } else {
-          print(
+          debugPrint(
             '[ImageAnalysis] Confidence too low (${predictions.isNotEmpty ? (predictions.first.confidence * 100).toStringAsFixed(1) : 0}%), manual fallback',
           );
         }
       } catch (e) {
-        print('[ImageAnalysis] Food recognition failed: $e');
+        debugPrint('[ImageAnalysis] Food recognition failed: $e');
         Navigator.pop(context); // Close loading
       }
     } else if (mounted) {
       // On Windows: skip food recognition, go directly to manual
       Navigator.pop(context); // Close loading
-      print(
+      debugPrint(
         '[ImageAnalysis] Food recognition not available on Windows - skipping',
       );
     }
@@ -1136,13 +1136,13 @@ class _MealComposerDialogState extends State<MealComposerDialog>
 
       if (barcodes.isNotEmpty) {
         final barcode = barcodes.first.rawValue;
-        print(
+        debugPrint(
           '[BarcodeDetection] Detected: $barcode (type: ${barcodes.first.format})',
         );
         return barcode;
       }
 
-      print('[BarcodeDetection] No barcode found in image');
+      debugPrint('[BarcodeDetection] No barcode found in image');
       return null;
     } finally {
       scanner.close();
@@ -1953,3 +1953,4 @@ class _CartTabContentState extends State<_CartTabContent>
     );
   }
 }
+

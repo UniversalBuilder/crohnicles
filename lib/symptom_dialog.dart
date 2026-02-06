@@ -149,7 +149,6 @@ class _SymptomEntryDialogState extends State<SymptomEntryDialog>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final brightness = theme.brightness;
 
     return Dialog(
       backgroundColor: Colors.transparent,

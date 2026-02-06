@@ -60,6 +60,22 @@
   - **Total : 111 tests unitaires passant** ✅
   - **Note :** Tests DB-dépendants marqués comme integration tests (device-only)
 
+### 🚀 GitHub & CI/CD (Étape 8)
+- [x] **Étape 8 - Préparation GitHub** :
+  - **flutter analyze** : 194 → 101 issues (93 corrigées, 48% réduction)
+    * Remplacement 66 `print()` par `debugPrint()`
+    * Suppression deprecated colors (app_theme.dart)
+    * Nettoyage imports inutilisés et code mort
+  - **GitHub Actions CI/CD** : `.github/workflows/ci.yml`
+    * Job Analyze : flutter analyze, dart format, pub outdated
+    * Job Test : flutter test --coverage + Codecov
+    * Job Build : Android APK, iOS Runner.app, Windows Release
+    * Triggers : Push/PR sur main et develop
+  - **Configuration validée** :
+    * `.gitignore` : .env, build/, .dart_tool/, coverage/
+    * `.env.example` : Template OpenWeather API key
+    * README.md : Instructions installation complètes
+
 ---
 
 ## ✅ COMPLÉTÉ v1.1 (Janvier 2026)
