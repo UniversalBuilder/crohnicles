@@ -41,7 +41,7 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   intl: ^0.20.2
   sqflite_common_ffi: ^2.4.0+2
-  sqflite_common_ffi_web: ^1.1.1
+  sqflite_common_ffi_web: ^1.0.0
   image_picker: ^1.1.2
   path_provider: ^2.1.5
   table_calendar: ^3.2.0
@@ -98,7 +98,7 @@ dev_dependencies:
   build_runner: ^2.4.13
   golden_toolkit: ^0.15.0
 
-# Force compatible versions for Dart 3.5.0 (GitHub Actions)
+# Force compatible versions for Dart 3.6.0 (GitHub Actions)
 dependency_overrides:
   image_picker_linux: 0.2.1
   image_picker_windows: 0.2.1
