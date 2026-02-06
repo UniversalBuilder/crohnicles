@@ -1,5 +1,338 @@
 # Journal d'Architecture
 
+## 2026-02-06 - Étape 5 : ML Training Status UI
+
+### Contexte
+- **Objectif :** Afficher le statut d'entraînement du modèle ML dans l'interface utilisateur
+- **Plan :** Plan de Consolidation Étape 5/8
+- **Rationale :** Transparence pour l'utilisateur sur la progression des données (30 repas + 30 symptômes requis)
+
+### Nouveau Fichier
+
+**lib/widgets/ml_training_status_card.dart** (350 LOC)
+- Widget `MLTrainingStatusCard` : Card glassmorphique affichant statut ML
+- Composants :
+  * Header dynamique : Icône ✓ (prêt) ou ⏱ (en cours)
+  * Barre progression globale : (repas + symptômes) / 60 × 100%
+  * 2 compteurs détaillés : Repas (X/30) et Symptômes (X/30)
+  * Historique : Dernière date d'entraînement + nombre total d'entraînements
+  * Message aide : "Continuez à enregistrer..." si données insuffisantes
+- Design :
+  * Bordure colorée : Vert (≥30), Orange (50-99%), Gris (<50%)
+  * Contraste adaptatif : `surfaceContainerHigh` en light, `grey[850]` en dark
+  * Format dates relatif : "aujourd'hui", "hier", "il y a X jours"
+
+### Méthodes DatabaseHelper
+
+**lib/database_helper.dart** (lignes 2250-2304)
+- `getMealCount()` : Compte événements type='meal'
+- `getSevereSymptomCount()` : Compte symptômes avec severity ≥ 5
+- `getLastTrainingDate()` : MAX(trained_at) dans training_history
+- `getTrainingCount()` : Nombre d'entraînements effectués
+- `getMLTrainingStats()` : Retourne Map complet :
+  ```dart
+  {
+    'mealCount': int,
+    'symptomCount': int,
+    'lastTrainingDate': String?,
+    'trainingCount': int,
+    'isReady': bool,  // ≥30 repas ET ≥30 symptômes
+    'progress': double, // 0.0 à 1.0
+  }
+  ```
+
+### Intégrations
+
+**lib/insights_page.dart**
+- Import : `import 'widgets/ml_training_status_card.dart';`
+- Ajout ligne 1662 : `const MLTrainingStatusCard()` en 1er élément du ListView
+- Position : Avant _buildSuspectsCard() dans Tableau de Bord
+
+### UX & Comportement
+
+**Statut Vert (Prêt) :**
+- Conditions : ≥30 repas ET ≥30 symptômes
+- Message : "Modèle prêt à analyser vos données"
+- Bordure : `Colors.green` alpha 0.5
+
+**Statut Orange (En cours) :**
+- Conditions : 50-99% de progression
+- Message : "Collecte de données en cours..."
+- Bordure : `Colors.orange` alpha 0.3
+
+**Statut Gris (Insuffisant) :**
+- Conditions : <50% de progression
+- Message : "Collecte de données en cours..."
+- Bordure : `Colors.grey` alpha 0.2
+- Info bulle : "Continuez à enregistrer vos repas et symptômes pour activer les prédictions IA."
+
+**Format Dates :**
+- Aujourd'hui : "aujourd'hui à 14:30"
+- Hier : "hier"
+- Récent : "il y a 5 jours"
+- Ancien : "03/02/2026"
+
+### Impact Qualité
+
+**AVANT Étape 5 :**
+- ❌ Utilisateur ne sait pas combien de données sont collectées
+- ❌ Aucune indication sur l'état du modèle ML
+- ❌ Impossible de savoir si assez de données pour entraînement
+
+**APRÈS Étape 5 :**
+- ✅ Visibilité instantanée : X/30 repas, X/30 symptômes
+- ✅ Progression % claire
+- ✅ Historique d'entraînement si modèle déjà lancé
+- ✅ Motivation à continuer saisie (gamification)
+
+### Tests Recommandés (À Implémenter)
+```dart
+testWidgets('Affiche statut insuffisant si <30 repas', (tester) async {
+  // Mock: 15 repas, 20 symptômes
+  // Vérifie: bordure grise, message aide présent
+});
+
+testWidgets('Affiche statut prêt si ≥30 repas ET symptômes', (tester) async {
+  // Mock: 35 repas, 32 symptômes
+  // Vérifie: bordure verte, icône check_circle
+});
+```
+
+---
+
+## 2026-02-06 - Étape 4 : Export CSV + RGPD
+
+### Contexte
+- **Objectif :** Permettre l'export complet des données en CSV (RGPD - portabilité)
+- **Plan :** Plan de Consolidation Étape 4/8
+- **Rationale :** Conformité RGPD Article 20 (droit à la portabilité des données)
+
+### Nouveau Fichier
+
+**lib/services/csv_export_service.dart** (200 LOC)
+- Classe `CsvExportService` : Service d'export au format CSV UTF-8 BOM
+- Méthodes principales :
+  * `exportAllDataToCsv()` : Génère fichier CSV dans Documents
+  * `exportAndShare()` : Partage via sheet mobile ou Desktop file picker
+  * `getEventCount()` : Preview nombre d'événements
+  * `getEstimatedSizeKb()` : Estimation taille CSV
+- Format CSV : `"Date,Type,Titre,Sévérité,Tags,Métadonnées"`
+- Encodage : UTF-8 avec BOM (Excel compatibility)
+- Parsing métadonnées : Extraction des JSON (aliments, zones, Bristol, météo)
+
+### Méthode DatabaseHelper (déjà existante)
+
+**Utilisation de `getEvents()` :**
+- Récupère tous les événements (List<Map<String, dynamic>>)
+- Conversion : `EventModel.fromMap()` dans le service
+- Types supportés : meal, symptom, stool, daily_checkup, context_log
+
+### Intégrations
+
+**lib/settings_page.dart** (lignes 136-147)
+- Section "Développeur" : Nouveau bouton "Exporter mes données (CSV)"
+- Dialog `_ExportCsvDialog` (150 LOC) :
+  * Preview : Affiche count événements + taille estimée
+  * Progress : LinearProgressIndicator pendant export
+  * Action : FilledButton "Télécharger" avec callback
+  * Feedback : SnackBar success/error
+
+**pubspec.yaml**
+- Dépendance ajoutée ligne 73 : `share_plus: ^10.1.3`
+
+### Format CSV
+
+**Colonnes :**
+1. Date : ISO8601 formaté ("DD/MM/YYYY HH:MM:SS")
+2. Type : "Repas", "Symptôme", "Selles", "Bilan", "Contexte"
+3. Titre : event.title
+4. Sévérité : 0-10 (0 si non applicable)
+5. Tags : "Tag1;Tag2;Tag3" (séparateur point-virgule)
+6. Métadonnées : "Aliments: A; B | Température: 12°C | Bristol: 3"
+
+**Exemple ligne CSV :**
+```csv
+05/02/2026 11:30:00,Repas,Poulet rôti,0,Protéine;Viande,Aliments: Poulet 200g; Riz 150g | Température: 12°C
+```
+
+**Caractéristiques :**
+- Échappement guillemets : `"` → `""` (standard CSV)
+- UTF-8 BOM : `\uFEFF` en début de fichier (Excel français)
+- Newlines : `\r\n` (Windows-compatible)
+
+### Partage Multi-Plateforme
+
+**Mobile (Android/iOS) :**
+- Utilise `Share.shareXFiles()` de `share_plus`
+- Ouvre sheet système : Email, Drive, WhatsApp, etc.
+- Fichier temporaire : `crohnicles_export_{timestamp}.csv`
+
+**Desktop (Windows/macOS/Linux) :**
+- Sauvegarde directe : `Documents/crohnicles_export_{timestamp}.csv`
+- Feedback : SnackBar avec chemin complet
+- Pas de sheet de partage (UX desktop différente)
+
+### Conformité RGPD
+
+**Article 20 - Droit à la portabilité :**
+- ✅ Format structuré : CSV (machine-readable)
+- ✅ Format couramment utilisé : Excel-compatible
+- ✅ Exhaustif : Tous les événements sans filtre
+- ✅ Accessible : Bouton clair dans Settings
+- ✅ Gratuit : Aucun coût pour l'utilisateur
+
+**Workflow complet :**
+1. Settings → Section "Développeur"
+2. Tap "Exporter mes données (CSV)"
+3. Dialog : Affiche preview (Ex: "450 événements, ~120 Ko")
+4. Button "Télécharger"
+5. Mobile : Share sheet → Email/Cloud
+6. Desktop : Fichier dans Documents + SnackBar confirmation
+
+### Tests Effectués
+
+**Compilation :**
+- 7 itérations d'erreurs corrigées :
+  1. DatabaseHelper API : `getAllEventsAsList()` → `getEvents()` + `fromMap()`
+  2. Timestamp : DateTime getter (pas String)
+  3. MetaData : JSON decode requis (String → Map)
+  4. EventType exhaustiveness : Ajout case `context_log`
+  5. Method scope : Inline `showDialog()` au lieu de static method
+  6. Warnings : `.toString()` sur non-nullable, variables inutilisées
+
+**Encodage :**
+- ✅ Excel Windows ouvre avec accents corrects (UTF-8 BOM)
+- ✅ LibreOffice/Google Sheets compatibles
+
+### Impact Qualité
+
+**AVANT Étape 4 :**
+- ❌ Aucun moyen d'extraire données pour analyse externe
+- ❌ Non-conformité RGPD Article 20
+- ❌ Dépendance totale à l'app
+
+**APRÈS Étape 4 :**
+- ✅ Export CSV complet en 3 clics
+- ✅ Conformité RGPD (portabilité)
+- ✅ Analyse externe possible (Excel, Python, R)
+- ✅ Backup manuel utilisateur
+
+---
+
+## 2026-02-06 - Étape 2 : Chiffrement Base de Données AES-256
+
+### Contexte
+- **Objectif :** Protéger les données sensibles de santé avec chiffrement fort
+- **Plan :** Plan de Consolidation Étape 2/8
+- **Rationale :** RGPD Article 32 (sécurité des traitements) + données médicales hautement sensibles
+
+### Nouveaux Fichiers
+
+**lib/services/encryption_service.dart** (170 LOC)
+- Classe `EncryptionService` : Service de gestion clé de chiffrement
+- Méthodes :
+  * `generateEncryptionKey()` : Génère clé AES-256 aléatoire (64 caractères hex)
+  * `getOrCreateEncryptionKey()` : Récupère ou génère nouvelle clé
+  * `deleteEncryptionKey()` : Suppression sécurisée (RGPD)
+  * `hasEncryptionKey()` : Vérifie existence clé
+- Stockage : `flutter_secure_storage` (keychain iOS, keystore Android)
+- Clé : 32 bytes (256 bits) → hex string (64 chars)
+
+**Dépendances ajoutées (pubspec.yaml) :**
+- `flutter_secure_storage: ^9.2.2` : Stockage sécurisé clés
+- `sqlcipher_flutter_libs: ^0.6.1` : SQLCipher pour Android/iOS/Desktop
+
+### Modifications DatabaseHelper
+
+**lib/database_helper.dart**
+- `_encryptionService` : Instance EncryptionService
+- `isEncrypted()` : Vérifie si DB est chiffrée (query test)
+- `encryptDatabase()` : Migration unencrypted → encrypted
+- `decryptDatabase()` : Migration encrypted → unencrypted
+- `deleteAllDataPermanently()` : Suppression DB + clé (RGPD droit à l'oubli)
+
+**Migration Logic :**
+1. Close current DB connection
+2. Copy `crohnicles.db` → `crohnicles.db_unencrypted` (backup)
+3. Delete original DB
+4. Open new DB with password (SQLCipher PRAGMA)
+5. ATTACH old DB + copy tables (INSERT INTO SELECT)
+6. DETACH + delete backup
+7. Inverse process for decryption
+
+**SQLCipher PRAGMA :**
+```dart
+await db.execute("PRAGMA key = 'hex_password_64_chars';");
+await db.execute('PRAGMA cipher_page_size = 4096;');
+await db.execute('PRAGMA kdf_iter = 256000;'); // PBKDF2 iterations
+await db.execute('PRAGMA cipher_hmac_algorithm = HMAC_SHA512;');
+await db.execute('PRAGMA cipher_kdf_algorithm = PBKDF2_HMAC_SHA512;');
+```
+
+### Intégrations UI
+
+**lib/settings_page.dart**
+- Section "Données et Confidentialité"
+- Switch "Chiffrer la base de données" avec callback :
+  ```dart
+  onChanged: (value) async {
+    if (value) await _encryptDatabase();
+    else await _decryptDatabase();
+  }
+  ```
+- Dialog confirmation pour décryptage (warning perte sécurité)
+- LinearProgressIndicator pendant migration (3-5 secondes)
+- SnackBar feedback : Success/Error avec messages clairs
+
+### Sécurité
+
+**Algorithme :**
+- AES-256 (SQLCipher)
+- PBKDF2_HMAC_SHA512 (256000 itérations)
+- Page size : 4096 bytes
+
+**Protection clé :**
+- iOS : Keychain avec kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+- Android : Keystore avec EncryptedSharedPreferences
+- Windows : encryptedSharedPreferences (fallback)
+
+**Threat Model :**
+- ✅ Protection appareil perdu/volé (données illisibles sans déverrouillage)
+- ✅ Protection malware local (clé isolée dans secure storage)
+- ❌ Ne protège PAS contre : extracteur forensic, root/jailbreak avancé
+
+### Tests Effectués
+
+**Scénarios validés :**
+1. ✅ Activation chiffrement sur DB vide → OK
+2. ✅ Activation sur DB avec 100+ événements → Migration OK
+3. ✅ Désactivation → Retour unencrypted → Données intactes
+4. ✅ Suppression RGPD → DB + clé supprimées
+5. ✅ Redémarrage app après chiffrement → Accès OK
+
+**Edge Cases :**
+- ❌ Migration interrompue (crash) : Backup _unencrypted restauré au next launch
+- ✅ Clé perdue : Prompt force decryption (perte données) ou delete DB
+
+### Impact Qualité
+
+**AVANT Étape 2 :**
+- ❌ Données santé en clair sur disque
+- ❌ Vulnérable si appareil perdu
+- ❌ Non-conformité RGPD Article 32
+
+**APRÈS Étape 2 :**
+- ✅ Chiffrement fort AES-256
+- ✅ Toggle user-friendly dans Settings
+- ✅ Migration réversible sans perte
+- ✅ Conformité RGPD sécurité
+
+### Documentation
+- Ajout dans README.md : Section "Sécurité & Confidentialité"
+- Ajout ligne TODO.md : Étape 2 complétée
+
+---
+
 ## 2026-02-05 - Étape 3 : Couche de Validation des Entrées Utilisateur
 
 ### Contexte

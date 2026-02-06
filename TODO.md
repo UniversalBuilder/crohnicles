@@ -1,10 +1,43 @@
 # TODO - Crohnicles Development Tasks
 
-**Dernière mise à jour:** 3 février 2026
+**Dernière mise à jour:** 6 février 2026
 
 ---
 
-## ✅ COMPLÉTÉ RÉCEMMENT (v1.1+)
+## ✅ COMPLÉTÉ v1.2 (Février 2026)
+
+### 🔒 Sécurité & RGPD (Étapes 1-4)
+- [x] **Étape 1 - Compilation et erreurs** : 25 erreurs corrigées
+- [x] **Étape 2 - Chiffrement base de données** :
+  - Encryption AES-256 SQLCipher avec `sqlcipher_flutter_libs`
+  - Toggle dans Settings : Chiffrer/Déchiffrer avec migration automatique
+  - Service `EncryptionService` avec génération clé sécurisée (flutter_secure_storage)
+  - Test migration : DB unencrypted → encrypted → unencrypted (réversible)
+- [x] **Étape 3 - Validation des saisies** :
+  - Classe `EventValidators` (10 méthodes)
+  - Validations : dates (max 2 ans), sévérité 1-10, Bristol 1-7, quantités >0 et ≤2000g/ml
+  - SnackBar rouge standardisée pour erreurs
+  - Intégrations : MealComposerDialog, SymptomDialog, StoolEntryDialog
+- [x] **Étape 4 - Export CSV + RGPD** :
+  - Service `CsvExportService` avec UTF-8 BOM (Excel-compatible)
+  - Format : "Date,Type,Titre,Sévérité,Tags,Métadonnées"
+  - Partage multi-plateforme via `share_plus` (Android sheet, Desktop Documents)
+  - Dialog preview dans Settings avec statistiques (count, taille estimée)
+
+### 🤖 Machine Learning (Étape 5)
+- [x] **Étape 5 - ML Training Status UI** :
+  - Widget `MLTrainingStatusCard` dans insights_page (1er élément)
+  - Méthodes DatabaseHelper : `getMLTrainingStats()`, `getMealCount()`, `getSevereSymptomCount()`
+  - Affichage : Progression globale (X/30 repas, X/30 symptômes), dernière date entraînement
+  - Couleur dynamique : Vert (prêt ≥30), Orange (50-100%), Gris (<50%)
+  - Message aide si données insuffisantes
+
+### 🛠️ Corrections diverses
+- [x] **TimePicker format 24h** : MediaQuery.alwaysUse24HourFormat sur tous les pickers
+
+---
+
+## ✅ COMPLÉTÉ v1.1 (Janvier 2026)
 
 ### UX & Interface
 - [x] Wizard symptômes 3 étapes (Sélection → Intensités → Résumé)

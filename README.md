@@ -48,6 +48,14 @@ Les applications généralistes de santé sont trop complexes ou inadaptées. Le
 
 ## ✨ Fonctionnalités principales
 
+### 🔒 Sécurité & Confidentialité
+- **Chiffrement base de données** : AES-256 SQLCipher activable dans Settings
+- **Validation des saisies** : Contrôles stricts (dates, quantités, échelles médicales)
+- **Export RGPD** : Export CSV complet de toutes vos données (UTF-8 BOM Excel-compatible)
+- **Suppression définitive** : Droit à l'oubli RGPD (suppression base + clé de chiffrement)
+- **Stockage local** : Aucune fuite de données vers serveurs externes
+- **API Keys sécurisées** : Gestion via .env (jamais hardcodées)
+
 ### 🍴 Gestion des Repas
 - **Compositeur intelligent** : 4 onglets (🥖 Pain, 🥩 Protéines, 🥗 Légumes, 🥤 Boissons)
 - **Intégration OpenFoodFacts** : Scan de code-barres + base de données de 2M+ produits
@@ -74,14 +82,17 @@ Les applications généralistes de santé sont trop complexes ou inadaptées. Le
 - **Analyse statistique** : P(Symptôme | Aliment) sur fenêtre de 4-8h
 - **Seuils de confiance** : Minimum 10 échantillons pour haute fiabilité
 - **Mode temps réel** : Analyse des 10 repas similaires (démarrage avec peu de données)
-- **Entraînement du modèle** : À partir de 30 repas + 20 symptômes
+- **Entraînement du modèle** : À partir de 30 repas + 30 symptômes sévères (≥5)
+- **Statut ML en temps réel** : Card affichant progression (X/30 repas, X/30 symptômes)
 - **Graphiques interactifs** : Timeline, PieCharts, BarCharts (fl_chart)
 
 ### 🔧 Paramètres & Maintenance
 - **Thème** : Light/Dark mode (système ou manuel)
+- **Chiffrement** : Toggle activation/désactivation avec migration automatique
+- **Export RGPD** : CSV complet de toutes vos données (partage mobile/desktop)
+- **Suppression RGPD** : Droit à l'oubli (suppression définitive DB + clés)
 - **Logs** : Debug sur appareil (pour support)
-- **Export** : CSV, JSON (prochainement)
-- **Sauvegarde cloud** : Google Drive (optionnelle)
+- **TimePicker** : Format 24h automatique selon paramètres système
 
 ---
 
@@ -131,15 +142,19 @@ Quand vous saisissez un nouveau repas, Crohnicles :
 ## 🏗️ Architecture & Technologies
 
 ### Stack Technique
-- **Frontend** : Flutter 3.10.7 (Dart 3.x)
+- **Frontend** : Flutter 3.38.7 (Dart 3.10.7)
 - **UI Framework** : Material Design 3 (themes modulaires, WCAG AA)
 - **State Management** : Provider
-- **Database** : SQLite (sqflite + drift)
+- **Database** : SQLite (sqflite) + **Encryption AES-256** (sqlcipher_flutter_libs)
 - **Machine Learning** : TensorFlow Lite (prédictions on-device, aucun serveur)
 - **Charts** : fl_chart (graphiques interactifs)
 - **APIs** : OpenFoodFacts (cache local 90 jours)
 - **Background Services** : Workmanager (météo automatique toutes les 6h)
-- **Security** : flutter_dotenv (gestion secrets, API keys dans .env)
+- **Security** : 
+  - flutter_dotenv (gestion secrets, API keys dans .env)
+  - flutter_secure_storage (stockage clés de chiffrement)
+  - sqlcipher_flutter_libs (chiffrement base de données)
+- **Export** : share_plus (partage multi-plateforme), intl (formatage dates)
 
 ### Architecture Logicielle
 ```
@@ -321,22 +336,93 @@ flutter build ipa
 ## 🔒 Confidentialité & Sécurité
 
 ### Principes Fondamentaux
-✅ **Aucune donnée ne quitte votre appareil** (sauf backup cloud optionnel)
-✅ **Aucun serveur tiers** : Tout est calculé localement
-✅ **Chiffrement** : Base SQLite protégée (Android/iOS)
-✅ **Open Source** : Code auditable
+✅ **Aucune donnée ne quitte votre appareil** (sauf backup cloud optionnel)  
+✅ **Aucun serveur tiers** : Tout est calculé localement  
+✅ **Chiffrement AES-256** : Protection forte des données sensibles  
+✅ **RGPD-compliant** : Droit à la portabilité et à l'oubli  
+✅ **Open Source** : Code auditable publiquement  
+
+### Fonctionnalités de Sécurité (v1.2)
+
+#### 🔐 Chiffrement Base de Données
+- **Algorithme** : AES-256 via SQLCipher
+- **Activation** : Settings → "Chiffrer la base de données" (toggle)
+- **Migration automatique** : Unencrypted ↔ Encrypted sans perte de données
+- **Stockage clé** : flutter_secure_storage (Keychain iOS, Keystore Android)
+- **Paramètres SQLCipher** :
+  - PBKDF2_HMAC_SHA512 (256,000 itérations)
+  - Page size : 4096 bytes
+  - HMAC SHA512
+
+**Protection contre :**
+- ✅ Vol/perte d'appareil (données illisibles sans déverrouillage)
+- ✅ Malware local (clé isolée dans secure storage)
+- ⚠️ Ne protège PAS contre forensics avancé ou root/jailbreak
+
+#### 📊 Export RGPD (Droit à la Portabilité)
+- **Format** : CSV UTF-8 avec BOM (Excel-compatible)
+- **Accès** : Settings → "Exporter mes données (CSV)"
+- **Contenu** : Tous les événements (repas, symptômes, selles, bilans)
+- **Structure** : Date, Type, Titre, Sévérité, Tags, Métadonnées
+- **Partage** :
+  - Mobile : Sheet système (Email, Drive, WhatsApp)
+  - Desktop : Fichier dans Documents/
+- **Conformité** : Article 20 RGPD (droit à la portabilité)
+
+#### 🗑️ Suppression Définitive (Droit à l'Oubli)
+- **Fonction** : Settings → "Supprimer toutes mes données"
+- **Action** : Suppression irréversible :
+  - Base de données principale
+  - Fichiers temporaires (WAL, SHM)
+  - Clé de chiffrement (secure storage)
+  - Backups locaux
+- **Conformité** : Article 17 RGPD (droit à l'oubli)
+
+#### ✅ Validation des Saisies
+- **Contrôles stricts** :
+  - Dates : Max 2 ans d'ancienneté, pas de dates futures
+  - Quantités : >0 et ≤2000g/ml
+  - Sévérité : Échelle 1-10
+  - Bristol Scale : Échelle 1-7
+- **Feedback** : SnackBar rouge avec messages explicites
+- **Objectif** : Garantir intégrité base de données
 
 ### Données Collectées
 - **Repas** : Aliments, quantités, tags, timestamps
-- **Symptômes** : Localisations, intensités, types
-- **Selles** : Types Bristol, fréquences
-- **Contexte** : Météo (si géolocalisation activée), humeur, stress
-- **Aucune donnée personnelle** : Pas de nom, email, téléphone
+- **Symptômes** : Localisations anatomiques, intensités (1-10), types
+- **Selles** : Types Bristol (1-7), fréquences, présence sang/mucus
+- **Contexte** : Météo (si géolocalisation activée), notes libres
+- **Aucune donnée personnelle identifiante** : Pas de nom, email, téléphone, adresse
 
-### Intégration OpenFoodFacts
-- Cache local de 90 jours (pas de requête réseau systématique)
-- Rate limiting : Max 1 requête/200ms
-- User-Agent personnalisé (respecte ToS)
+### Intégrations Externes
+
+#### OpenFoodFacts
+- **Cache local** : 90 jours de rétention
+- **Rate limiting** : Max 1 requête/200ms (respect ToS)
+- **User-Agent** : Crohnicles/1.0.0 (déclaré)
+- **Aucune donnée utilisateur envoyée** : Seuls codes-barres scannés
+
+#### OpenWeather (Optionnel)
+- **API Key** : Stockée dans `.env` (non versionnée)
+- **Fréquence** : Background task toutes les 6h (si activé)
+- **Données envoyées** : Coordonnées GPS uniquement
+- **Stockage** : Contexte météo dans table events (meta_data JSON)
+
+### Conformité RGPD
+
+| Article | Description | Implémentation |
+|---------|-------------|----------------|
+| **Art. 6** | Consentement | ✅ Opt-in géolocalisation + météo |
+| **Art. 17** | Droit à l'oubli | ✅ Suppression définitive + clé encryption |
+| **Art. 20** | Portabilité | ✅ Export CSV complet |
+| **Art. 32** | Sécurité | ✅ Chiffrement AES-256 + validation inputs |
+| **Art. 33** | Notification breach | ✅ N/A (stockage local uniquement) |
+
+### Audit & Transparence
+- **Code source** : Disponible sur GitHub (licence CC BY-NC-SA 4.0)
+- **Audit indépendant** : Bienvenu (ouvrir une issue pour coordination)
+- **Formules statistiques** : Documentées dans [docs/CALCULATIONS.md](docs/CALCULATIONS.md)
+- **Architecture** : Documentée dans [architecture_state.md](architecture_state.md)
 
 ---
 
@@ -419,21 +505,50 @@ Les corrélations statistiques sont **personnelles et non généralisables**. Ce
 
 ## 📊 Statistiques du Projet
 
-- **Lignes de code** : ~15,000
-- **Fichiers** : 50+ (Dart)
+- **Lignes de code** : ~18,000
+- **Fichiers** : 55+ (Dart)
 - **Tests** : 26 tests d'accessibilité (WCAG AA compliance)
 - **Langues** : Français (EN coming soon)
 - **Plateformes** : Android, iOS, Windows, macOS, Linux, Web
+- **Version actuelle** : v1.2 (Février 2026)
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] **v1.1** : Export PDF des rapports
-- [ ] **v1.2** : Multilingue (Anglais, Espagnol)
-- [ ] **v1.3** : Intégration avec wearables (Fitbit, Apple Watch)
-- [ ] **v1.4** : Modèle ML avancé (TensorFlow Lite)
-- [ ] **v2.0** : Mode multi-utilisateurs (famille/médecin)
+### ✅ v1.1 (Janvier 2026) - Complété
+- [x] Wizard symptômes 3 étapes (navigation progressive)
+- [x] Silhouette abdomen avec zones interactives
+- [x] Regroupement événements timeline
+- [x] Corrections mode sombre
+- [x] Sécurisation API OpenWeather (.env)
+
+### ✅ v1.2 (Février 2026) - Complété
+- [x] Chiffrement base de données AES-256 (SQLCipher)
+- [x] Validation stricte des saisies (dates, quantités, échelles)
+- [x] Export CSV RGPD-compliant (portabilité Article 20)
+- [x] Suppression définitive RGPD (droit à l'oubli Article 17)
+- [x] ML Training Status UI (progression 30/30 visible)
+- [x] TimePicker format 24h automatique
+
+### 🚧 v1.3 (Mars 2026) - En cours
+- [ ] Tests automatisés complets (>70% coverage)
+- [ ] Documentation complète développeur (JavaDoc)
+- [ ] CI/CD GitHub Actions (build + tests)
+- [ ] Publication GitHub repository
+- [ ] Export PDF des rapports mensuels
+
+### 🔮 v1.4 (Avril 2026) - Planifié
+- [ ] Entraînement ML on-device (TensorFlow Lite)
+- [ ] Isolates Dart pour training (éviter freeze UI)
+- [ ] Multilingue (Anglais, Espagnol)
+- [ ] Mode offline complet
+
+### 🌟 v2.0 (T2 2026) - Vision
+- [ ] Intégration wearables (Fitbit, Apple Watch)
+- [ ] Mode multi-utilisateurs (partage famille/médecin)
+- [ ] Synchronisation cloud chiffrée E2E
+- [ ] Assistant IA conversationnel
 
 ---
 
