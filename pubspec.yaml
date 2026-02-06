@@ -64,12 +64,12 @@ dependencies:
   ml_algo: ^16.18.0
   ml_dataframe: ^1.6.0
   workmanager: ^0.9.0+3
-  dio: ^5.9.1
-  shared_preferences: ^2.5.4
+  dio: ^5.7.0
+  shared_preferences: ^2.3.0
   provider: ^6.1.1
-  url_launcher: ^6.3.1
+  url_launcher: ^6.3.0
   flutter_dotenv: ^5.2.1
-  share_plus: ^10.1.3
+  share_plus: ^10.0.0
   # geolocator: ^13.0.2  # Commented out - requires NuGet on Windows
   
   # PDF Generation
