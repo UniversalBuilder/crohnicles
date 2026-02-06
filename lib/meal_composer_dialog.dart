@@ -76,13 +76,14 @@ class _MealComposerDialogState extends State<MealComposerDialog>
 
     // Initialize TabController with initial index based on edit mode
     // In edit mode, start on Cart tab to show the cart
-    // In create mode, start on Scanner tab (Mobile) or Search tab (Desktop)
+    // In create mode, start on Search tab (faster, no camera overhead)
     final bool isMobile = PlatformUtils.isMobile;
     final int tabCount = isMobile ? 4 : 3;
     final int cartIndex = isMobile ? 3 : 2;
 
-    // Default start tab: Scanner (0) on Mobile, Search (0) on Desktop (since Scanner is removed)
-    int initialIndex = isMobile ? 0 : 0;
+    // Default start tab: Search tab (1 on Mobile because Scanner is index 0, 0 on Desktop)
+    // PERF: Skip Scanner tab by default to avoid camera + ML initialization overhead
+    int initialIndex = isMobile ? 1 : 0;
 
     if (isEditMode && _cart.isNotEmpty) {
       initialIndex = cartIndex;
