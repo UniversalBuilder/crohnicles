@@ -63,7 +63,7 @@ dependencies:
   weather: ^3.1.1
   ml_algo: ^16.18.0
   ml_dataframe: ^1.6.0
-  workmanager: ^0.9.0+3
+  workmanager: ^0.5.2
   dio: ^5.7.0
   shared_preferences: ^2.3.0
   provider: ^6.1.1
