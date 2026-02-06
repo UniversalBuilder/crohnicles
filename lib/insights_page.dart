@@ -19,6 +19,7 @@ import 'ml/model_status_page.dart';
 import 'methodology_page.dart';
 import 'widgets/weather_correlation_explanation.dart';
 import 'utils/platform_utils.dart';
+import 'widgets/ml_training_status_card.dart';
 
 class ZoneTriggerAnalysis {
   final String zoneName;
@@ -1656,6 +1657,10 @@ class _InsightsPageState extends State<InsightsPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // ML Training Status (Étape 5)
+                const MLTrainingStatusCard(),
+                const SizedBox(height: 24),
+
                 _buildSuspectsCard(),
                 const SizedBox(height: 24),
 

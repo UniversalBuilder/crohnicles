@@ -2299,5 +2299,63 @@ class DatabaseHelper {
     }
   }
 
+  // ============================================================
+  // ML TRAINING STATUS & STATISTICS
+  // ============================================================
+
+  /// Retourne le nombre total de repas enregistrés
+  Future<int> getMealCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      "SELECT COUNT(*) as count FROM events WHERE type = 'meal'",
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Retourne le nombre de symptômes sévères (severity >= 5)
+  Future<int> getSevereSymptomCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      "SELECT COUNT(*) as count FROM events WHERE type = 'symptom' AND severity >= 5",
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Retourne la date du dernier entraînement ML (null si aucun)
+  Future<String?> getLastTrainingDate() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT MAX(trained_at) as last_date FROM training_history',
+    );
+    if (result.isEmpty) return null;
+    return result.first['last_date'] as String?;
+  }
+
+  /// Retourne le nombre total d'entraînements effectués
+  Future<int> getTrainingCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM training_history',
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Retourne les statistiques complètes pour le statut ML
+  Future<Map<String, dynamic>> getMLTrainingStats() async {
+    final mealCount = await getMealCount();
+    final symptomCount = await getSevereSymptomCount();
+    final lastTraining = await getLastTrainingDate();
+    final trainingCount = await getTrainingCount();
+
+    return {
+      'mealCount': mealCount,
+      'symptomCount': symptomCount,
+      'lastTrainingDate': lastTraining,
+      'trainingCount': trainingCount,
+      'isReady': mealCount >= 30 && symptomCount >= 30,
+      'progress': ((mealCount + symptomCount) / 60).clamp(0.0, 1.0),
+    };
+  }
+
   int max(int a, int b) => a > b ? a : b;
 }
