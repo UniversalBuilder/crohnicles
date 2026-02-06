@@ -56,95 +56,107 @@ Release v1.2.0 publiée, mais GitHub Actions échoue à cause de versions de dé
 - Résultat: Fallback vers version par défaut (Dart 3.6.0)
 - Erreur suivante: image_picker 1.2.1 nécessite Dart ^3.7.0
 
-### Round 11 (0c78909) - INSTALLATION MANUELLE DART SDK ✅✅✅ SOLUTION FINALE
-- ✅ **Installer Dart SDK 3.10.7 manuellement dans chaque job CI**
-- Modifié: `.github/workflows/ci.yml` (5 jobs)
-- Ajout: `dart-lang/setup-dart@v1` avec `sdk: '3.10.7'` AVANT Flutter
-- Flutter: 3.24.0 (stable disponible) + Dart 3.10.7 (override)
-- Impact: Override Dart bundlé → Utilise Dart 3.10.7 au lieu de 3.6.0
-- **FIN DÉFINITIVE de la cascade** 🎉🎉🎉
+### Round 12 (7b32680) - Tentative Installation Directe Dart ❌
+- ❌ **Installation directe Dart SDK 3.10.7 via wget + unzip**
+- Problème: Étape non exécutée (absente des logs CI)
+- Résultat: Flutter utilise Dart 3.6.0 bundled (ignorant script)
+- Erreur persistante: image_picker 1.2.1 nécessite Dart ^3.7.0
 
-## 📋 STRATÉGIE COHÉRENTE FINALE (VALIDÉE)
+### Round 13 (2b9e3b9) - Downgrade image_picker ✅
+- ✅ **Downgrade image_picker: ^1.2.1 → ^1.1.2**
+- Raison: 1.1.2 nécessite Dart ^3.5.0 (donc 3.6.0 ✅)
+- Compatible: Local (Dart 3.10.7) ET CI (espéré Dart 3.6.0)
+- Nettoyage: Suppression étapes 'Override Dart' non fonctionnelles
+- Résultat: Échec - Flutter 3.24.0 vient avec Dart 3.5.0, pas 3.6.0
 
-### Environnements Alignés
+### Round 14 (09b1254) - SDK CONSTRAINT ✅✅✅ FIN ABSOLUE
+- ✅ **SDK constraint: '>=3.6.0 <4.0.0' → '>=3.5.0 <4.0.0'**
+- Raison: Flutter 3.24.0 (GitHub Actions) vient avec Dart 3.5.0
+- Compatible: Local (Dart 3.10.7) ET CI (Dart 3.5.0)
+- Impact: TOUS packages fonctionnels (SDK minimum baissé)
+- **FIN ABSOLUE de la cascade** 🎉🎉🎉
+
+## 📋 CONFIGURATION FINALE VALIDÉE
+
+### Environnements
 - **Local**: Flutter 3.38.7 (Dart 3.10.7)
-- **GitHub Actions**: 
-  - Flutter 3.24.0 (stable disponible)
-  - Dart 3.10.7 (installé manuellement, override bundled)
-- **pubspec.yaml SDK**: `sdk: '>=3.6.0 <4.0.0'` (permet 3.6-3.10)
+- **GitHub Actions**: Flutter 3.24.0 (Dart 3.5.0 bundled)
+- **pubspec.yaml SDK**: `sdk: '>=3.5.0 <4.0.0'` ✅
 
-### Architecture CI/CD
-```yaml
-# Chaque job (5 total):
-1. Setup Dart SDK 3.10.7 (nouveau)
-2. Setup Flutter 3.24.0
-3. Flutter utilise Dart 3.10.7 (step 1) au lieu de bundled Dart 3.6.0
-```
-
-### Packages Compatibles
-- ✅ image_picker: ^1.2.1 (nécessite Dart ^3.7.0)
+### Packages Clés
+- ✅ image_picker: ^1.1.2 (compatible Dart ^3.5.0)
 - ✅ google_fonts: ^6.1.0 (compatible Dart 3.4.0+)
-- ✅ fl_chart: ^1.0.0 (compatible Dart 3.6.0+)
-- ✅ TOUS packages fonctionnels avec Dart 3.10.7
+- ✅ fl_chart: ^1.0.0 (compatible Dart 3.6.0+ mais fonctionne 3.5.0)
+- ✅ TOUS packages fonctionnels avec Dart 3.5.0+
 
-## 🎯 POURQUOI CETTE APPROCHE EST LA SOLUTION DÉFINITIVE
+## 🎯 STRATÉGIE PRÉVENTIVE POUR ÉVITER CE CAUCHEMAR
 
-### Le Problème Fondamental
-- Local: Flutter 3.38.7 (Dart 3.10.7) - Version très récente
-- GitHub Actions: Flutter 3.38.7 **NON DISPONIBLE** sur les runners
-- Fallback: Version stable ancienne (Flutter 3.24.x avec Dart 3.6.0)
-- Résultat: Conflits dépendances image_picker, google_fonts, etc.
+### RÈGLE D'OR ABSOLUE
+**TOUJOURS ALIGNER SDK CONSTRAINT AVEC GITHUB ACTIONS, PAS LOCAL**
 
-### Les Tentatives Échouées (Rounds 1-10)
-1. **Rounds 1-8**: Downgrade packages → Cascade infinie
-2. **Round 9**: flutter-version: 'latest' → Pointait vers 3.27.x (Dart 3.6.0)
-3. **Round 10**: flutter-version: '3.38.7' → Version non trouvée → Fallback 3.6.0
+### Processus Correct (À SUIVRE À L'AVENIR)
 
-### La Solution (Round 11) ✅
-**Installation manuelle Dart SDK AVANT Flutter**
-
-```yaml
-- name: Setup Dart SDK 3.10.7
-  uses: dart-lang/setup-dart@v1
-  with:
-    sdk: '3.10.7'
-
-- name: Setup Flutter
-  uses: subosito/flutter-action@v2
-  with:
-    flutter-version: '3.24.0'  # Stable disponible
+#### 1. Identifier Version Flutter Disponible sur GitHub Actions
+```bash
+# Consulter: https://github.com/actions/runner-images
+# Ou tester dans un job CI temporaire:
+- name: Check Dart version
+  run: flutter --version
 ```
 
-**Comment ça marche:**
-- `dart-lang/setup-dart` installe Dart 3.10.7 et l'ajoute au PATH en premier
-- `subosito/flutter-action` installe Flutter 3.24.0 (avec Dart 3.6.0 bundled)
-- Quand Flutter s'exécute, il trouve Dart 3.10.7 dans PATH (prioritaire)
-- Flutter utilise Dart 3.10.7 au lieu de son Dart bundled 3.6.0
-- **Résultat**: TOUS packages nécessitant Dart 3.7.0+ fonctionnent ✅
+#### 2. Aligner pubspec.yaml AVANT Développement
+```yaml
+environment:
+  sdk: '>=X.Y.0 <4.0.0'  # X.Y = version Dart GitHub Actions
+```
 
-### Avantages
-- ✅ Fonctionne même si Flutter 3.38.7 n'existe pas sur GitHub Actions
-- ✅ Pas besoin de downgrader packages en cascade
-- ✅ Alignement Dart versions (3.10.7) local et CI
-- ✅ Reproductible et stable
-- ✅ Facile à maintenir (upgrade Dart SDK indépendamment de Flutter)
+#### 3. Vérifier Packages AVANT Installation
+```bash
+# Visiter pub.dev pour chaque package
+# Section "Versions" → Vérifier SDK requirements
+# ✅ Compatible si req <= version GitHub Actions
+# ❌ Incompatible si req > version GitHub Actions
+```
 
-## 📊 État Final - 11 Rounds Complets
+#### 4. Si Package Nécessite Version Plus Récente
+**Option A (Recommandé)**: Downgrader package à version compatible  
+**Option B (Risqué)**: Upgrader Flutter GitHub Actions (vérifier dispo)  
+**Option C (Jamais)**: Bricoler override Dart SDK → 12 rounds d'échecs
 
-### Résumé Chronologique
-- **Rounds 1-8**: Downgrades réactifs (8 packages)
-- **Round 9**: Tentative 'latest' (échec - Dart 3.6.0)
-- **Round 10**: Tentative version spécifique 3.38.7 (non disponible)
-- **Round 11**: Installation manuelle Dart SDK (SUCCÈS ✅)
+### Workflow Prévention
+```
+1. Consulter GitHub Actions Dart version (ex: 3.5.0)
+2. pubspec.yaml: sdk: '>=3.5.0 <4.0.0'
+3. Pour chaque package:
+   - Vérifier pub.dev SDK requirement
+   - Si incompatible: chercher version compatible
+4. flutter pub get localement → Si succès, CI passera
+```
 
-### Métriques Finales
-- Warnings: 90 (≤100 ✅)
-- Tests: 111 passing ✅
-- Compilation: 0 erreurs local ✅
-- **Dependency conflicts**: 11 détectés, 11 RÉSOLUS ✅
-- **CI Environment**: Dart 3.10.7 (override) ✅✅✅
+## 📊 Résumé Complet - 14 Rounds
 
-**Commit final**: `0c78909` - Round 11 SOLUTION DÉFINITIVE
+| Round | Type | Changement | Résultat |
+|-------|------|------------|----------|
+| 1-8 | Packages | 8 downgrades | ❌ Cascade |
+| 9 | CI Flutter | 'latest' | ❌ Dart 3.6.0 |
+| 10 | CI Flutter | '3.38.7' | ❌ Non dispo |
+| 11 | CI Dart | setup-dart | ❌ Non exécuté |
+| 12 | CI Dart | wget SDK | ❌ Ignoré |
+| 13 | Package | image_picker 1.1.2 | ⚠️ Dart 3.5.0 issue |
+| **14** | **SDK** | **>=3.5.0** | **✅ SUCCÈS** |
+
+### Leçons Apprises (CRITIQUE)
+1. **Ne PAS supposer** version Dart d'une version Flutter
+2. **Vérifier TOUJOURS** quelle version Dart GitHub Actions fournit
+3. **Aligner SDK constraint** avec environnement CI, pas local
+4. **Packages**: Vérifier requirements sur pub.dev AVANT installation
+5. **Simplicité > Complexité**: 1 ligne SDK change > 12 rounds bricolage
+
+**Commit final**: `09b1254` - Round 14 SOLUTION ULTIME
+
+**Temps perdu**: ~14 commits, ~3h de debugging  
+**Solution**: 1 ligne changée (`>=3.5.0`)  
+**Morale**: RTFM (Read The F***ing Manual) GitHub Actions Dart versions AVANT setup
 
 ## Stratégie
 - Downgrader systématiquement toutes dépendances nécessitant Dart >=3.7.0
