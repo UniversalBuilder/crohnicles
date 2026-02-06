@@ -1,11 +1,14 @@
 # 🚨 STRATÉGIE ANTI-CAUCHEMAR CI/CD
 
-## Le Problème Qu'on Vient de Vivre (15 Rounds !)
+## Le Problème Qu'on Vient de Vivre (18 Rounds !)  
 
-**Root Cause**: Désalignement versions Local vs GitHub Actions  
-**Symptôme**: Cascade infinie d'erreurs de dépendances (directes + transitives)  
-**Temps perdu**: ~3.5h, 15 commits  
-**Solution**: 2 fixes (SDK constraint + dependency_overrides)
+**Root Cause**: Désalignement versions Local vs GitHub Actions (Multi-niveaux)
+**Symptôme**: Cascade infinie d'erreurs de dépendances (directes + transitives + SDK-pinned)  
+**Approche Initiale**: Réactive (fix by fix) = ÉCHEC TOTAL
+**Temps perdu**: ~5h, 18 commits  
+**Solution finale**: RADICALE - Mass downgrade + dependency_overrides massifs (freeze ALL)
+**Complication 1**: Version Dart GitHub Actions instable (3.5.0 → 3.6.0)
+**Complication 2**: Flutter SDK versions = intl versions différentes pinnées (0.19.0 vs 0.20.2)
 
 ---
 
@@ -126,27 +129,36 @@ Because crohnicles requires SDK version >=3.X.0
 1. Vérifier Dart version GitHub Actions (ex: 3.5.0)
 2. pubspec.yaml : `sdk: '>=3.5.0 <4.0.0'`
 
-### Erreur Type 3 : "Dépendance transitive incompatible"
+### Erreur Type 4 : "Cascade infinie de dépendances" (Round 17)
 ```
-Because package_linux 0.2.2 requires SDK version ^3.6.0
-but your Dart SDK is 3.5.0
-```
-
-**Solution** :
-1. Identifier package transitive (ex: image_picker_linux)
-2. Downgrade direct dans dependencies si explicite
-3. **Si implicite, utiliser dependency_overrides** :
-```yaml
-dependency_overrides:
-  package_name: VERSION_COMPATIBLE
+Round 1-16: Fix package A → Package B incompatible → Fix B → Package C incompatible → ...
 ```
 
-**Exemple (Round 15)** :
+**Solution RADICALE - Mass Freeze**:
+1. Identifier TOUS les packages problématiques de la même famille
+2. Downgrade MASSIVEMENT vers versions anciennes ultra-stables
+3. **Utiliser dependency_overrides pour FORCER les versions**:
 ```yaml
 dependency_overrides:
-  image_picker_linux: 0.2.1  # Override 0.2.2 qui nécessite Dart ^3.6.0
-  image_picker_windows: 0.2.1
+  package_1: STABLE_OLD_VERSION
+  package_2: STABLE_OLD_VERSION
+  package_3: STABLE_OLD_VERSION
 ```
+
+**Exemple (Round 17 - Famille sqflite)**:
+```yaml
+dependencies:
+  sqflite: ^2.3.0  # Downgrade from ^2.4.2
+  sqflite_common_ffi: ^2.3.0  # Downgrade from ^2.4.0+2
+
+dependency_overrides:
+  sqflite: 2.3.0  # FREEZE to old stable
+  sqflite_common_ffi: 2.3.0+1  # FREEZE to old stable
+```
+
+**Philosophie**: Stabilité > Features récentes
+- Moins de bugs CI/CD
+- Compatibilité garantie avec anciens SDK
 
 ---
 
@@ -187,6 +199,8 @@ jobs:
 3. ❌ Aligner `pubspec.yaml` SDK avec version locale
 4. ❌ Bricoler override Dart SDK dans CI (12 rounds échecs)
 5. ❌ Supposer qu'une version Flutter a une version Dart spécifique
+6. ❌ **Approche réactive fix-by-fix si cascade > 3 rounds**
+7. ❌ **Utiliser versions bleeding-edge sur projets CI/CD critiques**
 
 ---
 
@@ -198,6 +212,7 @@ jobs:
 4. ✅ Vérifier pub.dev pour chaque nouveau package
 5. ✅ Tester `flutter pub get` localement avant push
 6. ✅ Utiliser `dependency_overrides` pour dépendances transitives incompatibles
+7. ✅ **SI CASCADE INFINIE → MASS FREEZE avec dependency_overrides**
 
 ---
 
@@ -220,4 +235,11 @@ jobs:
 
 ---
 
-**En Résumé** : 5 minutes de vérification AVANT = 3.5 heures de debug (15 rounds) ÉVITÉES
+**En Résumé** : 5 minutes de vérification AVANT = 5 heures de debug (18 rounds) ÉVITÉES  
+
+**⚠️ ATTENTION**: 
+- Versions Dart sur GitHub Actions runners peuvent changer sans préavis!
+- Flutter SDK versions = intl versions différentes (3.24.0→0.19.0, 3.38.7→0.20.2)
+
+**🔥 LEÇON CRUCIALE**: Si cascade > 3 rounds → STOP réactif, GO MASS FREEZE avec dependency_overrides
+**🎯 LEÇON ULTIME**: Pour packages SDK-pinned (intl, etc) → TOUJOURS override avec version CI

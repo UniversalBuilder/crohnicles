@@ -12,7 +12,7 @@ import path_provider_foundation
 import printing
 import share_plus
 import shared_preferences_foundation
-import sqflite_darwin
+import sqflite
 import sqflite_sqlcipher
 import url_launcher_macos
 

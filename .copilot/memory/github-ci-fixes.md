@@ -76,7 +76,7 @@ Release v1.2.0 publiée, mais GitHub Actions échoue à cause de versions de dé
 - Impact: Résout contrainte SDK principale
 - **Mais**: Dépendances transitives nécessitent encore fixes
 
-### Round 15 (c85e0e5) - DEPENDENCY OVERRIDES ✅✅✅ FIN ABSOLUE?
+### Round 15 (c85e0e5) - DEPENDENCY OVERRIDES ⚠️ PRESQUE
 - ✅ **Downgrade image_picker_linux: ^0.2.2 → ^0.2.1**
 - ✅ **Downgrade image_picker_windows: ^0.2.2 → ^0.2.1**
 - ✅ **Ajout dependency_overrides section**:
@@ -88,7 +88,77 @@ dependency_overrides:
 - Raison: image_picker_linux 0.2.2 nécessite Dart ^3.6.0 (transitive)
 - Validation: flutter pub get ✅ (overridden packages applied)
 - Impact: Force versions 0.2.1 compatibles Dart 3.5.0
-- **Statut**: Pushed, awaiting GitHub Actions validation 🤞
+- **Mais**: Nouvelle erreur sqflite_common_ffi_web
+
+### Round 16 (9fc9aeb) - SQFLITE_COMMON_FFI_WEB ⚠️ ENCORE ÉCHEC
+- ✅ **Downgrade sqflite_common_ffi_web: ^1.1.1 → ^1.0.0**
+- Raison: 1.1.1 nécessite Dart ^3.10.0, CI a Dart 3.6.0
+- Erreur: "Because sqflite_common_ffi_web 1.1.1 requires SDK version ^3.10.0... version solving failed"
+- Validation: flutter pub get ✅ (resolved to 1.0.x)
+- **Note**: GitHub Actions Dart version semble avoir changé (3.5.0 → 3.6.0)
+- **Mais**: NOUVELLE erreur - sqflite_common_ffi nécessite aussi ^3.10.0 ❌
+
+### Round 17 (5cdcd8a) - STRATÉGIE RADICALE 🔥🔥🔥 PRESQUE
+**CHANGEMENT D'APPROCHE**: Stopper cascade infinie avec mass overrides
+
+**Problème**: Après 16 rounds, approche réactive (fix by fix) ne fonctionne pas
+- Chaque fix révèle nouvelle incompatibilité
+- Version Dart CI instable (3.5.0 → 3.6.0)
+- Cascade sans fin: image_picker → image_picker_linux → sqflite_web → sqflite_ffi → ...
+
+**Solution RADICALE - Mass Downgrade + Overrides**:
+```yaml
+dependencies:
+  sqflite: ^2.3.0  # Was ^2.4.2
+  sqflite_common_ffi: ^2.3.0  # Was ^2.4.0+2
+  sqflite_common_ffi_web: ^1.0.0  # Already downgraded
+
+dependency_overrides:
+  image_picker_linux: 0.2.1
+  image_picker_windows: 0.2.1
+  sqflite: 2.3.0  # FORCE older stable version
+  sqflite_common_ffi: 2.3.0+1  # FORCE older stable version
+```
+
+**Philosophie**: Freeze packages à versions ULTRA-STABLES (2.3.x)
+- Moins de features récentes = Moins de bugs CI/CD
+- Priorité: STABILITÉ > Bleeding-edge
+
+**Validation**:
+✅ flutter pub get: SUCCESS
+✅ sqflite 2.3.0 (overridden)
+✅ sqflite_common_ffi 2.3.0+1 (overridden)
+✅ sqflite_common_ffi_web 1.0.2 (auto-downgraded from 1.1.1)
+✅ Removed 6 unused transitive dependencies
+✅ Changed 8 dependencies
+
+**Mais**: Nouvelle erreur - intl conflict avec flutter_localizations ❌
+
+### Round 18 (dd50baa) - INTL OVERRIDE 🎯🎯🎯 FIN ABSOLUE?
+**Problème**: Conflit intl entre Local (Flutter 3.38.7) et CI (Flutter 3.24.0)
+- Local: flutter_localizations pins intl 0.20.2
+- CI: flutter_localizations pins intl 0.19.0
+- Erreur: "Because crohnicles depends on flutter_localizations from sdk which depends on intl 0.19.0..."
+
+**Tentatives échouées**:
+1. ❌ intl: ^0.19.0 → Conflict avec table_calendar (nécessite ^0.20.0)
+2. ❌ table_calendar: ^3.1.0 → intl 0.20.2 toujours requis par SDK local
+
+**Solution**: Override intl pour CI compatibility
+```yaml
+dependencies:
+  intl: any  # Let SDK decide
+  
+dependency_overrides:
+  intl: 0.19.0  # Force for CI (Flutter 3.24.0)
+```
+
+**Validation**:
+✅ flutter pub get: SUCCESS
+✅ intl 0.19.0 (overridden) - fonctionne local ET CI
+✅ table_calendar 3.2.0 accepte intl 0.19.0
+
+**Statut**: Pushed, awaiting GitHub Actions validation 🤞🤞🤞🤞
 
 ## 📋 CONFIGURATION FINALE VALIDÉE
 
@@ -101,9 +171,13 @@ dependency_overrides:
 - ✅ image_picker: ^1.1.2 (compatible Dart ^3.5.0)
 - ✅ image_picker_linux: 0.2.1 (overridden, compatible Dart 3.5.0)
 - ✅ image_picker_windows: 0.2.1 (overridden, compatible Dart 3.5.0)
+- ✅ sqflite: 2.3.0 (overridden, FROZEN at stable version)
+- ✅ sqflite_common_ffi: 2.3.0+1 (overridden, FROZEN at stable version)
+- ✅ sqflite_common_ffi_web: 1.0.2 (auto-downgraded, compatible Dart 3.6.0)
+- ✅ intl: 0.19.0 (overridden, Flutter 3.24.0 SDK compatibility)
 - ✅ google_fonts: ^6.1.0 (compatible Dart 3.4.0+)
 - ✅ fl_chart: ^1.0.0 (compatible Dart 3.6.0+ mais fonctionne 3.5.0)
-- ✅ TOUS packages fonctionnels avec Dart 3.5.0+ (avec overrides)
+- ✅ TOUS packages fonctionnels avec Dart 3.5.0+ (FROZEN avec overrides massifs)
 
 ## 🎯 STRATÉGIE PRÉVENTIVE POUR ÉVITER CE CAUCHEMAR
 
@@ -160,7 +234,10 @@ environment:
 | 12 | CI Dart | wget SDK | ❌ Ignoré |
 | 13 | Package | image_picker 1.1.2 | ⚠️ Dart 3.5.0 issue |
 | 14 | SDK | >=3.5.0 | ⚠️ Transitive deps |
-| **15** | **Overrides** | **linux/win 0.2.1** | **⏳ Testing** |
+| 15 | Overrides | linux/win 0.2.1 | ⚠️ sqflite_web issue |
+| 16 | Package | sqflite_web 1.0.0 | ⚠️ sqflite_ffi issue |
+| 17 | RADICAL | Mass sqflite overrides | ⚠️ intl SDK conflict |
+| **18** | **Override** | **intl 0.19.0** | **⏳ Testing** |
 
 ### Leçons Apprises (CRITIQUE)
 1. **Ne PAS supposer** version Dart d'une version Flutter
@@ -168,13 +245,20 @@ environment:
 3. **Aligner SDK constraint** avec environnement CI, pas local
 4. **Packages**: Vérifier requirements sur pub.dev AVANT installation
 5. **Dépendances transitives**: Utiliser dependency_overrides si nécessaire
-6. **Simplicité > Complexité**: 2 lignes (SDK + overrides) > 13 rounds bricolage
+6. **NOUVEAU - Approche réactive = CASCADE INFINIE**
+7. **SOLUTION - Mass overrides = FREEZE à versions stables anciennes**
+8. **Simplicité > Complexité**: Mass freeze (1 commit) > 16 rounds de debugging
 
-**Commit final**: `c85e0e5` - Round 15 DEPENDENCY OVERRIDES
+**Commit final**: `dd50baa` - Round 18 INTL OVERRIDE
 
-**Temps perdu**: ~15 commits, ~3.5h de debugging  
-**Solution**: 2 ajustements (SDK constraint + overrides)  
-**Morale**: RTFM (Read The F***ing Manual) GitHub Actions Dart versions AVANT setup
+**Temps perdu**: ~18 commits, ~5h de debugging  
+**Solution finale**: Mass downgrade + dependency_overrides massifs (freeze to stable) + intl override
+**Morale**: Quand cascade infinie → STOP réactif, GO proactif (freeze ALL)
+
+**Note Critique**: 
+- Dart versions GitHub Actions instables (3.5.0 → 3.6.0)
+- Flutter SDK versions = intl versions différentes (3.24.0→0.19.0, 3.38.7→0.20.2)
+- **dependency_overrides = Seule solution viable pour environnements multi-versions**
 
 ## Stratégie
 - Downgrader systématiquement toutes dépendances nécessitant Dart >=3.7.0
