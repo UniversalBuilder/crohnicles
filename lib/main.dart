@@ -21,7 +21,7 @@ import 'package:crohnicles/event_search_delegate.dart';
 import 'package:crohnicles/insights_page.dart';
 import 'package:crohnicles/meal_composer_dialog.dart';
 import 'package:crohnicles/risk_assessment_card.dart';
-import 'package:crohnicles/services/background_service.dart';
+// import 'package:crohnicles/services/background_service.dart';  // DISABLED - workmanager issues
 import 'package:crohnicles/services/context_service.dart';
 import 'package:crohnicles/services/log_service.dart';
 import 'package:crohnicles/settings_page.dart';
@@ -45,6 +45,9 @@ void main() async {
   log.log('[Main] App starting...');
 
   // Initialize Background Service (Weather automation)
+  // ⚠️ DISABLED - workmanager causes Android build issues with Flutter 3.38+
+  // Re-enable when workmanager compatibility is fixed
+  /*
   if (PlatformUtils.isMobile) {
     try {
       await BackgroundService.initialize();
@@ -54,6 +57,7 @@ void main() async {
       log.log("[Main] Failed to init background service: $e");
     }
   }
+  */
 
   // Initialize date formatting for French locale (fixes LocaleDataException)
   await initializeDateFormatting('fr_FR', null);
